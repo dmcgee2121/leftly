@@ -66,6 +66,33 @@ type CategorySummary = {
   total: number
 }
 
+const demoBillSeed: Array<{
+  name: string
+  amount: number
+  dueDate: string
+  category: BudgetCategory
+  isPaid: boolean
+}> = [
+  { name: 'Rent', amount: 1150, dueDate: '2026-06-15', category: 'Housing', isPaid: true },
+  { name: 'Electric', amount: 92.4, dueDate: '2026-06-18', category: 'Utilities', isPaid: false },
+  { name: 'Internet', amount: 74.99, dueDate: '2026-06-20', category: 'Utilities', isPaid: true },
+  { name: 'Spotify', amount: 11.99, dueDate: '2026-06-22', category: 'Subscriptions', isPaid: true },
+  { name: 'Car payment', amount: 285, dueDate: '2026-06-21', category: 'Transportation', isPaid: false },
+  { name: 'Student loan', amount: 180, dueDate: '2026-06-24', category: 'Debt', isPaid: false },
+  { name: 'Renter insurance', amount: 27, dueDate: '2026-06-25', category: 'Insurance', isPaid: true },
+]
+
+const demoExpenseSeed: Array<{
+  name: string
+  amount: number
+  date: string
+  category: BudgetCategory
+}> = [
+  { name: 'Groceries', amount: 86.12, date: '2026-06-11', category: 'Food' },
+  { name: 'Gas', amount: 41.38, date: '2026-06-12', category: 'Transportation' },
+  { name: 'Lunch', amount: 15.79, date: '2026-06-13', category: 'Food' },
+]
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -151,8 +178,10 @@ function App() {
   const [payPeriodError, setPayPeriodError] = useState('')
   const [billError, setBillError] = useState('')
   const [expenseError, setExpenseError] = useState('')
+  const [incomeSuccess, setIncomeSuccess] = useState('')
   const [billSuccess, setBillSuccess] = useState('')
   const [expenseSuccess, setExpenseSuccess] = useState('')
+  const [billStatus, setBillStatus] = useState('')
 
   useEffect(() => {
     saveActiveBudgetPeriod(payPeriod)
@@ -177,6 +206,15 @@ function App() {
   useEffect(() => {
     saveCategoryOrderMode(categoryOrderMode)
   }, [categoryOrderMode])
+
+  useEffect(() => {
+    if (!incomeSuccess) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setIncomeSuccess(''), 2500)
+    return () => window.clearTimeout(timer)
+  }, [incomeSuccess])
 
   useEffect(() => {
     if (!billSuccess) {
@@ -301,8 +339,10 @@ function App() {
     setPayPeriodError('')
     setBillError('')
     setExpenseError('')
+    setIncomeSuccess('')
     setBillSuccess('')
     setExpenseSuccess('')
+    setBillStatus('')
   }
 
   function handleSavePayPeriod(event: FormEvent<HTMLFormElement>) {
@@ -340,6 +380,7 @@ function App() {
 
     setPayPeriod(nextPeriod)
     setPayPeriodDraft(getDraftFromPeriod(nextPeriod))
+    setIncomeSuccess('Income saved.')
   }
 
   function handleAddBill(event: FormEvent<HTMLFormElement>) {
@@ -431,6 +472,7 @@ function App() {
   }
 
   function toggleBillPaid(id: string) {
+    let nextPaidState = false
     setBills((current) =>
       current.map((bill) => {
         if (bill.id !== id) {
@@ -438,6 +480,7 @@ function App() {
         }
 
         const isPaid = !bill.isPaid
+        nextPaidState = isPaid
         return {
           ...bill,
           isPaid,
@@ -445,6 +488,51 @@ function App() {
         }
       }),
     )
+    setBillStatus(nextPaidState ? 'Bill marked paid.' : 'Bill marked unpaid.')
+  }
+
+  function loadDemoData() {
+    const nextPayPeriod: BudgetPeriod = {
+      cadence: 'biweekly',
+      income: 3200,
+      startDate: '2026-06-10',
+      endDate: '2026-06-23',
+    }
+
+    const nextBills: Bill[] = demoBillSeed.map((bill) => ({
+      id: crypto.randomUUID(),
+      name: bill.name,
+      amount: bill.amount,
+      dueDate: bill.dueDate,
+      isPaid: bill.isPaid,
+      paidDate: bill.isPaid ? '2026-06-11' : null,
+      category: bill.category,
+    }))
+
+    const nextExpenses: Expense[] = demoExpenseSeed.map((expense) => ({
+      id: crypto.randomUUID(),
+      name: expense.name,
+      amount: expense.amount,
+      date: expense.date,
+      category: expense.category,
+    }))
+
+    setPayPeriod(nextPayPeriod)
+    setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod))
+    setBills(nextBills)
+    setExpenses(nextExpenses)
+    setExpandedCategories(new Set(DEFAULT_CATEGORIES))
+    setSortMode('amount-desc')
+    setCategoryOrderMode('total-desc')
+    setCategoryOrder([...DEFAULT_CATEGORIES])
+    setActiveTab('overview')
+    setIncomeSuccess('Demo income loaded.')
+    setBillSuccess('Demo bills loaded.')
+    setExpenseSuccess('Demo expenses loaded.')
+    setBillStatus('')
+    setPayPeriodError('')
+    setBillError('')
+    setExpenseError('')
   }
 
   function deleteBill(id: string) {
@@ -456,7 +544,7 @@ function App() {
   }
 
   function handleReset() {
-    if (!window.confirm('Clear all Leftly data?')) {
+    if (!window.confirm('This will clear the current Leftly data from this browser. Continue?')) {
       return
     }
 
@@ -560,9 +648,14 @@ function App() {
             ))}
           </div>
 
-          <button type="button" onClick={handleReset} className="button-secondary">
-            Reset data
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={loadDemoData} className="button-secondary">
+              Load demo data
+            </button>
+            <button type="button" onClick={handleReset} className="button-secondary">
+              Reset data
+            </button>
+          </div>
         </div>
 
         <section className="mx-auto mt-5 w-full max-w-5xl">
@@ -573,12 +666,22 @@ function App() {
                   <div className="grid gap-4">
                     <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
                       <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">Current pay period</p>
-                      <p className="mt-3 text-2xl font-semibold text-white">{formatCurrency(payPeriod?.income ?? 0)}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                        <Badge>{payPeriod?.cadence ?? 'No cadence set'}</Badge>
-                        <Badge muted>{payPeriod?.startDate ?? 'Start date not set'}</Badge>
-                        <Badge muted>{payPeriod?.endDate ?? 'End date not set'}</Badge>
-                      </div>
+                      {payPeriod ? (
+                        <>
+                          <p className="mt-3 text-2xl font-semibold text-white">{formatCurrency(payPeriod.income)}</p>
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                            <Badge>{payPeriod.cadence}</Badge>
+                            <Badge muted>{payPeriod.startDate}</Badge>
+                            <Badge muted>{payPeriod.endDate}</Badge>
+                          </div>
+                        </>
+                      ) : (
+                        <EmptyState
+                          title="No income yet"
+                          text="Add or load a pay period in the Income tab to turn the overview into a live budget snapshot."
+                          compact
+                        />
+                      )}
                     </div>
 
                     <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
@@ -603,7 +706,11 @@ function App() {
                             </div>
                           ))
                         ) : (
-                          <EmptyState title="No categories yet" text="Add bills and expenses to see your top categories here." compact />
+                          <EmptyState
+                            title="No category items yet"
+                            text="Add bills and expenses to see your top categories here."
+                            compact
+                          />
                         )}
                       </div>
                     </div>
@@ -673,15 +780,27 @@ function App() {
               <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
                 <div className="rounded-[1.5rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-5">
                   <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-200/80">Current income</p>
-                  <p className="mt-3 text-4xl font-semibold tracking-tight text-white">{formatCurrency(payPeriod?.income ?? 0)}</p>
-                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                    <Badge>{payPeriod?.cadence ?? 'Biweekly'}</Badge>
-                    <Badge muted>{payPeriod?.startDate ?? 'Start date not set'}</Badge>
-                    <Badge muted>{payPeriod?.endDate ?? 'End date not set'}</Badge>
-                  </div>
-                  <p className="mt-4 text-sm leading-6 text-slate-400">
-                    This pay period drives the leftover and safe-to-spend calculations.
-                  </p>
+                  {payPeriod ? (
+                    <>
+                      <p className="mt-3 text-4xl font-semibold tracking-tight text-white">
+                        {formatCurrency(payPeriod.income)}
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                        <Badge>{payPeriod.cadence}</Badge>
+                        <Badge muted>{payPeriod.startDate}</Badge>
+                        <Badge muted>{payPeriod.endDate}</Badge>
+                      </div>
+                      <p className="mt-4 text-sm leading-6 text-slate-400">
+                        This pay period drives the leftover and safe-to-spend calculations.
+                      </p>
+                    </>
+                  ) : (
+                    <EmptyState
+                      title="No income yet"
+                      text="Set up a pay period on the form to unlock the budget calculations."
+                      compact
+                    />
+                  )}
                 </div>
 
                 <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleSavePayPeriod}>
@@ -745,6 +864,7 @@ function App() {
                   </div>
 
                   {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
+                  {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
 
                   <div className="flex items-center justify-end gap-3">
                     <button type="submit" className="button-primary">
@@ -758,6 +878,11 @@ function App() {
 
           {activeTab === 'bill' ? (
             <SectionShell title="Add Bill" description="Add a bill and keep working in the same tab.">
+              {bills.length === 0 ? (
+                <div className="mb-4">
+                  <EmptyState title="No bills yet" text="Add your first bill below or load demo data to test the flow." compact />
+                </div>
+              ) : null}
               <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleAddBill}>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Name">
@@ -817,6 +942,11 @@ function App() {
 
           {activeTab === 'expense' ? (
             <SectionShell title="Add Expense" description="Add an expense and keep working in the same tab.">
+              {expenses.length === 0 ? (
+                <div className="mb-4">
+                  <EmptyState title="No expenses yet" text="Add your first expense below or load demo data to test the flow." compact />
+                </div>
+              ) : null}
               <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleAddExpense}>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Name">
@@ -921,6 +1051,18 @@ function App() {
                   </button>
                 </div>
               </div>
+
+              {bills.length === 0 && expenses.length === 0 ? (
+                <div className="mb-4">
+                  <EmptyState
+                    title="No category items yet"
+                    text="Add bills or expenses to build category totals, sorting, and custom ordering."
+                    compact
+                  />
+                </div>
+              ) : null}
+
+              {billStatus ? <SuccessMessage>{billStatus}</SuccessMessage> : null}
 
               <div className="grid gap-3">
                 {categorySummaries.map((summary) => (

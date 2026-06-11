@@ -36,6 +36,7 @@ import {
   type SortMode,
 } from './types/budget'
 import { RecurringSection } from './components/RecurringSection'
+import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 
 type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
@@ -234,6 +235,7 @@ function HistorySection({
   snapshots,
   selectedSnapshot,
   onSelectSnapshot,
+  onUseAsStartingPoint,
   onBackToList,
   onDeleteSnapshot,
   formatCurrency,
@@ -241,6 +243,7 @@ function HistorySection({
   snapshots: PayPeriodSnapshot[]
   selectedSnapshot: PayPeriodSnapshot | null
   onSelectSnapshot: (id: string) => void
+  onUseAsStartingPoint: (snapshot: PayPeriodSnapshot) => void
   onBackToList: () => void
   onDeleteSnapshot: (id: string) => void
   formatCurrency: (value: number) => string
@@ -269,6 +272,9 @@ function HistorySection({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => onUseAsStartingPoint(selectedSnapshot)} className="button-primary">
+              Use as starting point
+            </button>
             <button type="button" onClick={onBackToList} className="button-secondary">
               Back
             </button>
@@ -440,6 +446,7 @@ function App() {
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
   const [recurringTemplates, setRecurringTemplates] = useState<RecurringItemTemplate[]>(initialRecurringTemplates)
   const [payPeriodHistory, setPayPeriodHistory] = useState<PayPeriodSnapshot[]>(initialPayPeriodHistory)
+  const [historyStartSnapshot, setHistoryStartSnapshot] = useState<PayPeriodSnapshot | null>(null)
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
@@ -876,6 +883,26 @@ function App() {
     setActiveTab('overview')
   }
 
+  function handleStartFromHistory(result: {
+    period: BudgetPeriod
+    bills: Bill[]
+    expenses: Expense[]
+    copyManualExpenses: boolean
+  }) {
+    if (!archiveActivePayPeriod()) {
+      return
+    }
+
+    setPayPeriod(result.period)
+    setPayPeriodDraft(getDraftFromPeriod(result.period))
+    setBills(result.bills)
+    setExpenses(result.expenses)
+    setHistoryStartSnapshot(null)
+    setSelectedHistoryId(null)
+    setIsStartNewPayPeriodOpen(false)
+    setActiveTab('overview')
+  }
+
   function loadDemoData() {
     const nextPayPeriod: BudgetPeriod = {
       cadence: 'biweekly',
@@ -921,6 +948,7 @@ function App() {
     setBillError('')
     setExpenseError('')
     setIsStartNewPayPeriodOpen(false)
+    setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
   }
 
@@ -961,6 +989,7 @@ function App() {
     setExpandedCategories(new Set(['Housing']))
     setActiveTab('overview')
     setIsStartNewPayPeriodOpen(false)
+    setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     resetDrafts()
   }
@@ -1536,10 +1565,21 @@ function App() {
 
           {activeTab === 'history' ? (
             <SectionShell title="History" description="Review archived pay periods saved locally in this browser.">
+              {historyStartSnapshot ? (
+                <div className="mb-5">
+                  <StartFromHistoryPanel
+                    snapshot={historyStartSnapshot}
+                    isOpen={Boolean(historyStartSnapshot)}
+                    onClose={() => setHistoryStartSnapshot(null)}
+                    onSubmit={handleStartFromHistory}
+                  />
+                </div>
+              ) : null}
               <HistorySection
                 snapshots={payPeriodHistory}
                 selectedSnapshot={selectedHistorySnapshot}
                 onSelectSnapshot={setSelectedHistoryId}
+                onUseAsStartingPoint={setHistoryStartSnapshot}
                 onBackToList={() => setSelectedHistoryId(null)}
                 onDeleteSnapshot={deleteHistorySnapshot}
                 formatCurrency={formatCurrency}

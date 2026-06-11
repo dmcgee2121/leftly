@@ -595,38 +595,38 @@ function App() {
   const hasAnyData = payPeriod || bills.length > 0 || expenses.length > 0
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050914] text-slate-100">
+    <main className="relative min-h-screen overflow-x-hidden bg-[#050914] text-slate-100">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.08),_transparent_32%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-slate-950/80 to-transparent" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
-        <header className="rounded-[2rem] border border-slate-800/80 bg-slate-950/82 px-5 py-6 shadow-2xl shadow-slate-950/40 backdrop-blur xl:px-8">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <p className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 pb-6 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+        <header className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/82 px-4 py-4 shadow-2xl shadow-slate-950/40 backdrop-blur sm:rounded-[2rem] sm:px-5 sm:py-6 xl:px-8">
+          <div className="flex flex-col items-center gap-3 text-center sm:gap-4">
+            <p className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
               Manual budget tracker
             </p>
-            <div className="space-y-2">
-              <h1 className="text-5xl font-semibold tracking-tight text-white sm:text-6xl">Leftly</h1>
-              <p className="text-xl text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
+            <div className="space-y-1 sm:space-y-2">
+              <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-6xl">Leftly</h1>
+              <p className="text-lg text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
             </div>
-            <p className="max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
+            <p className="max-w-2xl text-center text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
               Track a single pay period, your bills, and your spending without connecting a bank.
             </p>
           </div>
         </header>
 
-        <section className="mt-5 rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Leftover</p>
-            <p className="text-6xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">
+        <section className="mt-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 sm:mt-5 sm:rounded-[2rem] sm:p-5">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400 sm:text-sm sm:tracking-[0.24em]">Leftover</p>
+            <p className="text-5xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">
               {formatCurrency(totals.leftover)}
             </p>
-            <p className="max-w-2xl text-sm leading-6 text-slate-400">
+            <p className="max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
               Income minus paid bills, unpaid bills, and manual expenses.
             </p>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
             <MetricCard label="Income" value={formatCurrency(totals.income)} />
             <MetricCard label="Total planned bills" value={formatCurrency(totals.totalPlannedBills)} />
             <MetricCard label="Paid bills" value={formatCurrency(totals.paidBills)} />
@@ -636,8 +636,9 @@ function App() {
           </div>
         </section>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-col gap-3 sm:mt-5 sm:gap-3">
+          <div className="no-scrollbar -mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0">
+            <div className="flex min-w-max flex-nowrap gap-2 sm:min-w-0 sm:flex-wrap">
             {tabLabels.map((tab) => (
               <TabButton
                 key={tab.key}
@@ -646,13 +647,14 @@ function App() {
                 onClick={() => setActiveTab(tab.key)}
               />
             ))}
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={loadDemoData} className="button-secondary">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <button type="button" onClick={loadDemoData} className="button-secondary w-full sm:w-auto">
               Load demo data
             </button>
-            <button type="button" onClick={handleReset} className="button-secondary">
+            <button type="button" onClick={handleReset} className="button-secondary w-full sm:w-auto">
               Reset data
             </button>
           </div>
@@ -662,14 +664,14 @@ function App() {
           {activeTab === 'overview' ? (
             <SectionShell title="Overview" description="A snapshot of the current pay period and recent activity.">
               {hasAnyData ? (
-                <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+                <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
                   <div className="grid gap-4">
-                    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
-                      <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">Current pay period</p>
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 sm:text-sm sm:tracking-[0.2em]">Current pay period</p>
                       {payPeriod ? (
                         <>
-                          <p className="mt-3 text-2xl font-semibold text-white">{formatCurrency(payPeriod.income)}</p>
-                          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                          <p className="mt-3 text-xl font-semibold text-white sm:text-2xl">{formatCurrency(payPeriod.income)}</p>
+                          <div className="mt-3 flex flex-wrap gap-2 text-[11px] sm:text-xs">
                             <Badge>{payPeriod.cadence}</Badge>
                             <Badge muted>{payPeriod.startDate}</Badge>
                             <Badge muted>{payPeriod.endDate}</Badge>
@@ -684,25 +686,25 @@ function App() {
                       )}
                     </div>
 
-                    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
                       <p className="text-sm font-medium text-white">Top categories</p>
-                      <div className="mt-4 space-y-3">
+                      <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {topCategories.length > 0 ? (
                           topCategories.map((summary, index) => (
                             <div
                               key={summary.category}
-                              className="flex items-center justify-between rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-3"
+                              className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3 sm:items-center sm:px-4"
                             >
                               <div>
                                 <div className="flex items-center gap-2">
                                   <p className="font-medium text-white">{summary.category}</p>
                                   {index === 0 ? <Badge>Highest cost</Badge> : null}
                                 </div>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
                                   {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
                                 </p>
                               </div>
-                              <p className="font-semibold text-white">{formatCurrency(summary.total)}</p>
+                              <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(summary.total)}</p>
                             </div>
                           ))
                         ) : (
@@ -717,18 +719,18 @@ function App() {
                   </div>
 
                   <div className="grid gap-4">
-                    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
                       <p className="text-sm font-medium text-white">Recent bills</p>
-                      <div className="mt-4 space-y-3">
+                      <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {recentBills.length > 0 ? (
                           recentBills.map((bill) => (
                             <div
                               key={bill.id}
-                              className="flex items-center justify-between rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-3"
+                              className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3 sm:items-center sm:px-4"
                             >
                               <div className="min-w-0">
                                 <p className="truncate font-medium text-white">{bill.name}</p>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
                                   {bill.category} · due {bill.dueDate}
                                 </p>
                               </div>
@@ -741,22 +743,22 @@ function App() {
                       </div>
                     </div>
 
-                    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
                       <p className="text-sm font-medium text-white">Recent expenses</p>
-                      <div className="mt-4 space-y-3">
+                      <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {recentExpenses.length > 0 ? (
                           recentExpenses.map((expense) => (
                             <div
                               key={expense.id}
-                              className="flex items-center justify-between rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-3"
+                              className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3 sm:items-center sm:px-4"
                             >
                               <div className="min-w-0">
                                 <p className="truncate font-medium text-white">{expense.name}</p>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
                                   {expense.category} · {expense.date}
                                 </p>
                               </div>
-                              <p className="font-semibold text-white">{formatCurrency(expense.amount)}</p>
+                              <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(expense.amount)}</p>
                             </div>
                           ))
                         ) : (
@@ -777,7 +779,7 @@ function App() {
 
           {activeTab === 'income' ? (
             <SectionShell title="Income" description="Edit the active pay period and keep the current period visible.">
-              <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
                 <div className="rounded-[1.5rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-5">
                   <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-200/80">Current income</p>
                   {payPeriod ? (
@@ -803,8 +805,8 @@ function App() {
                   )}
                 </div>
 
-                <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleSavePayPeriod}>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Cadence">
                       <select
                         value={payPeriodDraft.cadence}
@@ -866,8 +868,8 @@ function App() {
                   {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
                   {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
 
-                  <div className="flex items-center justify-end gap-3">
-                    <button type="submit" className="button-primary">
+                  <div className="flex items-stretch gap-3">
+                    <button type="submit" className="button-primary w-full sm:w-auto">
                       Save pay period
                     </button>
                   </div>
@@ -883,8 +885,8 @@ function App() {
                   <EmptyState title="No bills yet" text="Add your first bill below or load demo data to test the flow." compact />
                 </div>
               ) : null}
-              <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleAddBill}>
-                <div className="grid gap-4 sm:grid-cols-2">
+              <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5" onSubmit={handleAddBill}>
+                <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Name">
                     <input
                       value={billDraft.name}
@@ -931,8 +933,8 @@ function App() {
                 {billError ? <FormMessage>{billError}</FormMessage> : null}
                 {billSuccess ? <SuccessMessage>{billSuccess}</SuccessMessage> : null}
 
-                <div className="flex items-center justify-end gap-3">
-                  <button type="submit" className="button-primary">
+                <div className="flex items-stretch gap-3">
+                  <button type="submit" className="button-primary w-full sm:w-auto">
                     Add bill
                   </button>
                 </div>
@@ -947,8 +949,8 @@ function App() {
                   <EmptyState title="No expenses yet" text="Add your first expense below or load demo data to test the flow." compact />
                 </div>
               ) : null}
-              <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleAddExpense}>
-                <div className="grid gap-4 sm:grid-cols-2">
+              <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5" onSubmit={handleAddExpense}>
+                <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Name">
                     <input
                       value={expenseDraft.name}
@@ -1010,8 +1012,8 @@ function App() {
                 {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
                 {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
 
-                <div className="flex items-center justify-end gap-3">
-                  <button type="submit" className="button-primary">
+                <div className="flex items-stretch gap-3">
+                  <button type="submit" className="button-primary w-full sm:w-auto">
                     Add expense
                   </button>
                 </div>
@@ -1046,7 +1048,7 @@ function App() {
                   </Field>
                 </div>
                 <div className="flex justify-end">
-                  <button type="button" onClick={handleReset} className="button-secondary">
+                  <button type="button" onClick={handleReset} className="button-secondary w-full sm:w-auto">
                     Reset data
                   </button>
                 </div>
@@ -1252,10 +1254,10 @@ function SectionShell({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
-      <div className="mb-5">
-        <h2 className="text-2xl font-semibold tracking-tight text-white">{title}</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p>
+    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 sm:rounded-[2rem] sm:p-5">
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">{title}</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-5 text-slate-400 sm:leading-6">{description}</p>
       </div>
       {children}
     </div>
@@ -1276,7 +1278,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex min-h-10 items-center justify-center rounded-full border px-4 py-2 text-sm font-medium transition ${
+      className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-4 py-2 text-sm font-medium whitespace-nowrap transition ${
         active
           ? 'border-cyan-400/30 bg-cyan-400/15 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.15)]'
           : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:bg-slate-900 hover:text-white'
@@ -1310,9 +1312,9 @@ function MetricCard({
   const valueClass = tone === 'highlight' ? 'text-emerald-200' : 'text-white'
 
   return (
-    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/65 p-4">
-      <p className="text-sm text-slate-400">{label}</p>
-      <p className={`mt-3 text-2xl font-semibold tracking-tight sm:text-3xl ${valueClass}`}>{value}</p>
+    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/65 p-3 sm:rounded-[1.5rem] sm:p-4">
+      <p className="text-[11px] leading-4 text-slate-400 sm:text-sm">{label}</p>
+      <p className={`mt-2 text-lg font-semibold tracking-tight sm:mt-3 sm:text-2xl sm:leading-none ${valueClass}`}>{value}</p>
     </div>
   )
 }

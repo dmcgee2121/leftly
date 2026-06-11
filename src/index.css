@@ -8,7 +8,7 @@
   }
 
   .button-secondary {
-    @apply inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-rose-500/40 hover:text-rose-200;
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-rose-500/40 hover:text-rose-200;
   }
 }
 
@@ -27,10 +27,15 @@
     min-height: 100%;
   }
 
+  html {
+    overflow-x: hidden;
+  }
+
   body {
     margin: 0;
     background: #050a14;
     color: #e2e8f0;
+    overflow-x: hidden;
   }
 
   button,
@@ -38,5 +43,20 @@
   select,
   textarea {
     font: inherit;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

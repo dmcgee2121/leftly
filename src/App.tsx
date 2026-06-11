@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   clearAllAppData,
+  addPayPeriodSnapshot,
+  deletePayPeriodSnapshot,
   loadActiveBudgetPeriod,
   loadBills,
   loadCategoryOrder,
   loadCategoryOrderMode,
   loadExpenses,
+  loadPayPeriodHistory,
   loadSortMode,
   loadRecurringTemplates,
   saveActiveBudgetPeriod,
@@ -14,6 +17,7 @@ import {
   saveCategoryOrder,
   saveCategoryOrderMode,
   saveExpenses,
+  savePayPeriodHistory,
   saveRecurringTemplates,
   saveSortMode,
 } from './lib/storage'
@@ -25,6 +29,8 @@ import {
   type BudgetPeriod,
   type CategoryOrderMode,
   type Expense,
+  type PayPeriodSnapshot,
+  type PayPeriodTotals,
   type PayCadence,
   type RecurringItemTemplate,
   type SortMode,
@@ -33,6 +39,7 @@ import { RecurringSection } from './components/RecurringSection'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 
 type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
+  | 'history'
 type PayPeriodDraft = {
   cadence: PayCadence
   income: string
@@ -134,12 +141,14 @@ const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'expense', label: 'Add Expense' },
   { key: 'categories', label: 'Categories' },
   { key: 'recurring', label: 'Recurring' },
+  { key: 'history', label: 'History' },
 ]
 
 const initialPayPeriod = loadActiveBudgetPeriod()
 const initialBills = loadBills()
 const initialExpenses = loadExpenses()
 const initialRecurringTemplates = loadRecurringTemplates()
+const initialPayPeriodHistory = loadPayPeriodHistory()
 const initialSortMode = loadSortMode()
 const initialCategoryOrder = loadCategoryOrder()
 const initialCategoryOrderMode = loadCategoryOrderMode()
@@ -153,12 +162,284 @@ function getDraftFromPeriod(period: BudgetPeriod | null): PayPeriodDraft {
   }
 }
 
+const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+})
+
+const historyShortDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+})
+
+function formatHistoryPeriodLabel(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00`)
+  const end = new Date(`${endDate}T00:00:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${startDate} - ${endDate}`
+  }
+
+  if (start.getFullYear() === end.getFullYear()) {
+    return `${historyShortDateFormatter.format(start)} - ${historyDateFormatter.format(end)}`
+  }
+
+  return `${historyDateFormatter.format(start)} - ${historyDateFormatter.format(end)}`
+}
+
+function calculatePayPeriodTotals(period: BudgetPeriod, bills: Bill[], expenses: Expense[]): PayPeriodTotals {
+  const totalBills = bills.reduce((sum, bill) => sum + bill.amount, 0)
+  const paidBills = bills.filter((bill) => bill.isPaid).reduce((sum, bill) => sum + bill.amount, 0)
+  const unpaidBills = totalBills - paidBills
+  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const totalSetAsides = expenses.filter((expense) => expense.setAsideForTemplateId).reduce((sum, expense) => sum + expense.amount, 0)
+  const safeToSpend = period.income - totalBills - totalExpenses
+  const leftover = period.income - unpaidBills - paidBills - totalExpenses
+
+  return {
+    totalBills,
+    paidBills,
+    unpaidBills,
+    totalExpenses,
+    totalSetAsides,
+    safeToSpend,
+    leftover,
+  }
+}
+
+function createPayPeriodSnapshot(period: BudgetPeriod, bills: Bill[], expenses: Expense[]): PayPeriodSnapshot {
+  const archivedAt = new Date().toISOString()
+
+  return {
+    id: crypto.randomUUID(),
+    label: formatHistoryPeriodLabel(period.startDate, period.endDate),
+    cadence: period.cadence,
+    startDate: period.startDate,
+    endDate: period.endDate,
+    income: period.income,
+    bills: bills.map((bill) => ({ ...bill })),
+    expenses: expenses.map((expense) => ({ ...expense })),
+    totals: calculatePayPeriodTotals(period, bills, expenses),
+    createdAt: archivedAt,
+    archivedAt,
+  }
+}
+
+function formatArchivedDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : historyDateFormatter.format(date)
+}
+
+function HistorySection({
+  snapshots,
+  selectedSnapshot,
+  onSelectSnapshot,
+  onBackToList,
+  onDeleteSnapshot,
+  formatCurrency,
+}: {
+  snapshots: PayPeriodSnapshot[]
+  selectedSnapshot: PayPeriodSnapshot | null
+  onSelectSnapshot: (id: string) => void
+  onBackToList: () => void
+  onDeleteSnapshot: (id: string) => void
+  formatCurrency: (value: number) => string
+}) {
+  if (selectedSnapshot) {
+    const billItems = selectedSnapshot.bills
+    const expenseItems = selectedSnapshot.expenses
+    const categoryTotals = DEFAULT_CATEGORIES.map((category) => {
+      const categoryTotal = [...billItems, ...expenseItems]
+        .filter((item) => item.category === category)
+        .reduce((sum, item) => sum + item.amount, 0)
+      return {
+        category,
+        total: categoryTotal,
+      }
+    }).filter((summary) => summary.total > 0)
+
+    return (
+      <div className="grid gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Archived pay period</p>
+            <h3 className="mt-1 text-xl font-semibold text-white">{selectedSnapshot.label}</h3>
+            <p className="mt-1 text-sm text-slate-400">
+              Archived {formatArchivedDate(selectedSnapshot.archivedAt)} · {selectedSnapshot.cadence}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={onBackToList} className="button-secondary">
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => onDeleteSnapshot(selectedSnapshot.id)}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px"
+            >
+              Delete snapshot
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Income" value={formatCurrency(selectedSnapshot.income)} />
+          <MetricCard label="Total bills" value={formatCurrency(selectedSnapshot.totals.totalBills)} />
+          <MetricCard label="Expenses" value={formatCurrency(selectedSnapshot.totals.totalExpenses)} />
+          <MetricCard label="Set-asides" value={formatCurrency(selectedSnapshot.totals.totalSetAsides)} />
+          <MetricCard label="Paid bills" value={formatCurrency(selectedSnapshot.totals.paidBills)} />
+          <MetricCard label="Unpaid bills" value={formatCurrency(selectedSnapshot.totals.unpaidBills)} />
+          <MetricCard label="Safe to spend" value={formatCurrency(selectedSnapshot.totals.safeToSpend)} tone="highlight" />
+          <MetricCard label="Leftover" value={formatCurrency(selectedSnapshot.totals.leftover)} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+            <p className="text-sm font-semibold text-white">Bills</p>
+            <div className="mt-3 grid gap-2">
+              {billItems.length > 0 ? (
+                billItems.map((bill) => (
+                  <div
+                    key={bill.id}
+                    className="flex flex-col gap-2 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-medium text-white">{bill.name}</p>
+                        {bill.source === 'recurring' ? <Badge muted>Recurring</Badge> : null}
+                        <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {bill.category} · Due {bill.dueDate}
+                        {bill.source === 'recurring' ? ' · generated from recurring template' : ''}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
+                  </div>
+                ))
+              ) : (
+                <EmptyState title="No bills in this period" text="This archived pay period did not include any bills." compact />
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+            <p className="text-sm font-semibold text-white">Expenses</p>
+            <div className="mt-3 grid gap-2">
+              {expenseItems.length > 0 ? (
+                expenseItems.map((expense) => (
+                  <div
+                    key={expense.id}
+                    className="flex flex-col gap-2 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-medium text-white">{expense.name}</p>
+                        {expense.source === 'recurring' ? (
+                          <Badge muted>{expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned' : 'Recurring'}</Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {expense.category} · {expense.date}
+                        {expense.setAsideForTemplateId ? ' · reserves money before the bill is due' : ''}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-white">{formatCurrency(expense.amount)}</p>
+                  </div>
+                ))
+              ) : (
+                <EmptyState title="No expenses in this period" text="This archived pay period did not include any expenses." compact />
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+          <p className="text-sm font-semibold text-white">Category totals</p>
+          {categoryTotals.length > 0 ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {categoryTotals.map((summary) => (
+                <div key={summary.category} className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3">
+                  <p className="text-sm font-medium text-white">{summary.category}</p>
+                  <p className="mt-1 text-xs text-slate-400">{formatCurrency(summary.total)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm leading-6 text-slate-400">No category totals for this archived pay period.</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+        <p className="text-sm leading-6 text-slate-400">
+          Archived pay periods are saved snapshots of each budget cycle. They stay local in this browser until you delete them.
+        </p>
+      </div>
+
+      {snapshots.length > 0 ? (
+        <div className="grid gap-3">
+          {snapshots.map((snapshot) => (
+            <article key={snapshot.id} className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 shadow-lg shadow-slate-950/20">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <button type="button" onClick={() => onSelectSnapshot(snapshot.id)} className="flex-1 text-left">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold text-white">{snapshot.label}</h3>
+                    <Badge muted>{snapshot.cadence}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-400">Archived {formatArchivedDate(snapshot.archivedAt)}</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onDeleteSnapshot(snapshot.id)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px"
+                >
+                  Delete
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <MiniStat label="Income" value={formatCurrency(snapshot.income)} />
+                <MiniStat label="Total bills" value={formatCurrency(snapshot.totals.totalBills)} />
+                <MiniStat label="Expenses" value={formatCurrency(snapshot.totals.totalExpenses)} />
+                <MiniStat label="Set-asides" value={formatCurrency(snapshot.totals.totalSetAsides)} />
+                <MiniStat label="Leftover" value={formatCurrency(snapshot.totals.leftover)} />
+                <MiniStat label="Safe to spend" value={formatCurrency(snapshot.totals.safeToSpend)} />
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No archived pay periods yet"
+          text="Start a new pay period to archive the current one here for later review."
+        />
+      )}
+    </div>
+  )
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+    </div>
+  )
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [payPeriod, setPayPeriod] = useState<BudgetPeriod | null>(initialPayPeriod)
   const [bills, setBills] = useState<Bill[]>(initialBills)
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
   const [recurringTemplates, setRecurringTemplates] = useState<RecurringItemTemplate[]>(initialRecurringTemplates)
+  const [payPeriodHistory, setPayPeriodHistory] = useState<PayPeriodSnapshot[]>(initialPayPeriodHistory)
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
@@ -197,6 +478,7 @@ function App() {
   const [expenseSuccess, setExpenseSuccess] = useState('')
   const [billStatus, setBillStatus] = useState('')
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
 
   useEffect(() => {
     saveActiveBudgetPeriod(payPeriod)
@@ -213,6 +495,10 @@ function App() {
   useEffect(() => {
     saveRecurringTemplates(recurringTemplates)
   }, [recurringTemplates])
+
+  useEffect(() => {
+    savePayPeriodHistory(payPeriodHistory)
+  }, [payPeriodHistory])
 
   useEffect(() => {
     saveSortMode(sortMode)
@@ -338,6 +624,10 @@ function App() {
 
   const recentBills = useMemo(() => bills.slice(0, 3), [bills])
   const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
+  const selectedHistorySnapshot = useMemo(
+    () => payPeriodHistory.find((snapshot) => snapshot.id === selectedHistoryId) ?? null,
+    [payPeriodHistory, selectedHistoryId],
+  )
 
   const categoryRank = useMemo(() => {
     return new Map(
@@ -534,12 +824,32 @@ function App() {
     setRecurringTemplates((current) => current.filter((template) => template.id !== id))
   }
 
+  function archiveActivePayPeriod() {
+    if (!payPeriod) {
+      return true
+    }
+
+    const hasData = payPeriod.income > 0 || bills.length > 0 || expenses.length > 0
+    if (!hasData && !window.confirm('This pay period is empty. Archive it anyway?')) {
+      return false
+    }
+
+    const snapshot = createPayPeriodSnapshot(payPeriod, bills, expenses)
+    addPayPeriodSnapshot(snapshot)
+    setPayPeriodHistory((current) => [snapshot, ...current])
+    return true
+  }
+
   function openStartNewPayPeriod() {
     setActiveTab('income')
     setIsStartNewPayPeriodOpen(true)
   }
 
   function handleStartNewPayPeriod(period: BudgetPeriod, options: { generateRecurring: boolean }) {
+    if (!archiveActivePayPeriod()) {
+      return
+    }
+
     const periodKey = getRecurringPeriodKey(period)
     const manualBills = bills.filter((bill) => bill.source !== 'recurring')
     const nextExpenses: Expense[] = []
@@ -562,6 +872,7 @@ function App() {
 
     setPayPeriod(period)
     setIsStartNewPayPeriodOpen(false)
+    setSelectedHistoryId(null)
     setActiveTab('overview')
   }
 
@@ -610,6 +921,7 @@ function App() {
     setBillError('')
     setExpenseError('')
     setIsStartNewPayPeriodOpen(false)
+    setSelectedHistoryId(null)
   }
 
   function deleteBill(id: string) {
@@ -618,6 +930,18 @@ function App() {
 
   function deleteExpense(id: string) {
     setExpenses((current) => current.filter((expense) => expense.id !== id))
+  }
+
+  function deleteHistorySnapshot(id: string) {
+    if (!window.confirm('Delete this archived pay period? This cannot be undone.')) {
+      return
+    }
+
+    deletePayPeriodSnapshot(id)
+    setPayPeriodHistory((current) => current.filter((snapshot) => snapshot.id !== id))
+    if (selectedHistoryId === id) {
+      setSelectedHistoryId(null)
+    }
   }
 
   function handleReset() {
@@ -630,12 +954,14 @@ function App() {
     setBills([])
     setExpenses([])
     setRecurringTemplates([])
+    setPayPeriodHistory([])
     setSortMode('amount-desc')
     setCategoryOrderMode('total-desc')
     setCategoryOrder([...DEFAULT_CATEGORIES])
     setExpandedCategories(new Set(['Housing']))
     setActiveTab('overview')
     setIsStartNewPayPeriodOpen(false)
+    setSelectedHistoryId(null)
     resetDrafts()
   }
 
@@ -1204,6 +1530,19 @@ function App() {
                 onAddTemplate={addRecurringTemplate}
                 onUpdateTemplate={updateRecurringTemplate}
                 onDeleteTemplate={deleteRecurringTemplate}
+              />
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'history' ? (
+            <SectionShell title="History" description="Review archived pay periods saved locally in this browser.">
+              <HistorySection
+                snapshots={payPeriodHistory}
+                selectedSnapshot={selectedHistorySnapshot}
+                onSelectSnapshot={setSelectedHistoryId}
+                onBackToList={() => setSelectedHistoryId(null)}
+                onDeleteSnapshot={deleteHistorySnapshot}
+                formatCurrency={formatCurrency}
               />
             </SectionShell>
           ) : null}

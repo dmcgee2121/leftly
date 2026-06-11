@@ -5,6 +5,7 @@ import type {
   BudgetCategory,
   CategoryOrderMode,
   Expense,
+  PayPeriodSnapshot,
   RecurringItemTemplate,
   SortMode,
 } from '../types/budget'
@@ -13,6 +14,7 @@ const ACTIVE_BUDGET_KEY = 'leftly.activeBudgetPeriod'
 const BILLS_KEY = 'leftly.bills'
 const EXPENSES_KEY = 'leftly.expenses'
 const RECURRING_TEMPLATES_KEY = 'leftly.recurringTemplates'
+const PAY_PERIOD_HISTORY_KEY = 'leftly.payPeriodHistory'
 const SORT_MODE_KEY = 'leftly.sortMode'
 const CATEGORY_ORDER_KEY = 'leftly.categoryOrder'
 
@@ -65,6 +67,44 @@ function normalizeExpense(expense: Expense | Record<string, unknown>): Expense {
     templateId: typeof expense.templateId === 'string' ? expense.templateId : undefined,
     generatedForPeriodId: typeof expense.generatedForPeriodId === 'string' ? expense.generatedForPeriodId : undefined,
     setAsideForTemplateId: typeof expense.setAsideForTemplateId === 'string' ? expense.setAsideForTemplateId : undefined,
+  }
+}
+
+function normalizePayPeriodTotals(value: unknown) {
+  const totals = value as Record<string, unknown> | undefined
+  return {
+    totalBills: Number(totals?.totalBills ?? 0),
+    paidBills: Number(totals?.paidBills ?? 0),
+    unpaidBills: Number(totals?.unpaidBills ?? 0),
+    totalExpenses: Number(totals?.totalExpenses ?? 0),
+    totalSetAsides: Number(totals?.totalSetAsides ?? 0),
+    safeToSpend: Number(totals?.safeToSpend ?? 0),
+    leftover: Number(totals?.leftover ?? 0),
+  }
+}
+
+function normalizePayPeriodSnapshot(snapshot: PayPeriodSnapshot | Record<string, unknown>): PayPeriodSnapshot {
+  const item = snapshot as Record<string, unknown>
+  const bills = Array.isArray(item.bills) ? item.bills.map((bill) => normalizeBill(bill as Bill | Record<string, unknown>)) : []
+  const expenses = Array.isArray(item.expenses)
+    ? item.expenses.map((expense) => normalizeExpense(expense as Expense | Record<string, unknown>))
+    : []
+
+  return {
+    id: String(item.id ?? crypto.randomUUID()),
+    label: String(item.label ?? ''),
+    cadence:
+      item.cadence === 'weekly' || item.cadence === 'biweekly' || item.cadence === 'monthly'
+        ? item.cadence
+        : 'biweekly',
+    startDate: String(item.startDate ?? ''),
+    endDate: String(item.endDate ?? ''),
+    income: Number(item.income ?? 0),
+    bills,
+    expenses,
+    totals: normalizePayPeriodTotals(item.totals),
+    createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+    archivedAt: typeof item.archivedAt === 'string' ? item.archivedAt : new Date().toISOString(),
   }
 }
 
@@ -140,6 +180,25 @@ export function saveRecurringTemplates(templates: RecurringItemTemplate[]) {
   writeJson(RECURRING_TEMPLATES_KEY, templates)
 }
 
+export function loadPayPeriodHistory(): PayPeriodSnapshot[] {
+  const value = readJson<unknown>(PAY_PERIOD_HISTORY_KEY, [])
+  return Array.isArray(value) ? value.map((item) => normalizePayPeriodSnapshot(item as PayPeriodSnapshot | Record<string, unknown>)) : []
+}
+
+export function savePayPeriodHistory(history: PayPeriodSnapshot[]) {
+  writeJson(PAY_PERIOD_HISTORY_KEY, history)
+}
+
+export function addPayPeriodSnapshot(snapshot: PayPeriodSnapshot) {
+  const history = loadPayPeriodHistory()
+  savePayPeriodHistory([snapshot, ...history])
+}
+
+export function deletePayPeriodSnapshot(id: string) {
+  const history = loadPayPeriodHistory()
+  savePayPeriodHistory(history.filter((snapshot) => snapshot.id !== id))
+}
+
 export function loadSortMode(): SortMode {
   const mode = readJson<SortMode | string>(SORT_MODE_KEY, DEFAULT_SORT_MODE)
   return mode === 'amount-desc' || mode === 'amount-asc' || mode === 'date' || mode === 'name'
@@ -186,6 +245,7 @@ export function clearAllAppData() {
     window.localStorage.removeItem(BILLS_KEY)
     window.localStorage.removeItem(EXPENSES_KEY)
     window.localStorage.removeItem(RECURRING_TEMPLATES_KEY)
+    window.localStorage.removeItem(PAY_PERIOD_HISTORY_KEY)
     window.localStorage.removeItem(SORT_MODE_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY + '.mode')

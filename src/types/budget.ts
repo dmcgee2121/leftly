@@ -26,6 +26,16 @@ export type BudgetPeriod = {
   income: number
 }
 
+export type PayPeriodTotals = {
+  totalBills: number
+  paidBills: number
+  unpaidBills: number
+  totalExpenses: number
+  totalSetAsides: number
+  safeToSpend: number
+  leftover: number
+}
+
 export type Bill = {
   id: string
   name: string
@@ -65,4 +75,18 @@ export type RecurringItemTemplate = {
   setAsideAmount?: number
   isActive: boolean
   createdAt: string
+}
+
+export type PayPeriodSnapshot = {
+  id: string
+  label: string
+  cadence: PayCadence
+  startDate: string
+  endDate: string
+  income: number
+  bills: Bill[]
+  expenses: Expense[]
+  totals: PayPeriodTotals
+  createdAt: string
+  archivedAt: string
 }

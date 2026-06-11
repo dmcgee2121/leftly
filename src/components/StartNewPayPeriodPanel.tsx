@@ -24,6 +24,8 @@ type StartNewPeriodDraft = {
   generateRecurring: boolean
 }
 
+type PanelMode = 'edit' | 'review'
+
 export function StartNewPayPeriodPanel({
   currentPayPeriod,
   templates,
@@ -44,6 +46,7 @@ export function StartNewPayPeriodPanel({
     endDate: currentPayPeriod?.endDate ?? '',
     generateRecurring: templates.length > 0,
   })
+  const [mode, setMode] = useState<PanelMode>('edit')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -58,6 +61,7 @@ export function StartNewPayPeriodPanel({
       endDate: '',
       generateRecurring: templates.length > 0,
     })
+    setMode('edit')
     setError('')
   }, [currentPayPeriod, isOpen, templates.length])
 
@@ -82,28 +86,48 @@ export function StartNewPayPeriodPanel({
     })
   }, [draft, templates])
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  const recurringBillsAmount = preview.bills.reduce((sum, item) => sum + item.amount, 0)
+  const plannedExpensesAmount = preview.plannedExpenses.reduce((sum, item) => sum + item.amount, 0)
+  const estimatedSafeToSpendImpact = recurringBillsAmount + plannedExpensesAmount
 
+  function validateDraft() {
     const income = Number(draft.income)
     if (!Number.isFinite(income) || income <= 0) {
       setError('Income amount must be greater than 0.')
-      return
+      return false
     }
     if (!draft.startDate || !draft.endDate) {
       setError('Start date and end date are required.')
-      return
+      return false
     }
     if (draft.endDate < draft.startDate) {
       setError('End date must be after the start date.')
-      return
+      return false
     }
 
     setError('')
+    return true
+  }
+
+  function handleReview() {
+    if (!validateDraft()) {
+      return
+    }
+
+    setMode('review')
+  }
+
+  function handleSubmit(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault()
+
+    if (!validateDraft()) {
+      return
+    }
+
     onSubmit(
       {
         cadence: draft.cadence,
-        income,
+        income: Number(draft.income),
         startDate: draft.startDate,
         endDate: draft.endDate,
       },
@@ -131,84 +155,166 @@ export function StartNewPayPeriodPanel({
         </button>
       </div>
 
-      <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Income amount">
+      {mode === 'edit' ? (
+        <form className="mt-4 grid gap-4" onSubmit={(event) => event.preventDefault()}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Income amount">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={draft.income}
+                onChange={(event) => setDraft({ ...draft, income: event.target.value })}
+                placeholder="3200"
+              />
+            </Field>
+
+            <Field label="Cadence">
+              <select value={draft.cadence} onChange={(event) => setDraft({ ...draft, cadence: event.target.value as PayCadence })}>
+                {cadenceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Start date">
+              <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
+            </Field>
+
+            <Field label="End date">
+              <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
+            </Field>
+          </div>
+
+          <label className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
             <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={draft.income}
-              onChange={(event) => setDraft({ ...draft, income: event.target.value })}
-              placeholder="3200"
+              type="checkbox"
+              checked={draft.generateRecurring}
+              onChange={(event) => setDraft({ ...draft, generateRecurring: event.target.checked })}
+              className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
             />
-          </Field>
-
-          <Field label="Cadence">
-            <select value={draft.cadence} onChange={(event) => setDraft({ ...draft, cadence: event.target.value as PayCadence })}>
-              {cadenceOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Start date">
-            <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
-          </Field>
-
-          <Field label="End date">
-            <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
-          </Field>
-        </div>
-
-        <label className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
-          <input
-            type="checkbox"
-            checked={draft.generateRecurring}
-            onChange={(event) => setDraft({ ...draft, generateRecurring: event.target.checked })}
-            className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
-          />
-          <span>
-            <span className="block font-semibold">Generate recurring items for this pay period</span>
-            <span className="mt-1 block text-sm leading-6 text-slate-400">
-              {templates.length > 0
-                ? 'Checked by default because recurring templates are saved.'
-                : 'No recurring templates are saved yet.'}
+            <span>
+              <span className="block font-semibold">Generate recurring items for this pay period</span>
+              <span className="mt-1 block text-sm leading-6 text-slate-400">
+                {templates.length > 0
+                  ? 'Checked by default because recurring templates are saved.'
+                  : 'No recurring templates are saved yet.'}
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
 
-        {draft.generateRecurring ? (
-          <div className="grid gap-4 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+          {error ? (
+            <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={handleReview} className={buttonStyles.primary}>
+              Review pay period
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="mt-4 grid gap-4">
+          <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 sm:grid-cols-2">
+            <SummaryCard label="Pay period" value={`${draft.startDate} to ${draft.endDate}`} />
+            <SummaryCard label="Income" value={formatCurrency(Number(draft.income))} />
+            <SummaryCard label="Cadence" value={draft.cadence} />
+            <SummaryCard label="Recurring generation" value={draft.generateRecurring ? 'Enabled' : 'Disabled'} />
+          </div>
+
+          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold text-white">These recurring items will be added:</p>
+              <p className="text-sm font-semibold text-white">Recurring preview</p>
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{preview.total} item{preview.total === 1 ? '' : 's'}</p>
             </div>
 
-            <PreviewGroup title="Bills" items={preview.bills} emptyLabel="No recurring bills match this pay period." />
-            <PreviewGroup title="Planned expenses" items={preview.plannedExpenses} emptyLabel="No planned recurring expenses match this pay period." />
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 text-sm leading-6 text-slate-400">
-            Recurring templates will stay saved, but no new recurring items will be generated for this pay period.
-          </div>
-        )}
+            {draft.generateRecurring ? (
+              <div className="mt-4 grid gap-4">
+                <SummaryStats
+                  billsCount={preview.bills.length}
+                  billsAmount={recurringBillsAmount}
+                  plannedCount={preview.plannedExpenses.length}
+                  plannedAmount={plannedExpensesAmount}
+                  safeToSpendImpact={estimatedSafeToSpendImpact}
+                />
 
-        {error ? (
-          <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
-            {error}
-          </p>
-        ) : null}
+                {preview.total > 0 ? (
+                  <>
+                    <PreviewGroup title="Bills" items={preview.bills} emptyLabel="No recurring bills fall inside this pay period." />
+                    <PreviewGroup title="Planned expenses" items={preview.plannedExpenses} emptyLabel="No recurring planned expenses fall inside this pay period." />
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
+                    <p className="text-sm font-medium text-white">No recurring items fall inside this pay period.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
+                <p className="text-sm font-medium text-white">No recurring items fall inside this pay period.</p>
+              </div>
+            )}
+          </div>
 
-        <div className="flex flex-wrap gap-3">
-          <button type="submit" className={buttonStyles.primary}>
-            Start pay period
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => setMode('edit')} className={buttonStyles.secondary}>
+              Back to edit
+            </button>
+            <button type="button" onClick={() => handleSubmit()} className={buttonStyles.primary}>
+              Start pay period
+            </button>
+          </div>
         </div>
-      </form>
+      )}
     </section>
+  )
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+    </div>
+  )
+}
+
+function SummaryStats({
+  billsCount,
+  billsAmount,
+  plannedCount,
+  plannedAmount,
+  safeToSpendImpact,
+}: {
+  billsCount: number
+  billsAmount: number
+  plannedCount: number
+  plannedAmount: number
+  safeToSpendImpact: number
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <Stat label="Recurring bills" value={`${billsCount}`} detail={formatCurrency(billsAmount)} />
+      <Stat label="Planned expenses" value={`${plannedCount}`} detail={formatCurrency(plannedAmount)} />
+      <Stat label="Total items" value={`${billsCount + plannedCount}`} detail="preview only" />
+      <Stat label="Safe-to-spend impact" value={`-${formatCurrency(safeToSpendImpact)}`} detail="estimated" />
+    </div>
+  )
+}
+
+function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <p className="text-lg font-semibold text-white">{value}</p>
+        <p className="text-xs text-slate-400">{detail}</p>
+      </div>
+    </div>
   )
 }
 
@@ -225,6 +331,7 @@ function PreviewGroup({
     amount: number
     category: string
     dateLabel: string
+    frequency: string
   }>
   emptyLabel: string
 }) {
@@ -238,10 +345,13 @@ function PreviewGroup({
               key={`${item.templateId}:${item.dateLabel}:${item.kind}`}
               className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
-                <p className="font-medium text-white">{item.name}</p>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate font-medium text-white">{item.name}</p>
+                  <Badge>Recurring</Badge>
+                </div>
                 <p className="text-xs text-slate-400">
-                  {item.category} · {item.dateLabel}
+                  {item.category} · {item.dateLabel} · {item.frequency} · {item.kind === 'bill' ? 'Due date' : 'Date'}
                 </p>
               </div>
               <p className="text-sm font-semibold text-white">{formatCurrency(item.amount)}</p>
@@ -263,6 +373,14 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
         {children}
       </span>
     </label>
+  )
+}
+
+function Badge({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100">
+      {children}
+    </span>
   )
 }
 

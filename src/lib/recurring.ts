@@ -7,6 +7,7 @@ export type RecurringPreviewItem = {
   amount: number
   category: BudgetCategory
   dateLabel: string
+  frequency: RecurringItemTemplate['frequency']
 }
 
 export type RecurringPreviewGroups = {
@@ -157,14 +158,15 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
   for (const template of templates) {
     const occurrences = getOccurrences(template, period)
     for (const dateLabel of occurrences) {
-      const item = {
-        templateId: template.id,
-        kind: template.kind,
-        name: template.name,
-        amount: template.amount,
-        category: template.category,
-        dateLabel,
-      }
+        const item = {
+          templateId: template.id,
+          kind: template.kind,
+          name: template.name,
+          amount: template.amount,
+          category: template.category,
+          dateLabel,
+          frequency: template.frequency,
+        }
 
       if (template.kind === 'bill') {
         bills.push(item)

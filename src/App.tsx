@@ -68,6 +68,7 @@ type BudgetItem = {
   templateId?: string
   generatedForPeriodId?: string
   isPlanned?: boolean
+  setAsideForTemplateId?: string
 }
 
 type CategorySummary = {
@@ -307,6 +308,7 @@ function App() {
         templateId: expense.templateId,
         generatedForPeriodId: expense.generatedForPeriodId,
         isPlanned: expense.isPlanned,
+        setAsideForTemplateId: expense.setAsideForTemplateId,
       })
     }
 
@@ -839,7 +841,9 @@ function App() {
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="truncate font-medium text-white">{expense.name}</p>
                                   {expense.source === 'recurring' ? (
-                                    <Badge muted>{expense.isPlanned ? 'Planned' : 'Recurring'}</Badge>
+                                    <Badge muted={Boolean(expense.setAsideForTemplateId)}>
+                                      {expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned' : 'Recurring'}
+                                    </Badge>
                                   ) : null}
                                 </div>
                                 <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
@@ -1319,7 +1323,9 @@ function CategoryCard({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-medium text-white">{item.name}</p>
                     {item.source === 'recurring' ? (
-                      <Badge muted>{item.isPlanned ? 'Planned' : 'Recurring'}</Badge>
+                      <Badge muted={Boolean(item.setAsideForTemplateId)}>
+                        {item.setAsideForTemplateId ? 'Set-aside' : item.isPlanned ? 'Planned' : 'Recurring'}
+                      </Badge>
                     ) : null}
                     <Badge muted>{item.kind}</Badge>
                     <Badge>{formatCurrency(item.amount)}</Badge>

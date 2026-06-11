@@ -49,6 +49,7 @@ export type Expense = {
   source?: 'manual' | 'recurring'
   templateId?: string
   generatedForPeriodId?: string
+  setAsideForTemplateId?: string
 }
 
 export type RecurringItemTemplate = {
@@ -60,6 +61,8 @@ export type RecurringItemTemplate = {
   frequency: RecurringFrequency
   dueDay?: number
   anchorDate?: string
+  setAsideEnabled?: boolean
+  setAsideAmount?: number
   isActive: boolean
   createdAt: string
 }

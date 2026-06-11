@@ -8,6 +8,7 @@ export type RecurringPreviewItem = {
   category: BudgetCategory
   dateLabel: string
   frequency: RecurringItemTemplate['frequency']
+  isSetAside?: boolean
 }
 
 export type RecurringPreviewGroups = {
@@ -151,6 +152,22 @@ function createExpense(template: RecurringItemTemplate, date: string, periodKey:
   }
 }
 
+function createSetAsideExpense(template: RecurringItemTemplate, period: BudgetPeriod, periodKey: string): Expense {
+  const setAsideAmount = template.setAsideAmount ?? 0
+  return {
+    id: crypto.randomUUID(),
+    name: `${template.name} set-aside`,
+    amount: setAsideAmount,
+    date: period.startDate,
+    category: template.category,
+    isPlanned: true,
+    source: 'recurring',
+    templateId: template.id,
+    generatedForPeriodId: periodKey,
+    setAsideForTemplateId: template.id,
+  }
+}
+
 export function buildRecurringPreview({ templates, period }: { templates: RecurringItemTemplate[]; period: BudgetPeriod }): RecurringPreviewGroups {
   const bills: RecurringPreviewItem[] = []
   const plannedExpenses: RecurringPreviewItem[] = []
@@ -173,6 +190,19 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
       } else {
         plannedExpenses.push(item)
       }
+    }
+
+    if (template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0) {
+      plannedExpenses.push({
+        templateId: template.id,
+        kind: 'planned-expense',
+        name: `${template.name} set-aside`,
+        amount: template.setAsideAmount ?? 0,
+        category: template.category,
+        dateLabel: 'Every pay period',
+        frequency: 'every-pay-period',
+        isSetAside: true,
+      })
     }
   }
 
@@ -203,6 +233,9 @@ export function generateRecurringItems({
 
   for (const expense of expenses) {
     if (expense.source === 'recurring' && expense.templateId && expense.generatedForPeriodId === periodKey) {
+      if (expense.setAsideForTemplateId) {
+        existingKeys.add(`expense:set-aside:${expense.setAsideForTemplateId}:${expense.generatedForPeriodId}`)
+      }
       existingKeys.add(`expense:${expense.templateId}:${expense.date}:${expense.generatedForPeriodId}`)
     }
   }
@@ -225,6 +258,14 @@ export function generateRecurringItems({
 
       if (template.frequency === 'one-time') {
         template.isActive = false
+      }
+    }
+
+    if (template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0) {
+      const setAsideKey = `expense:set-aside:${template.id}:${periodKey}`
+      if (!existingKeys.has(setAsideKey)) {
+        expenses.push(createSetAsideExpense(template, period, periodKey))
+        existingKeys.add(setAsideKey)
       }
     }
   }

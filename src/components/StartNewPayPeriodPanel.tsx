@@ -332,6 +332,7 @@ function PreviewGroup({
     category: string
     dateLabel: string
     frequency: string
+    isSetAside?: boolean
   }>
   emptyLabel: string
 }) {
@@ -348,7 +349,7 @@ function PreviewGroup({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate font-medium text-white">{item.name}</p>
-                  <Badge>Recurring</Badge>
+                  <Badge>{item.isSetAside ? 'Set-aside' : 'Recurring'}</Badge>
                 </div>
                 <p className="text-xs text-slate-400">
                   {item.category} · {item.dateLabel} · {item.frequency} · {item.kind === 'bill' ? 'Due date' : 'Date'}

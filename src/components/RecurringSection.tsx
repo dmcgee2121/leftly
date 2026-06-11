@@ -19,6 +19,8 @@ type RecurringDraft = {
   frequency: RecurringFrequency
   dueDay: string
   anchorDate: string
+  setAsideEnabled: boolean
+  setAsideAmount: string
 }
 
 const frequencyLabels: Record<RecurringFrequency, string> = {
@@ -48,6 +50,8 @@ export function RecurringSection({
     frequency: 'every-pay-period',
     dueDay: '',
     anchorDate: '',
+    setAsideEnabled: false,
+    setAsideAmount: '',
   })
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -67,6 +71,8 @@ export function RecurringSection({
       frequency: 'every-pay-period',
       dueDay: '',
       anchorDate: '',
+      setAsideEnabled: false,
+      setAsideAmount: '',
     })
     setError('')
   }
@@ -81,6 +87,8 @@ export function RecurringSection({
       frequency: template.frequency,
       dueDay: template.dueDay ? String(template.dueDay) : '',
       anchorDate: template.anchorDate ?? '',
+      setAsideEnabled: Boolean(template.setAsideEnabled),
+      setAsideAmount: template.setAsideAmount ? String(template.setAsideAmount) : '',
     })
     setError('')
   }
@@ -89,12 +97,18 @@ export function RecurringSection({
     event.preventDefault()
 
     const amount = Number(draft.amount)
+    const parsedSetAsideAmount = draft.setAsideAmount.trim() === '' ? undefined : Number(draft.setAsideAmount)
+    const setAsideAmount = Number.isFinite(parsedSetAsideAmount) ? parsedSetAsideAmount : undefined
     if (!draft.name.trim()) {
       setError('Recurring item name is required.')
       return
     }
     if (!Number.isFinite(amount) || amount <= 0) {
       setError('Amount must be greater than 0.')
+      return
+    }
+    if (draft.kind === 'bill' && draft.setAsideEnabled && (!Number.isFinite(setAsideAmount) || (setAsideAmount ?? 0) <= 0)) {
+      setError('Set aside amount must be greater than 0 when set aside is enabled.')
       return
     }
     if (draft.frequency === 'monthly' && (!draft.dueDay || Number(draft.dueDay) < 1 || Number(draft.dueDay) > 31)) {
@@ -115,6 +129,8 @@ export function RecurringSection({
       frequency: draft.frequency,
       dueDay: draft.frequency === 'monthly' ? Number(draft.dueDay) : undefined,
       anchorDate: ['weekly', 'biweekly', 'one-time'].includes(draft.frequency) ? draft.anchorDate : undefined,
+      setAsideEnabled: draft.kind === 'bill' ? draft.setAsideEnabled : undefined,
+      setAsideAmount: draft.kind === 'bill' ? setAsideAmount : undefined,
       isActive: editingTemplateId
         ? templates.find((template) => template.id === editingTemplateId)?.isActive ?? true
         : true,
@@ -160,7 +176,16 @@ export function RecurringSection({
           </Field>
 
           <Field label="Kind">
-            <select value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value as RecurringItemTemplate['kind'] })}>
+            <select
+              value={draft.kind}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  kind: event.target.value as RecurringItemTemplate['kind'],
+                  setAsideEnabled: event.target.value === 'bill' ? draft.setAsideEnabled : false,
+                })
+              }
+            >
               <option value="bill">Bill</option>
               <option value="planned-expense">Planned expense</option>
             </select>
@@ -213,6 +238,38 @@ export function RecurringSection({
             </Field>
           ) : null}
 
+          {draft.kind === 'bill' ? (
+            <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/55 p-4">
+              <label className="flex items-start gap-3 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={draft.setAsideEnabled}
+                  onChange={(event) => setDraft({ ...draft, setAsideEnabled: event.target.checked })}
+                  className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
+                />
+                <span>
+                  <span className="block font-semibold">Set aside money each pay period</span>
+                  <span className="mt-1 block text-sm leading-6 text-slate-400">
+                    Use this for large bills like rent, car insurance, or annual subscriptions so Leftly reserves money before the due date.
+                  </span>
+                </span>
+              </label>
+
+              <Field label="Set aside amount">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={draft.setAsideAmount}
+                  onChange={(event) => setDraft({ ...draft, setAsideAmount: event.target.value })}
+                  placeholder="600"
+                  disabled={!draft.setAsideEnabled}
+                  className={!draft.setAsideEnabled ? 'opacity-60' : undefined}
+                />
+              </Field>
+            </div>
+          ) : null}
+
           {error ? (
             <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
               {error}
@@ -243,6 +300,9 @@ export function RecurringSection({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-semibold text-white">{template.name}</p>
                         <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned expense'}</Badge>
+                        {template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0 ? (
+                          <Badge muted>Set-aside</Badge>
+                        ) : null}
                         <Badge muted>{template.isActive ? 'Active' : 'Inactive'}</Badge>
                       </div>
                       <p className="mt-1 text-sm text-slate-400">

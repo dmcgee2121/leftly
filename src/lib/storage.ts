@@ -64,6 +64,7 @@ function normalizeExpense(expense: Expense | Record<string, unknown>): Expense {
     source: expense.source === 'recurring' ? 'recurring' : 'manual',
     templateId: typeof expense.templateId === 'string' ? expense.templateId : undefined,
     generatedForPeriodId: typeof expense.generatedForPeriodId === 'string' ? expense.generatedForPeriodId : undefined,
+    setAsideForTemplateId: typeof expense.setAsideForTemplateId === 'string' ? expense.setAsideForTemplateId : undefined,
   }
 }
 
@@ -127,6 +128,8 @@ export function loadRecurringTemplates(): RecurringItemTemplate[] {
           : 'every-pay-period',
       dueDay: typeof item.dueDay === 'number' ? item.dueDay : undefined,
       anchorDate: typeof item.anchorDate === 'string' ? item.anchorDate : undefined,
+      setAsideEnabled: typeof item.setAsideEnabled === 'boolean' ? item.setAsideEnabled : undefined,
+      setAsideAmount: typeof item.setAsideAmount === 'number' && Number.isFinite(item.setAsideAmount) ? item.setAsideAmount : undefined,
       isActive: typeof item.isActive === 'boolean' ? item.isActive : true,
       createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
     }

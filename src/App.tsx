@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import {
   clearAllAppData,
   loadActiveBudgetPeriod,
+  loadBills,
   loadCategoryOrder,
   loadCategoryOrderMode,
-  loadBills,
   loadExpenses,
   loadSortMode,
   saveActiveBudgetPeriod,
+  saveBills,
   saveCategoryOrder,
   saveCategoryOrderMode,
-  saveBills,
   saveExpenses,
   saveSortMode,
 } from './lib/storage'
@@ -25,6 +25,8 @@ import {
   type PayCadence,
   type SortMode,
 } from './types/budget'
+
+type ActivePanel = 'income' | 'bill' | 'expense' | null
 
 type PayPeriodDraft = {
   cadence: PayCadence
@@ -111,6 +113,7 @@ function App() {
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
+  const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [expandedCategories, setExpandedCategories] = useState<Set<BudgetCategory>>(() => {
     const seeded = new Set<BudgetCategory>()
     for (const category of DEFAULT_CATEGORIES) {
@@ -125,7 +128,6 @@ function App() {
 
     return seeded
   })
-  const [showPayPeriodForm, setShowPayPeriodForm] = useState(false)
   const [payPeriodDraft, setPayPeriodDraft] = useState<PayPeriodDraft>(() => getDraftFromPeriod(initialPayPeriod))
   const [billDraft, setBillDraft] = useState<BillDraft>({
     name: '',
@@ -195,8 +197,7 @@ function App() {
     }
 
     for (const bill of bills) {
-      const bucket = itemsByCategory.get(bill.category)
-      bucket?.push({
+      itemsByCategory.get(bill.category)?.push({
         id: bill.id,
         name: bill.name,
         amount: bill.amount,
@@ -209,8 +210,7 @@ function App() {
     }
 
     for (const expense of expenses) {
-      const bucket = itemsByCategory.get(expense.category)
-      bucket?.push({
+      itemsByCategory.get(expense.category)?.push({
         id: expense.id,
         name: expense.name,
         amount: expense.amount,
@@ -220,7 +220,7 @@ function App() {
       })
     }
 
-    const sorted = DEFAULT_CATEGORIES.map((category) => {
+    const summaries = DEFAULT_CATEGORIES.map((category) => {
       const items = sortItems(itemsByCategory.get(category) ?? [], sortMode)
       const total = items.reduce((sum, item) => sum + item.amount, 0)
       return { category, items, total }
@@ -228,10 +228,12 @@ function App() {
 
     if (categoryOrderMode === 'custom') {
       const indexByCategory = new Map(categoryOrder.map((category, index) => [category, index]))
-      return sorted.sort((a, b) => (indexByCategory.get(a.category) ?? 0) - (indexByCategory.get(b.category) ?? 0))
+      return [...summaries].sort(
+        (a, b) => (indexByCategory.get(a.category) ?? 0) - (indexByCategory.get(b.category) ?? 0),
+      )
     }
 
-    return sorted.sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
+    return [...summaries].sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
   }, [bills, categoryOrder, categoryOrderMode, expenses, sortMode])
 
   const categoryRank = useMemo(() => {
@@ -300,7 +302,7 @@ function App() {
 
     setPayPeriod(nextPeriod)
     setPayPeriodDraft(getDraftFromPeriod(nextPeriod))
-    setShowPayPeriodForm(false)
+    setActivePanel(null)
   }
 
   function handleAddBill(event: FormEvent<HTMLFormElement>) {
@@ -423,7 +425,7 @@ function App() {
     setCategoryOrderMode('total-desc')
     setCategoryOrder([...DEFAULT_CATEGORIES])
     setExpandedCategories(new Set(['Housing']))
-    setShowPayPeriodForm(false)
+    setActivePanel(null)
     resetDrafts()
   }
 
@@ -480,236 +482,329 @@ function App() {
           </div>
         </header>
 
-        <section className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-          <section className="grid gap-5">
-            <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
-              <div className="flex flex-col items-center gap-3 text-center">
-                <p className="text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Leftover</p>
-                <p className="text-5xl font-semibold tracking-tight text-white sm:text-6xl">
-                  {formatCurrency(totals.leftover)}
-                </p>
-                <p className="max-w-2xl text-sm leading-6 text-slate-400">
-                  Income minus paid bills, unpaid bills, and manual expenses.
-                </p>
-              </div>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <MetricCard label="Income" value={formatCurrency(totals.income)} />
-                <MetricCard label="Total planned bills" value={formatCurrency(totals.totalPlannedBills)} />
-                <MetricCard label="Paid bills" value={formatCurrency(totals.paidBills)} />
-                <MetricCard label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
-                <MetricCard label="Manual expenses" value={formatCurrency(totals.totalExpenses)} />
-                <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
-              </div>
+        <section className="mt-5 grid gap-5">
+          <section className="rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Leftover</p>
+              <p className="text-6xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">
+                {formatCurrency(totals.leftover)}
+              </p>
+              <p className="max-w-2xl text-sm leading-6 text-slate-400">
+                Income minus paid bills, unpaid bills, and manual expenses.
+              </p>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
-              <IncomeCard
-                payPeriod={payPeriod}
-                draft={payPeriodDraft}
-                showForm={showPayPeriodForm}
-                error={payPeriodError}
-                onToggleForm={() => setShowPayPeriodForm((current) => !current)}
-                onDraftChange={setPayPeriodDraft}
-                onSubmit={handleSavePayPeriod}
-                formatCurrency={formatCurrency}
-              />
-
-              <div className="grid gap-5">
-                <CompactFormCard title="Add bill" description="Add a bill directly into a category.">
-                  <form className="grid gap-3" onSubmit={handleAddBill}>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Name">
-                        <input
-                          value={billDraft.name}
-                          onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
-                          placeholder="Rent"
-                        />
-                      </Field>
-                      <Field label="Amount">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={billDraft.amount}
-                          onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))}
-                          placeholder="1200"
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Due date">
-                        <input
-                          type="date"
-                          value={billDraft.dueDate}
-                          onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))}
-                        />
-                      </Field>
-                      <Field label="Category">
-                        <select
-                          value={billDraft.category}
-                          onChange={(event) =>
-                            setBillDraft((current) => ({
-                              ...current,
-                              category: event.target.value as BudgetCategory,
-                            }))
-                          }
-                        >
-                          {DEFAULT_CATEGORIES.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-
-                    {billError ? <FormMessage>{billError}</FormMessage> : null}
-
-                    <div className="flex justify-end">
-                      <button type="submit" className="button-primary">
-                        Add bill
-                      </button>
-                    </div>
-                  </form>
-                </CompactFormCard>
-
-                <CompactFormCard title="Add expense" description="Log spending without leaving the page.">
-                  <form className="grid gap-3" onSubmit={handleAddExpense}>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Name">
-                        <input
-                          value={expenseDraft.name}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({ ...current, name: event.target.value }))
-                          }
-                          placeholder="Groceries"
-                        />
-                      </Field>
-                      <Field label="Amount">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={expenseDraft.amount}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({ ...current, amount: event.target.value }))
-                          }
-                          placeholder="48.25"
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Date">
-                        <input
-                          type="date"
-                          value={expenseDraft.date}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({ ...current, date: event.target.value }))
-                          }
-                        />
-                      </Field>
-                      <Field label="Category">
-                        <select
-                          value={expenseDraft.category}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({
-                              ...current,
-                              category: event.target.value as BudgetCategory,
-                            }))
-                          }
-                        >
-                          {DEFAULT_CATEGORIES.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-
-                    {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
-
-                    <div className="flex justify-end">
-                      <button type="submit" className="button-primary">
-                        Add expense
-                      </button>
-                    </div>
-                  </form>
-                </CompactFormCard>
-              </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <MetricCard label="Income" value={formatCurrency(totals.income)} />
+              <MetricCard label="Total planned bills" value={formatCurrency(totals.totalPlannedBills)} />
+              <MetricCard label="Paid bills" value={formatCurrency(totals.paidBills)} />
+              <MetricCard label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
+              <MetricCard label="Manual expenses" value={formatCurrency(totals.totalExpenses)} />
+              <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
             </div>
           </section>
 
-          <section className="grid gap-5">
-            <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-semibold tracking-tight text-white">Category budgets</h2>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                      Grouped by budget category and sorted with the highest-cost categories first.
-                    </p>
-                  </div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setActivePanel((current) => (current === 'income' ? null : 'income'))}
+              className="button-secondary"
+            >
+              Edit income
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePanel((current) => (current === 'bill' ? null : 'bill'))}
+              className="button-secondary"
+            >
+              Add bill
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePanel((current) => (current === 'expense' ? null : 'expense'))}
+              className="button-secondary"
+            >
+              Add expense
+            </button>
+          </div>
 
-                  <div className="w-full sm:w-64">
-                    <Field label="Sort items">
-                      <select
-                        value={sortMode}
-                        onChange={(event) => setSortMode(event.target.value as SortMode)}
-                      >
-                        {sortOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+          <div className="mx-auto grid w-full max-w-4xl gap-4">
+            {activePanel === 'income' ? (
+              <CompactFormCard title="Income" description="Current pay period and a compact editor for the active period." accent="green">
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                  <p className="text-sm font-medium text-emerald-200">Current income</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
+                    {formatCurrency(payPeriod?.income ?? 0)}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    <Badge>{payPeriod?.cadence ?? 'Biweekly'}</Badge>
+                    <Badge muted>{payPeriod?.startDate ?? 'Start date not set'}</Badge>
+                    <Badge muted>{payPeriod?.endDate ?? 'End date not set'}</Badge>
                   </div>
                 </div>
 
-                <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-3 text-sm text-slate-400 sm:flex sm:items-center sm:justify-between">
-                  <span>Category total reflects all bills and expenses in that group.</span>
-                  <div className="grid gap-3 sm:grid-cols-2 sm:items-center">
-                    <Field label="Category order">
+                <form className="mt-4 grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-4" onSubmit={handleSavePayPeriod}>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Cadence">
                       <select
-                        value={categoryOrderMode}
-                        onChange={(event) => setCategoryOrderMode(event.target.value as CategoryOrderMode)}
+                        value={payPeriodDraft.cadence}
+                        onChange={(event) =>
+                          setPayPeriodDraft((current) => ({
+                            ...current,
+                            cadence: event.target.value as PayCadence,
+                          }))
+                        }
                       >
-                        {categoryOrderOptions.map((option) => (
+                        {cadenceOptions.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
                         ))}
                       </select>
                     </Field>
-                    <button type="button" onClick={handleReset} className="button-secondary self-end sm:self-auto">
-                      Reset data
+                    <Field label="Income">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={payPeriodDraft.income}
+                        onChange={(event) =>
+                          setPayPeriodDraft((current) => ({
+                            ...current,
+                            income: event.target.value,
+                          }))
+                        }
+                        placeholder="3200"
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Start date">
+                      <input
+                        type="date"
+                        value={payPeriodDraft.startDate}
+                        onChange={(event) =>
+                          setPayPeriodDraft((current) => ({
+                            ...current,
+                            startDate: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label="End date">
+                      <input
+                        type="date"
+                        value={payPeriodDraft.endDate}
+                        onChange={(event) =>
+                          setPayPeriodDraft((current) => ({
+                            ...current,
+                            endDate: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                  </div>
+
+                  {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
+
+                  <div className="flex justify-end">
+                    <button type="submit" className="button-primary">
+                      Save pay period
                     </button>
                   </div>
+                </form>
+              </CompactFormCard>
+            ) : null}
+
+            {activePanel === 'bill' ? (
+              <CompactFormCard title="Add bill" description="Add a bill directly into a category.">
+                <form className="grid gap-3" onSubmit={handleAddBill}>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Name">
+                      <input
+                        value={billDraft.name}
+                        onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
+                        placeholder="Rent"
+                      />
+                    </Field>
+                    <Field label="Amount">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={billDraft.amount}
+                        onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))}
+                        placeholder="1200"
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Due date">
+                      <input
+                        type="date"
+                        value={billDraft.dueDate}
+                        onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))}
+                      />
+                    </Field>
+                    <Field label="Category">
+                      <select
+                        value={billDraft.category}
+                        onChange={(event) =>
+                          setBillDraft((current) => ({
+                            ...current,
+                            category: event.target.value as BudgetCategory,
+                          }))
+                        }
+                      >
+                        {DEFAULT_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+
+                  {billError ? <FormMessage>{billError}</FormMessage> : null}
+
+                  <div className="flex justify-end">
+                    <button type="submit" className="button-primary">
+                      Add bill
+                    </button>
+                  </div>
+                </form>
+              </CompactFormCard>
+            ) : null}
+
+            {activePanel === 'expense' ? (
+              <CompactFormCard title="Add expense" description="Log spending without leaving the page.">
+                <form className="grid gap-3" onSubmit={handleAddExpense}>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Name">
+                      <input
+                        value={expenseDraft.name}
+                        onChange={(event) =>
+                          setExpenseDraft((current) => ({ ...current, name: event.target.value }))
+                        }
+                        placeholder="Groceries"
+                      />
+                    </Field>
+                    <Field label="Amount">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={expenseDraft.amount}
+                        onChange={(event) =>
+                          setExpenseDraft((current) => ({ ...current, amount: event.target.value }))
+                        }
+                        placeholder="48.25"
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Date">
+                      <input
+                        type="date"
+                        value={expenseDraft.date}
+                        onChange={(event) =>
+                          setExpenseDraft((current) => ({ ...current, date: event.target.value }))
+                        }
+                      />
+                    </Field>
+                    <Field label="Category">
+                      <select
+                        value={expenseDraft.category}
+                        onChange={(event) =>
+                          setExpenseDraft((current) => ({
+                            ...current,
+                            category: event.target.value as BudgetCategory,
+                          }))
+                        }
+                      >
+                        {DEFAULT_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+
+                  {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
+
+                  <div className="flex justify-end">
+                    <button type="submit" className="button-primary">
+                      Add expense
+                    </button>
+                  </div>
+                </form>
+              </CompactFormCard>
+            ) : null}
+          </div>
+
+          <section className="mx-auto w-full max-w-5xl rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight text-white">Category budgets</h2>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+                    Grouped by budget category and sorted with the highest-cost categories first.
+                  </p>
                 </div>
 
-                <div className="grid gap-3">
-                  {categorySummaries.map((summary) => (
-                    <CategoryCard
-                      key={summary.category}
-                      summary={summary}
-                      rank={categoryRank.get(summary.category) ?? 0}
-                      expanded={expandedCategories.has(summary.category)}
-                      onToggle={() => toggleCategory(summary.category)}
-                      onMoveUp={() => moveCategory(summary.category, -1)}
-                      onMoveDown={() => moveCategory(summary.category, 1)}
-                      onDeleteBill={deleteBill}
-                      onDeleteExpense={deleteExpense}
-                      onToggleBillPaid={toggleBillPaid}
-                      formatCurrency={formatCurrency}
-                      canMoveUp={categoryOrder.indexOf(summary.category) > 0}
-                      canMoveDown={categoryOrder.indexOf(summary.category) < categoryOrder.length - 1}
-                    />
-                  ))}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Sort items">
+                    <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+                      {sortOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Category order">
+                    <select
+                      value={categoryOrderMode}
+                      onChange={(event) => setCategoryOrderMode(event.target.value as CategoryOrderMode)}
+                    >
+                      {categoryOrderOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
                 </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button type="button" onClick={handleReset} className="button-secondary">
+                  Reset data
+                </button>
+              </div>
+
+              <div className="grid gap-3">
+                {categorySummaries.map((summary) => (
+                  <CategoryCard
+                    key={summary.category}
+                    summary={summary}
+                    rank={categoryRank.get(summary.category) ?? 0}
+                    expanded={expandedCategories.has(summary.category)}
+                    onToggle={() => toggleCategory(summary.category)}
+                    onMoveUp={() => moveCategory(summary.category, -1)}
+                    onMoveDown={() => moveCategory(summary.category, 1)}
+                    onDeleteBill={deleteBill}
+                    onDeleteExpense={deleteExpense}
+                    onToggleBillPaid={toggleBillPaid}
+                    formatCurrency={formatCurrency}
+                    canMoveUp={categoryOrder.indexOf(summary.category) > 0}
+                    canMoveDown={categoryOrder.indexOf(summary.category) < categoryOrder.length - 1}
+                  />
+                ))}
               </div>
             </div>
           </section>
@@ -720,9 +815,7 @@ function App() {
 }
 
 function sortItems(items: BudgetItem[], sortMode: SortMode) {
-  const sorted = [...items]
-
-  return sorted.sort((a, b) => {
+  return [...items].sort((a, b) => {
     if (sortMode === 'amount-desc') {
       return b.amount - a.amount || a.name.localeCompare(b.name)
     }
@@ -739,127 +832,6 @@ function sortItems(items: BudgetItem[], sortMode: SortMode) {
 
     return a.name.localeCompare(b.name)
   })
-}
-
-function IncomeCard({
-  payPeriod,
-  draft,
-  showForm,
-  error,
-  onToggleForm,
-  onDraftChange,
-  onSubmit,
-  formatCurrency,
-}: {
-  payPeriod: BudgetPeriod | null
-  draft: PayPeriodDraft
-  showForm: boolean
-  error: string
-  onToggleForm: () => void
-  onDraftChange: Dispatch<SetStateAction<PayPeriodDraft>>
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
-  formatCurrency: (value: number) => string
-}) {
-  return (
-    <CompactFormCard
-      title="Income"
-      description="Current pay period and a compact editor for the active period."
-      accent="green"
-    >
-      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-        <p className="text-sm font-medium text-emerald-200">Current income</p>
-        <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
-          {formatCurrency(payPeriod?.income ?? 0)}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <Badge>{payPeriod?.cadence ?? 'Biweekly'}</Badge>
-          <Badge muted>{payPeriod?.startDate ?? 'Start date not set'}</Badge>
-          <Badge muted>{payPeriod?.endDate ?? 'End date not set'}</Badge>
-        </div>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-slate-400">Edit the active pay period here when needed.</p>
-        <button type="button" onClick={onToggleForm} className="button-secondary">
-          {showForm ? 'Close' : 'Edit'}
-        </button>
-      </div>
-
-      {showForm ? (
-        <form className="mt-4 grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-4" onSubmit={onSubmit}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Cadence">
-              <select
-                value={draft.cadence}
-                onChange={(event) =>
-                  onDraftChange((current) => ({
-                    ...current,
-                    cadence: event.target.value as PayCadence,
-                  }))
-                }
-              >
-                {cadenceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Income">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.income}
-                onChange={(event) =>
-                  onDraftChange((current) => ({
-                    ...current,
-                    income: event.target.value,
-                  }))
-                }
-                placeholder="3200"
-              />
-            </Field>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Start date">
-              <input
-                type="date"
-                value={draft.startDate}
-                onChange={(event) =>
-                  onDraftChange((current) => ({
-                    ...current,
-                    startDate: event.target.value,
-                  }))
-                }
-              />
-            </Field>
-            <Field label="End date">
-              <input
-                type="date"
-                value={draft.endDate}
-                onChange={(event) =>
-                  onDraftChange((current) => ({
-                    ...current,
-                    endDate: event.target.value,
-                  }))
-                }
-              />
-            </Field>
-          </div>
-
-          {error ? <FormMessage>{error}</FormMessage> : null}
-
-          <div className="flex justify-end">
-            <button type="submit" className="button-primary">
-              Save pay period
-            </button>
-          </div>
-        </form>
-      ) : null}
-    </CompactFormCard>
-  )
 }
 
 function CategoryCard({
@@ -897,51 +869,46 @@ function CategoryCard({
         : 'border-slate-800/80 bg-slate-950/70'
 
   return (
-    <article className={`rounded-[1.75rem] border p-4 shadow-lg shadow-slate-950/20 ${highlightClass}`}>
-      <div className="flex w-full flex-col gap-4 text-left sm:flex-row sm:items-start sm:justify-between">
+    <article className={`rounded-[1.5rem] border p-4 shadow-lg shadow-slate-950/20 ${highlightClass}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <button type="button" onClick={onToggle} className="flex-1 text-left">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-white">{summary.category}</h3>
             {rank <= 3 ? <Badge>{rank === 1 ? 'Highest cost' : `Top ${rank}`}</Badge> : null}
           </div>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-slate-400">
             {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
           </p>
         </button>
 
-        <div className="flex items-center gap-3 sm:flex-col sm:items-end">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onMoveUp}
-              disabled={!canMoveUp}
-              aria-label={`Move ${summary.category} up`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              onClick={onMoveDown}
-              disabled={!canMoveDown}
-              aria-label={`Move ${summary.category} down`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              ↓
-            </button>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            aria-label={`Move ${summary.category} up`}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            aria-label={`Move ${summary.category} down`}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ▼
+          </button>
+          <div className="text-right">
+            <p className="text-lg font-semibold text-white">{formatCurrency(summary.total)}</p>
             <button
               type="button"
               onClick={onToggle}
-              className="inline-flex min-h-9 items-center justify-center rounded-full border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-slate-300 transition hover:border-slate-700 hover:text-white sm:hidden"
+              className="text-xs uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-300"
             >
               {expanded ? 'Collapse' : 'Expand'}
             </button>
-          </div>
-          <div className="text-right">
-            <p className="text-lg font-semibold text-white">{formatCurrency(summary.total)}</p>
-            <span className="hidden text-xs uppercase tracking-[0.24em] text-slate-500 sm:inline">
-              {expanded ? 'Collapse' : 'Expand'}
-            </span>
           </div>
         </div>
       </div>
@@ -949,7 +916,7 @@ function CategoryCard({
       {expanded ? (
         <div className="mt-4 space-y-2 border-t border-slate-800/70 pt-4">
           {summary.items.length === 0 ? (
-            <EmptyState title="No items in this category" text="Add a bill or expense to see it grouped here." />
+            <EmptyState title="No items in this category" text="Add a bill or expense to see it grouped here." compact />
           ) : (
             summary.items.map((item) => (
               <div
@@ -1064,11 +1031,19 @@ function FormMessage({ children }: { children: string }) {
   )
 }
 
-function EmptyState({ title, text }: { title: string; text: string }) {
+function EmptyState({
+  title,
+  text,
+  compact = false,
+}: {
+  title: string
+  text: string
+  compact?: boolean
+}) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
+    <div className={`rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 ${compact ? 'p-3' : 'p-4'}`}>
       <p className="text-sm font-medium text-white">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-400">{text}</p>
+      <p className={`mt-1 text-sm leading-6 text-slate-400 ${compact ? 'max-w-md' : ''}`}>{text}</p>
     </div>
   )
 }

@@ -1,4 +1,22 @@
+export const DEFAULT_CATEGORIES = [
+  'Housing',
+  'Utilities',
+  'Subscriptions',
+  'Transportation',
+  'Food',
+  'Debt',
+  'Insurance',
+  'Personal',
+  'Other / Misc',
+] as const
+
+export type BudgetCategory = (typeof DEFAULT_CATEGORIES)[number]
+
 export type PayCadence = 'weekly' | 'biweekly' | 'monthly'
+
+export type SortMode = 'amount-desc' | 'amount-asc' | 'date' | 'name'
+
+export type CategoryOrderMode = 'total-desc' | 'custom'
 
 export type BudgetPeriod = {
   cadence: PayCadence
@@ -14,6 +32,7 @@ export type Bill = {
   dueDate: string
   isPaid: boolean
   paidDate: string | null
+  category: BudgetCategory
 }
 
 export type Expense = {
@@ -21,4 +40,5 @@ export type Expense = {
   name: string
   amount: number
   date: string
+  category: BudgetCategory
 }

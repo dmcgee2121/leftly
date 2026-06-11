@@ -34,6 +34,9 @@ export type Bill = {
   isPaid: boolean
   paidDate: string | null
   category: BudgetCategory
+  source?: 'manual' | 'recurring'
+  templateId?: string
+  generatedForPeriodId?: string
 }
 
 export type Expense = {
@@ -42,6 +45,10 @@ export type Expense = {
   amount: number
   date: string
   category: BudgetCategory
+  isPlanned?: boolean
+  source?: 'manual' | 'recurring'
+  templateId?: string
+  generatedForPeriodId?: string
 }
 
 export type RecurringItemTemplate = {

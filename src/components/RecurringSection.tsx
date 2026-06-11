@@ -137,7 +137,7 @@ export function RecurringSection({
       <Panel
         title={editingTemplateId ? 'Edit recurring template' : 'Add recurring template'}
         action="Saved locally"
-        helper="Recurring items are saved templates. Later, Leftly can use them to build each new pay period automatically."
+        helper="Recurring items are saved templates. Later, Leftly can use them to build each new pay period automatically. Use Start New Pay Period to pull these templates into your current budget."
       >
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <Field label="Name">

@@ -17,6 +17,7 @@ import {
   saveRecurringTemplates,
   saveSortMode,
 } from './lib/storage'
+import { generateRecurringItems, getRecurringPeriodKey } from './lib/recurring'
 import {
   DEFAULT_CATEGORIES,
   type Bill,
@@ -29,6 +30,7 @@ import {
   type SortMode,
 } from './types/budget'
 import { RecurringSection } from './components/RecurringSection'
+import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 
 type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
 type PayPeriodDraft = {
@@ -62,6 +64,10 @@ type BudgetItem = {
   date?: string
   isPaid?: boolean
   paidDate?: string | null
+  source?: 'manual' | 'recurring'
+  templateId?: string
+  generatedForPeriodId?: string
+  isPlanned?: boolean
 }
 
 type CategorySummary = {
@@ -189,6 +195,7 @@ function App() {
   const [billSuccess, setBillSuccess] = useState('')
   const [expenseSuccess, setExpenseSuccess] = useState('')
   const [billStatus, setBillStatus] = useState('')
+  const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
 
   useEffect(() => {
     saveActiveBudgetPeriod(payPeriod)
@@ -282,6 +289,9 @@ function App() {
         dueDate: bill.dueDate,
         isPaid: bill.isPaid,
         paidDate: bill.paidDate,
+        source: bill.source,
+        templateId: bill.templateId,
+        generatedForPeriodId: bill.generatedForPeriodId,
       })
     }
 
@@ -293,6 +303,10 @@ function App() {
         category: expense.category,
         kind: 'expense',
         date: expense.date,
+        source: expense.source,
+        templateId: expense.templateId,
+        generatedForPeriodId: expense.generatedForPeriodId,
+        isPlanned: expense.isPlanned,
       })
     }
 
@@ -425,6 +439,7 @@ function App() {
         isPaid: false,
         paidDate: null,
         category: billDraft.category,
+        source: 'manual',
       },
       ...current,
     ])
@@ -468,6 +483,7 @@ function App() {
         amount,
         date: expenseDraft.date,
         category: expenseDraft.category,
+        source: 'manual',
       },
       ...current,
     ])
@@ -514,6 +530,37 @@ function App() {
     setRecurringTemplates((current) => current.filter((template) => template.id !== id))
   }
 
+  function openStartNewPayPeriod() {
+    setActiveTab('income')
+    setIsStartNewPayPeriodOpen(true)
+  }
+
+  function handleStartNewPayPeriod(period: BudgetPeriod, options: { generateRecurring: boolean }) {
+    const periodKey = getRecurringPeriodKey(period)
+    const manualBills = bills.filter((bill) => bill.source !== 'recurring')
+    const nextExpenses: Expense[] = []
+
+    if (options.generateRecurring) {
+      const generated = generateRecurringItems({
+        templates: recurringTemplates,
+        period,
+        existingBills: manualBills.filter((bill) => bill.source !== 'recurring' || bill.generatedForPeriodId !== periodKey),
+        existingExpenses: nextExpenses,
+      })
+
+      setBills(generated.bills)
+      setExpenses(generated.expenses)
+      setRecurringTemplates(generated.templates)
+    } else {
+      setBills(manualBills)
+      setExpenses(nextExpenses)
+    }
+
+    setPayPeriod(period)
+    setIsStartNewPayPeriodOpen(false)
+    setActiveTab('overview')
+  }
+
   function loadDemoData() {
     const nextPayPeriod: BudgetPeriod = {
       cadence: 'biweekly',
@@ -530,6 +577,7 @@ function App() {
       isPaid: bill.isPaid,
       paidDate: bill.isPaid ? '2026-06-11' : null,
       category: bill.category,
+      source: 'manual',
     }))
 
     const nextExpenses: Expense[] = demoExpenseSeed.map((expense) => ({
@@ -538,6 +586,7 @@ function App() {
       amount: expense.amount,
       date: expense.date,
       category: expense.category,
+      source: 'manual',
     }))
 
     setPayPeriod(nextPayPeriod)
@@ -556,6 +605,7 @@ function App() {
     setPayPeriodError('')
     setBillError('')
     setExpenseError('')
+    setIsStartNewPayPeriodOpen(false)
   }
 
   function deleteBill(id: string) {
@@ -575,11 +625,13 @@ function App() {
     setPayPeriod(null)
     setBills([])
     setExpenses([])
+    setRecurringTemplates([])
     setSortMode('amount-desc')
     setCategoryOrderMode('total-desc')
     setCategoryOrder([...DEFAULT_CATEGORIES])
     setExpandedCategories(new Set(['Housing']))
     setActiveTab('overview')
+    setIsStartNewPayPeriodOpen(false)
     resetDrafts()
   }
 
@@ -699,6 +751,11 @@ function App() {
                             <Badge muted>{payPeriod.startDate}</Badge>
                             <Badge muted>{payPeriod.endDate}</Badge>
                           </div>
+                          <div className="mt-4">
+                            <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
+                              Start new pay period
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <EmptyState
@@ -752,7 +809,10 @@ function App() {
                               className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3 sm:items-center sm:px-4"
                             >
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-white">{bill.name}</p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate font-medium text-white">{bill.name}</p>
+                                  {bill.source === 'recurring' ? <Badge muted>Recurring</Badge> : null}
+                                </div>
                                 <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
                                   {bill.category} · due {bill.dueDate}
                                 </p>
@@ -776,7 +836,12 @@ function App() {
                               className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3 sm:items-center sm:px-4"
                             >
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-white">{expense.name}</p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate font-medium text-white">{expense.name}</p>
+                                  {expense.source === 'recurring' ? (
+                                    <Badge muted>{expense.isPlanned ? 'Planned' : 'Recurring'}</Badge>
+                                  ) : null}
+                                </div>
                                 <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
                                   {expense.category} · {expense.date}
                                 </p>
@@ -802,7 +867,21 @@ function App() {
 
           {activeTab === 'income' ? (
             <SectionShell title="Income" description="Edit the active pay period and keep the current period visible.">
-        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="mb-4 flex justify-end">
+                <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
+                  Start new pay period
+                </button>
+              </div>
+
+              <StartNewPayPeriodPanel
+                currentPayPeriod={payPeriod}
+                templates={recurringTemplates}
+                isOpen={isStartNewPayPeriodOpen}
+                onClose={() => setIsStartNewPayPeriodOpen(false)}
+                onSubmit={handleStartNewPayPeriod}
+              />
+
+              <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
                 <div className="rounded-[1.5rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-5">
                   <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-200/80">Current income</p>
                   {payPeriod ? (
@@ -889,14 +968,14 @@ function App() {
                   </div>
 
                   {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
-                  {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
+                {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
 
-                  <div className="flex items-stretch gap-3">
-                    <button type="submit" className="button-primary w-full sm:w-auto">
-                      Save pay period
-                    </button>
-                  </div>
-                </form>
+                <div className="flex items-stretch gap-3">
+                  <button type="submit" className="button-primary w-full sm:w-auto">
+                    Save pay period
+                  </button>
+                </div>
+              </form>
               </div>
             </SectionShell>
           ) : null}
@@ -1239,6 +1318,9 @@ function CategoryCard({
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-medium text-white">{item.name}</p>
+                    {item.source === 'recurring' ? (
+                      <Badge muted>{item.isPlanned ? 'Planned' : 'Recurring'}</Badge>
+                    ) : null}
                     <Badge muted>{item.kind}</Badge>
                     <Badge>{formatCurrency(item.amount)}</Badge>
                   </div>

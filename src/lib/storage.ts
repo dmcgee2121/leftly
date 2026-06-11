@@ -47,6 +47,9 @@ function normalizeBill(bill: Bill | Record<string, unknown>): Bill {
     isPaid: Boolean(bill.isPaid),
     paidDate: typeof bill.paidDate === 'string' ? bill.paidDate : null,
     category: normalizeCategory(bill.category),
+    source: bill.source === 'recurring' ? 'recurring' : 'manual',
+    templateId: typeof bill.templateId === 'string' ? bill.templateId : undefined,
+    generatedForPeriodId: typeof bill.generatedForPeriodId === 'string' ? bill.generatedForPeriodId : undefined,
   }
 }
 
@@ -57,6 +60,10 @@ function normalizeExpense(expense: Expense | Record<string, unknown>): Expense {
     amount: Number(expense.amount ?? 0),
     date: String(expense.date ?? ''),
     category: normalizeCategory(expense.category),
+    isPlanned: typeof expense.isPlanned === 'boolean' ? expense.isPlanned : undefined,
+    source: expense.source === 'recurring' ? 'recurring' : 'manual',
+    templateId: typeof expense.templateId === 'string' ? expense.templateId : undefined,
+    generatedForPeriodId: typeof expense.generatedForPeriodId === 'string' ? expense.generatedForPeriodId : undefined,
   }
 }
 

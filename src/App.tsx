@@ -26,8 +26,7 @@ import {
   type SortMode,
 } from './types/budget'
 
-type ActivePanel = 'income' | 'bill' | 'expense' | null
-
+type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories'
 type PayPeriodDraft = {
   cadence: PayCadence
   income: string
@@ -90,6 +89,14 @@ const categoryOrderOptions: Array<{ value: CategoryOrderMode; label: string }> =
   { value: 'custom', label: 'Custom order' },
 ]
 
+const tabLabels: Array<{ key: TabKey; label: string }> = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'income', label: 'Income' },
+  { key: 'bill', label: 'Add Bill' },
+  { key: 'expense', label: 'Add Expense' },
+  { key: 'categories', label: 'Categories' },
+]
+
 const initialPayPeriod = loadActiveBudgetPeriod()
 const initialBills = loadBills()
 const initialExpenses = loadExpenses()
@@ -107,13 +114,13 @@ function getDraftFromPeriod(period: BudgetPeriod | null): PayPeriodDraft {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [payPeriod, setPayPeriod] = useState<BudgetPeriod | null>(initialPayPeriod)
   const [bills, setBills] = useState<Bill[]>(initialBills)
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
-  const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [expandedCategories, setExpandedCategories] = useState<Set<BudgetCategory>>(() => {
     const seeded = new Set<BudgetCategory>()
     for (const category of DEFAULT_CATEGORIES) {
@@ -144,6 +151,8 @@ function App() {
   const [payPeriodError, setPayPeriodError] = useState('')
   const [billError, setBillError] = useState('')
   const [expenseError, setExpenseError] = useState('')
+  const [billSuccess, setBillSuccess] = useState('')
+  const [expenseSuccess, setExpenseSuccess] = useState('')
 
   useEffect(() => {
     saveActiveBudgetPeriod(payPeriod)
@@ -168,6 +177,24 @@ function App() {
   useEffect(() => {
     saveCategoryOrderMode(categoryOrderMode)
   }, [categoryOrderMode])
+
+  useEffect(() => {
+    if (!billSuccess) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setBillSuccess(''), 2500)
+    return () => window.clearTimeout(timer)
+  }, [billSuccess])
+
+  useEffect(() => {
+    if (!expenseSuccess) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setExpenseSuccess(''), 2500)
+    return () => window.clearTimeout(timer)
+  }, [expenseSuccess])
 
   const totals = useMemo(() => {
     const income = payPeriod?.income ?? 0
@@ -236,6 +263,15 @@ function App() {
     return [...summaries].sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
   }, [bills, categoryOrder, categoryOrderMode, expenses, sortMode])
 
+  const topCategories = useMemo(() => {
+    return [...categorySummaries]
+      .sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
+      .slice(0, 3)
+  }, [categorySummaries])
+
+  const recentBills = useMemo(() => bills.slice(0, 3), [bills])
+  const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
+
   const categoryRank = useMemo(() => {
     return new Map(
       [...categorySummaries]
@@ -265,6 +301,8 @@ function App() {
     setPayPeriodError('')
     setBillError('')
     setExpenseError('')
+    setBillSuccess('')
+    setExpenseSuccess('')
   }
 
   function handleSavePayPeriod(event: FormEvent<HTMLFormElement>) {
@@ -302,12 +340,12 @@ function App() {
 
     setPayPeriod(nextPeriod)
     setPayPeriodDraft(getDraftFromPeriod(nextPeriod))
-    setActivePanel(null)
   }
 
   function handleAddBill(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBillError('')
+    setBillSuccess('')
 
     const amount = Number(billDraft.amount)
 
@@ -345,11 +383,14 @@ function App() {
       dueDate: '',
       category: billDraft.category,
     })
+    setBillSuccess('Bill added.')
+    setActiveTab('bill')
   }
 
   function handleAddExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setExpenseError('')
+    setExpenseSuccess('')
 
     const amount = Number(expenseDraft.amount)
 
@@ -385,6 +426,8 @@ function App() {
       date: '',
       category: expenseDraft.category,
     })
+    setExpenseSuccess('Expense added.')
+    setActiveTab('expense')
   }
 
   function toggleBillPaid(id: string) {
@@ -425,7 +468,7 @@ function App() {
     setCategoryOrderMode('total-desc')
     setCategoryOrder([...DEFAULT_CATEGORIES])
     setExpandedCategories(new Set(['Housing']))
-    setActivePanel(null)
+    setActiveTab('overview')
     resetDrafts()
   }
 
@@ -461,6 +504,8 @@ function App() {
     })
   }
 
+  const hasAnyData = payPeriod || bills.length > 0 || expenses.length > 0
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050914] text-slate-100">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.08),_transparent_32%)]" />
@@ -482,69 +527,165 @@ function App() {
           </div>
         </header>
 
-        <section className="mt-5 grid gap-5">
-          <section className="rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <p className="text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Leftover</p>
-              <p className="text-6xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">
-                {formatCurrency(totals.leftover)}
-              </p>
-              <p className="max-w-2xl text-sm leading-6 text-slate-400">
-                Income minus paid bills, unpaid bills, and manual expenses.
-              </p>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <MetricCard label="Income" value={formatCurrency(totals.income)} />
-              <MetricCard label="Total planned bills" value={formatCurrency(totals.totalPlannedBills)} />
-              <MetricCard label="Paid bills" value={formatCurrency(totals.paidBills)} />
-              <MetricCard label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
-              <MetricCard label="Manual expenses" value={formatCurrency(totals.totalExpenses)} />
-              <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
-            </div>
-          </section>
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => setActivePanel((current) => (current === 'income' ? null : 'income'))}
-              className="button-secondary"
-            >
-              Edit income
-            </button>
-            <button
-              type="button"
-              onClick={() => setActivePanel((current) => (current === 'bill' ? null : 'bill'))}
-              className="button-secondary"
-            >
-              Add bill
-            </button>
-            <button
-              type="button"
-              onClick={() => setActivePanel((current) => (current === 'expense' ? null : 'expense'))}
-              className="button-secondary"
-            >
-              Add expense
-            </button>
+        <section className="mt-5 rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Leftover</p>
+            <p className="text-6xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">
+              {formatCurrency(totals.leftover)}
+            </p>
+            <p className="max-w-2xl text-sm leading-6 text-slate-400">
+              Income minus paid bills, unpaid bills, and manual expenses.
+            </p>
           </div>
 
-          <div className="mx-auto grid w-full max-w-4xl gap-4">
-            {activePanel === 'income' ? (
-              <CompactFormCard title="Income" description="Current pay period and a compact editor for the active period." accent="green">
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                  <p className="text-sm font-medium text-emerald-200">Current income</p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
-                    {formatCurrency(payPeriod?.income ?? 0)}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <MetricCard label="Income" value={formatCurrency(totals.income)} />
+            <MetricCard label="Total planned bills" value={formatCurrency(totals.totalPlannedBills)} />
+            <MetricCard label="Paid bills" value={formatCurrency(totals.paidBills)} />
+            <MetricCard label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
+            <MetricCard label="Manual expenses" value={formatCurrency(totals.totalExpenses)} />
+            <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
+          </div>
+        </section>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {tabLabels.map((tab) => (
+              <TabButton
+                key={tab.key}
+                label={tab.label}
+                active={activeTab === tab.key}
+                onClick={() => setActiveTab(tab.key)}
+              />
+            ))}
+          </div>
+
+          <button type="button" onClick={handleReset} className="button-secondary">
+            Reset data
+          </button>
+        </div>
+
+        <section className="mx-auto mt-5 w-full max-w-5xl">
+          {activeTab === 'overview' ? (
+            <SectionShell title="Overview" description="A snapshot of the current pay period and recent activity.">
+              {hasAnyData ? (
+                <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+                  <div className="grid gap-4">
+                    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
+                      <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">Current pay period</p>
+                      <p className="mt-3 text-2xl font-semibold text-white">{formatCurrency(payPeriod?.income ?? 0)}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                        <Badge>{payPeriod?.cadence ?? 'No cadence set'}</Badge>
+                        <Badge muted>{payPeriod?.startDate ?? 'Start date not set'}</Badge>
+                        <Badge muted>{payPeriod?.endDate ?? 'End date not set'}</Badge>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
+                      <p className="text-sm font-medium text-white">Top categories</p>
+                      <div className="mt-4 space-y-3">
+                        {topCategories.length > 0 ? (
+                          topCategories.map((summary, index) => (
+                            <div
+                              key={summary.category}
+                              className="flex items-center justify-between rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-3"
+                            >
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-white">{summary.category}</p>
+                                  {index === 0 ? <Badge>Highest cost</Badge> : null}
+                                </div>
+                                <p className="mt-1 text-xs text-slate-400">
+                                  {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
+                                </p>
+                              </div>
+                              <p className="font-semibold text-white">{formatCurrency(summary.total)}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <EmptyState title="No categories yet" text="Add bills and expenses to see your top categories here." compact />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4">
+                    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
+                      <p className="text-sm font-medium text-white">Recent bills</p>
+                      <div className="mt-4 space-y-3">
+                        {recentBills.length > 0 ? (
+                          recentBills.map((bill) => (
+                            <div
+                              key={bill.id}
+                              className="flex items-center justify-between rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-3"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-white">{bill.name}</p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                  {bill.category} · due {bill.dueDate}
+                                </p>
+                              </div>
+                              <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                            </div>
+                          ))
+                        ) : (
+                          <EmptyState title="No bills yet" text="Add a bill in the Add Bill tab to see it here." compact />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5">
+                      <p className="text-sm font-medium text-white">Recent expenses</p>
+                      <div className="mt-4 space-y-3">
+                        {recentExpenses.length > 0 ? (
+                          recentExpenses.map((expense) => (
+                            <div
+                              key={expense.id}
+                              className="flex items-center justify-between rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-3"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-white">{expense.name}</p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                  {expense.category} · {expense.date}
+                                </p>
+                              </div>
+                              <p className="font-semibold text-white">{formatCurrency(expense.amount)}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <EmptyState title="No expenses yet" text="Add an expense in the Add Expense tab to see it here." compact />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <EmptyState
+                  title="No budget data yet"
+                  text="Add income, bills, or expenses to turn the overview into a working budget snapshot."
+                />
+              )}
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'income' ? (
+            <SectionShell title="Income" description="Edit the active pay period and keep the current period visible.">
+              <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+                <div className="rounded-[1.5rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-5">
+                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-200/80">Current income</p>
+                  <p className="mt-3 text-4xl font-semibold tracking-tight text-white">{formatCurrency(payPeriod?.income ?? 0)}</p>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
                     <Badge>{payPeriod?.cadence ?? 'Biweekly'}</Badge>
                     <Badge muted>{payPeriod?.startDate ?? 'Start date not set'}</Badge>
                     <Badge muted>{payPeriod?.endDate ?? 'End date not set'}</Badge>
                   </div>
+                  <p className="mt-4 text-sm leading-6 text-slate-400">
+                    This pay period drives the leftover and safe-to-spend calculations.
+                  </p>
                 </div>
 
-                <form className="mt-4 grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-4" onSubmit={handleSavePayPeriod}>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleSavePayPeriod}>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Cadence">
                       <select
                         value={payPeriodDraft.cadence}
@@ -577,9 +718,6 @@ function App() {
                         placeholder="3200"
                       />
                     </Field>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Start date">
                       <input
                         type="date"
@@ -608,154 +746,152 @@ function App() {
 
                   {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
 
-                  <div className="flex justify-end">
+                  <div className="flex items-center justify-end gap-3">
                     <button type="submit" className="button-primary">
                       Save pay period
                     </button>
                   </div>
                 </form>
-              </CompactFormCard>
-            ) : null}
+              </div>
+            </SectionShell>
+          ) : null}
 
-            {activePanel === 'bill' ? (
-              <CompactFormCard title="Add bill" description="Add a bill directly into a category.">
-                <form className="grid gap-3" onSubmit={handleAddBill}>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Name">
-                      <input
-                        value={billDraft.name}
-                        onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
-                        placeholder="Rent"
-                      />
-                    </Field>
-                    <Field label="Amount">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={billDraft.amount}
-                        onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))}
-                        placeholder="1200"
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Due date">
-                      <input
-                        type="date"
-                        value={billDraft.dueDate}
-                        onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))}
-                      />
-                    </Field>
-                    <Field label="Category">
-                      <select
-                        value={billDraft.category}
-                        onChange={(event) =>
-                          setBillDraft((current) => ({
-                            ...current,
-                            category: event.target.value as BudgetCategory,
-                          }))
-                        }
-                      >
-                        {DEFAULT_CATEGORIES.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  </div>
-
-                  {billError ? <FormMessage>{billError}</FormMessage> : null}
-
-                  <div className="flex justify-end">
-                    <button type="submit" className="button-primary">
-                      Add bill
-                    </button>
-                  </div>
-                </form>
-              </CompactFormCard>
-            ) : null}
-
-            {activePanel === 'expense' ? (
-              <CompactFormCard title="Add expense" description="Log spending without leaving the page.">
-                <form className="grid gap-3" onSubmit={handleAddExpense}>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Name">
-                      <input
-                        value={expenseDraft.name}
-                        onChange={(event) =>
-                          setExpenseDraft((current) => ({ ...current, name: event.target.value }))
-                        }
-                        placeholder="Groceries"
-                      />
-                    </Field>
-                    <Field label="Amount">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={expenseDraft.amount}
-                        onChange={(event) =>
-                          setExpenseDraft((current) => ({ ...current, amount: event.target.value }))
-                        }
-                        placeholder="48.25"
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Date">
-                      <input
-                        type="date"
-                        value={expenseDraft.date}
-                        onChange={(event) =>
-                          setExpenseDraft((current) => ({ ...current, date: event.target.value }))
-                        }
-                      />
-                    </Field>
-                    <Field label="Category">
-                      <select
-                        value={expenseDraft.category}
-                        onChange={(event) =>
-                          setExpenseDraft((current) => ({
-                            ...current,
-                            category: event.target.value as BudgetCategory,
-                          }))
-                        }
-                      >
-                        {DEFAULT_CATEGORIES.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  </div>
-
-                  {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
-
-                  <div className="flex justify-end">
-                    <button type="submit" className="button-primary">
-                      Add expense
-                    </button>
-                  </div>
-                </form>
-              </CompactFormCard>
-            ) : null}
-          </div>
-
-          <section className="mx-auto w-full max-w-5xl rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-semibold tracking-tight text-white">Category budgets</h2>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                    Grouped by budget category and sorted with the highest-cost categories first.
-                  </p>
+          {activeTab === 'bill' ? (
+            <SectionShell title="Add Bill" description="Add a bill and keep working in the same tab.">
+              <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleAddBill}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Name">
+                    <input
+                      value={billDraft.name}
+                      onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
+                      placeholder="Rent"
+                    />
+                  </Field>
+                  <Field label="Amount">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={billDraft.amount}
+                      onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))}
+                      placeholder="1200"
+                    />
+                  </Field>
+                  <Field label="Due date">
+                    <input
+                      type="date"
+                      value={billDraft.dueDate}
+                      onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))}
+                    />
+                  </Field>
+                  <Field label="Category">
+                    <select
+                      value={billDraft.category}
+                      onChange={(event) =>
+                        setBillDraft((current) => ({
+                          ...current,
+                          category: event.target.value as BudgetCategory,
+                        }))
+                      }
+                    >
+                      {DEFAULT_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
                 </div>
 
+                {billError ? <FormMessage>{billError}</FormMessage> : null}
+                {billSuccess ? <SuccessMessage>{billSuccess}</SuccessMessage> : null}
+
+                <div className="flex items-center justify-end gap-3">
+                  <button type="submit" className="button-primary">
+                    Add bill
+                  </button>
+                </div>
+              </form>
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'expense' ? (
+            <SectionShell title="Add Expense" description="Add an expense and keep working in the same tab.">
+              <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-5" onSubmit={handleAddExpense}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Name">
+                    <input
+                      value={expenseDraft.name}
+                      onChange={(event) =>
+                        setExpenseDraft((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                      placeholder="Groceries"
+                    />
+                  </Field>
+                  <Field label="Amount">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={expenseDraft.amount}
+                      onChange={(event) =>
+                        setExpenseDraft((current) => ({
+                          ...current,
+                          amount: event.target.value,
+                        }))
+                      }
+                      placeholder="48.25"
+                    />
+                  </Field>
+                  <Field label="Date">
+                    <input
+                      type="date"
+                      value={expenseDraft.date}
+                      onChange={(event) =>
+                        setExpenseDraft((current) => ({
+                          ...current,
+                          date: event.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Category">
+                    <select
+                      value={expenseDraft.category}
+                      onChange={(event) =>
+                        setExpenseDraft((current) => ({
+                          ...current,
+                          category: event.target.value as BudgetCategory,
+                        }))
+                      }
+                    >
+                      {DEFAULT_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
+                {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
+                {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
+
+                <div className="flex items-center justify-end gap-3">
+                  <button type="submit" className="button-primary">
+                    Add expense
+                  </button>
+                </div>
+              </form>
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'categories' ? (
+            <SectionShell title="Categories" description="Group, sort, and reorder all categories from one place.">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Sort items">
                     <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
@@ -779,12 +915,11 @@ function App() {
                     </select>
                   </Field>
                 </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button type="button" onClick={handleReset} className="button-secondary">
-                  Reset data
-                </button>
+                <div className="flex justify-end">
+                  <button type="button" onClick={handleReset} className="button-secondary">
+                    Reset data
+                  </button>
+                </div>
               </div>
 
               <div className="grid gap-3">
@@ -806,8 +941,8 @@ function App() {
                   />
                 ))}
               </div>
-            </div>
-          </section>
+            </SectionShell>
+          ) : null}
         </section>
       </div>
     </main>
@@ -965,31 +1100,59 @@ function CategoryCard({
   )
 }
 
-function CompactFormCard({
+function SectionShell({
   title,
   description,
-  accent = 'default',
   children,
 }: {
   title: string
   description: string
-  accent?: 'default' | 'green'
   children: ReactNode
 }) {
   return (
-    <div
-      className={`rounded-[2rem] border p-5 shadow-2xl shadow-slate-950/30 sm:p-6 ${
-        accent === 'green'
-          ? 'border-emerald-500/15 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))]'
-          : 'border-slate-800/80 bg-slate-950/75'
+    <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
+      <div className="mb-5">
+        <h2 className="text-2xl font-semibold tracking-tight text-white">{title}</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function TabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex min-h-10 items-center justify-center rounded-full border px-4 py-2 text-sm font-medium transition ${
+        active
+          ? 'border-cyan-400/30 bg-cyan-400/15 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.15)]'
+          : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:bg-slate-900 hover:text-white'
       }`}
     >
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight text-white">{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
-      </div>
-      <div className="mt-5">{children}</div>
-    </div>
+      {label}
+    </button>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-slate-300">
+      <span>{label}</span>
+      <span className="[&_input]:min-h-11 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-800 [&_input]:bg-slate-950 [&_input]:px-3 [&_input]:text-sm [&_input]:text-white [&_input]:outline-none [&_input]:transition [&_input]:placeholder:text-slate-500 [&_input]:focus:border-cyan-400/50 [&_input]:focus:ring-4 [&_input]:focus:ring-cyan-400/10 [&_select]:min-h-11 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-800 [&_select]:bg-slate-950 [&_select]:px-3 [&_select]:text-sm [&_select]:text-white [&_select]:outline-none [&_select]:transition [&_select]:focus:border-cyan-400/50 [&_select]:focus:ring-4 [&_select]:focus:ring-cyan-400/10">
+        {children}
+      </span>
+    </label>
   )
 }
 
@@ -1012,20 +1175,17 @@ function MetricCard({
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="grid gap-2 text-sm font-medium text-slate-300">
-      <span>{label}</span>
-      <span className="[&_input]:min-h-11 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-800 [&_input]:bg-slate-950 [&_input]:px-3 [&_input]:text-sm [&_input]:text-white [&_input]:outline-none [&_input]:transition [&_input]:placeholder:text-slate-500 [&_input]:focus:border-cyan-400/50 [&_input]:focus:ring-4 [&_input]:focus:ring-cyan-400/10 [&_select]:min-h-11 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-800 [&_select]:bg-slate-950 [&_select]:px-3 [&_select]:text-sm [&_select]:text-white [&_select]:outline-none [&_select]:transition [&_select]:focus:border-cyan-400/50 [&_select]:focus:ring-4 [&_select]:focus:ring-cyan-400/10">
-        {children}
-      </span>
-    </label>
-  )
-}
-
 function FormMessage({ children }: { children: string }) {
   return (
     <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200" role="alert">
+      {children}
+    </p>
+  )
+}
+
+function SuccessMessage({ children }: { children: string }) {
+  return (
+    <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200" role="status">
       {children}
     </p>
   )

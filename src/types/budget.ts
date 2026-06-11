@@ -13,6 +13,7 @@ export const DEFAULT_CATEGORIES = [
 export type BudgetCategory = (typeof DEFAULT_CATEGORIES)[number]
 
 export type PayCadence = 'weekly' | 'biweekly' | 'monthly'
+export type RecurringFrequency = 'every-pay-period' | 'weekly' | 'biweekly' | 'monthly' | 'one-time'
 
 export type SortMode = 'amount-desc' | 'amount-asc' | 'date' | 'name'
 
@@ -41,4 +42,17 @@ export type Expense = {
   amount: number
   date: string
   category: BudgetCategory
+}
+
+export type RecurringItemTemplate = {
+  id: string
+  name: string
+  amount: number
+  category: BudgetCategory
+  kind: 'bill' | 'planned-expense'
+  frequency: RecurringFrequency
+  dueDay?: number
+  anchorDate?: string
+  isActive: boolean
+  createdAt: string
 }

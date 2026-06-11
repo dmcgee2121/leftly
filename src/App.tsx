@@ -8,11 +8,13 @@ import {
   loadCategoryOrderMode,
   loadExpenses,
   loadSortMode,
+  loadRecurringTemplates,
   saveActiveBudgetPeriod,
   saveBills,
   saveCategoryOrder,
   saveCategoryOrderMode,
   saveExpenses,
+  saveRecurringTemplates,
   saveSortMode,
 } from './lib/storage'
 import {
@@ -23,10 +25,12 @@ import {
   type CategoryOrderMode,
   type Expense,
   type PayCadence,
+  type RecurringItemTemplate,
   type SortMode,
 } from './types/budget'
+import { RecurringSection } from './components/RecurringSection'
 
-type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories'
+type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
 type PayPeriodDraft = {
   cadence: PayCadence
   income: string
@@ -122,11 +126,13 @@ const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'bill', label: 'Add Bill' },
   { key: 'expense', label: 'Add Expense' },
   { key: 'categories', label: 'Categories' },
+  { key: 'recurring', label: 'Recurring' },
 ]
 
 const initialPayPeriod = loadActiveBudgetPeriod()
 const initialBills = loadBills()
 const initialExpenses = loadExpenses()
+const initialRecurringTemplates = loadRecurringTemplates()
 const initialSortMode = loadSortMode()
 const initialCategoryOrder = loadCategoryOrder()
 const initialCategoryOrderMode = loadCategoryOrderMode()
@@ -145,6 +151,7 @@ function App() {
   const [payPeriod, setPayPeriod] = useState<BudgetPeriod | null>(initialPayPeriod)
   const [bills, setBills] = useState<Bill[]>(initialBills)
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
+  const [recurringTemplates, setRecurringTemplates] = useState<RecurringItemTemplate[]>(initialRecurringTemplates)
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
@@ -194,6 +201,10 @@ function App() {
   useEffect(() => {
     saveExpenses(expenses)
   }, [expenses])
+
+  useEffect(() => {
+    saveRecurringTemplates(recurringTemplates)
+  }, [recurringTemplates])
 
   useEffect(() => {
     saveSortMode(sortMode)
@@ -489,6 +500,18 @@ function App() {
       }),
     )
     setBillStatus(nextPaidState ? 'Bill marked paid.' : 'Bill marked unpaid.')
+  }
+
+  function addRecurringTemplate(template: RecurringItemTemplate) {
+    setRecurringTemplates((current) => [template, ...current])
+  }
+
+  function updateRecurringTemplate(template: RecurringItemTemplate) {
+    setRecurringTemplates((current) => current.map((item) => (item.id === template.id ? template : item)))
+  }
+
+  function deleteRecurringTemplate(id: string) {
+    setRecurringTemplates((current) => current.filter((template) => template.id !== id))
   }
 
   function loadDemoData() {
@@ -1085,6 +1108,17 @@ function App() {
                   />
                 ))}
               </div>
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'recurring' ? (
+            <SectionShell title="Recurring" description="Save recurring bill and planned expense templates for later use.">
+              <RecurringSection
+                templates={recurringTemplates}
+                onAddTemplate={addRecurringTemplate}
+                onUpdateTemplate={updateRecurringTemplate}
+                onDeleteTemplate={deleteRecurringTemplate}
+              />
             </SectionShell>
           ) : null}
         </section>

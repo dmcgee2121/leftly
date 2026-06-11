@@ -5,12 +5,14 @@ import type {
   BudgetCategory,
   CategoryOrderMode,
   Expense,
+  RecurringItemTemplate,
   SortMode,
 } from '../types/budget'
 
 const ACTIVE_BUDGET_KEY = 'leftly.activeBudgetPeriod'
 const BILLS_KEY = 'leftly.bills'
 const EXPENSES_KEY = 'leftly.expenses'
+const RECURRING_TEMPLATES_KEY = 'leftly.recurringTemplates'
 const SORT_MODE_KEY = 'leftly.sortMode'
 const CATEGORY_ORDER_KEY = 'leftly.categoryOrder'
 
@@ -92,6 +94,42 @@ export function saveExpenses(expenses: Expense[]) {
   writeJson(EXPENSES_KEY, expenses)
 }
 
+export function loadRecurringTemplates(): RecurringItemTemplate[] {
+  const value = readJson<unknown>(RECURRING_TEMPLATES_KEY, [])
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.map((template) => {
+    const item = template as Record<string, unknown>
+    return {
+      id: String(item.id ?? crypto.randomUUID()),
+      name: String(item.name ?? ''),
+      amount: Number(item.amount ?? 0),
+      category: DEFAULT_CATEGORIES.includes(item.category as BudgetCategory)
+        ? (item.category as BudgetCategory)
+        : 'Other / Misc',
+      kind: item.kind === 'planned-expense' ? 'planned-expense' : 'bill',
+      frequency:
+        item.frequency === 'every-pay-period' ||
+        item.frequency === 'weekly' ||
+        item.frequency === 'biweekly' ||
+        item.frequency === 'monthly' ||
+        item.frequency === 'one-time'
+          ? item.frequency
+          : 'every-pay-period',
+      dueDay: typeof item.dueDay === 'number' ? item.dueDay : undefined,
+      anchorDate: typeof item.anchorDate === 'string' ? item.anchorDate : undefined,
+      isActive: typeof item.isActive === 'boolean' ? item.isActive : true,
+      createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+    }
+  })
+}
+
+export function saveRecurringTemplates(templates: RecurringItemTemplate[]) {
+  writeJson(RECURRING_TEMPLATES_KEY, templates)
+}
+
 export function loadSortMode(): SortMode {
   const mode = readJson<SortMode | string>(SORT_MODE_KEY, DEFAULT_SORT_MODE)
   return mode === 'amount-desc' || mode === 'amount-asc' || mode === 'date' || mode === 'name'
@@ -137,6 +175,7 @@ export function clearAllAppData() {
     window.localStorage.removeItem(ACTIVE_BUDGET_KEY)
     window.localStorage.removeItem(BILLS_KEY)
     window.localStorage.removeItem(EXPENSES_KEY)
+    window.localStorage.removeItem(RECURRING_TEMPLATES_KEY)
     window.localStorage.removeItem(SORT_MODE_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY + '.mode')

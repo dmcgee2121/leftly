@@ -13,6 +13,7 @@ export type RecurringPreviewItem = {
 
 export type RecurringPreviewGroups = {
   bills: RecurringPreviewItem[]
+  setAsides: RecurringPreviewItem[]
   plannedExpenses: RecurringPreviewItem[]
   total: number
 }
@@ -170,6 +171,7 @@ function createSetAsideExpense(template: RecurringItemTemplate, period: BudgetPe
 
 export function buildRecurringPreview({ templates, period }: { templates: RecurringItemTemplate[]; period: BudgetPeriod }): RecurringPreviewGroups {
   const bills: RecurringPreviewItem[] = []
+  const setAsides: RecurringPreviewItem[] = []
   const plannedExpenses: RecurringPreviewItem[] = []
 
   for (const template of templates) {
@@ -193,7 +195,7 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
     }
 
     if (template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0) {
-      plannedExpenses.push({
+      setAsides.push({
         templateId: template.id,
         kind: 'planned-expense',
         name: `${template.name} set-aside`,
@@ -208,8 +210,9 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
 
   return {
     bills,
+    setAsides,
     plannedExpenses,
-    total: bills.length + plannedExpenses.length,
+    total: bills.length + setAsides.length + plannedExpenses.length,
   }
 }
 

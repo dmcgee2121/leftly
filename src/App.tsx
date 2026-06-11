@@ -259,6 +259,7 @@ function App() {
     const paidBills = bills.filter((bill) => bill.isPaid).reduce((sum, bill) => sum + bill.amount, 0)
     const unpaidBills = totalPlannedBills - paidBills
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0)
+    const totalSetAside = expenses.filter((expense) => expense.setAsideForTemplateId).reduce((sum, expense) => sum + expense.amount, 0)
     const leftover = income - unpaidBills - paidBills - totalExpenses
     const safeToSpend = income - totalPlannedBills - totalExpenses
 
@@ -268,6 +269,7 @@ function App() {
       paidBills,
       unpaidBills,
       totalExpenses,
+      totalSetAside,
       leftover,
       safeToSpend,
     }
@@ -699,7 +701,7 @@ function App() {
               {formatCurrency(totals.leftover)}
             </p>
             <p className="max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
-              Income minus paid bills, unpaid bills, and manual expenses.
+              Income minus paid bills, unpaid bills, set-asides, and expenses.
             </p>
           </div>
 
@@ -709,6 +711,7 @@ function App() {
             <MetricCard label="Paid bills" value={formatCurrency(totals.paidBills)} />
             <MetricCard label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
             <MetricCard label="Manual expenses" value={formatCurrency(totals.totalExpenses)} />
+            {totals.totalSetAside > 0 ? <MetricCard label="Total set aside this period" value={formatCurrency(totals.totalSetAside)} /> : null}
             <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
           </div>
         </section>

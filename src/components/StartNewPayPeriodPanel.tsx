@@ -67,12 +67,12 @@ export function StartNewPayPeriodPanel({
 
   const preview = useMemo(() => {
     if (!draft.generateRecurring || !draft.startDate || !draft.endDate) {
-      return { bills: [], plannedExpenses: [], total: 0 }
+      return { bills: [], setAsides: [], plannedExpenses: [], total: 0 }
     }
 
     const income = Number(draft.income)
     if (!Number.isFinite(income) || income <= 0 || draft.endDate < draft.startDate) {
-      return { bills: [], plannedExpenses: [], total: 0 }
+      return { bills: [], setAsides: [], plannedExpenses: [], total: 0 }
     }
 
     return buildRecurringPreview({
@@ -87,8 +87,9 @@ export function StartNewPayPeriodPanel({
   }, [draft, templates])
 
   const recurringBillsAmount = preview.bills.reduce((sum, item) => sum + item.amount, 0)
+  const setAsidesAmount = preview.setAsides.reduce((sum, item) => sum + item.amount, 0)
   const plannedExpensesAmount = preview.plannedExpenses.reduce((sum, item) => sum + item.amount, 0)
-  const estimatedSafeToSpendImpact = recurringBillsAmount + plannedExpensesAmount
+  const estimatedSafeToSpendImpact = recurringBillsAmount + setAsidesAmount + plannedExpensesAmount
 
   function validateDraft() {
     const income = Number(draft.income)
@@ -237,6 +238,8 @@ export function StartNewPayPeriodPanel({
                 <SummaryStats
                   billsCount={preview.bills.length}
                   billsAmount={recurringBillsAmount}
+                  setAsidesCount={preview.setAsides.length}
+                  setAsidesAmount={setAsidesAmount}
                   plannedCount={preview.plannedExpenses.length}
                   plannedAmount={plannedExpensesAmount}
                   safeToSpendImpact={estimatedSafeToSpendImpact}
@@ -244,8 +247,21 @@ export function StartNewPayPeriodPanel({
 
                 {preview.total > 0 ? (
                   <>
-                    <PreviewGroup title="Bills" items={preview.bills} emptyLabel="No recurring bills fall inside this pay period." />
-                    <PreviewGroup title="Planned expenses" items={preview.plannedExpenses} emptyLabel="No recurring planned expenses fall inside this pay period." />
+                    <PreviewGroup
+                      title="Bills due this period"
+                      items={preview.bills}
+                      emptyLabel="No recurring bills fall inside this pay period."
+                    />
+                    <PreviewGroup
+                      title="Set-asides"
+                      items={preview.setAsides}
+                      emptyLabel="No set-asides are scheduled for this pay period."
+                    />
+                    <PreviewGroup
+                      title="Planned expenses"
+                      items={preview.plannedExpenses}
+                      emptyLabel="No recurring planned expenses fall inside this pay period."
+                    />
                   </>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
@@ -286,12 +302,16 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 function SummaryStats({
   billsCount,
   billsAmount,
+  setAsidesCount,
+  setAsidesAmount,
   plannedCount,
   plannedAmount,
   safeToSpendImpact,
 }: {
   billsCount: number
   billsAmount: number
+  setAsidesCount: number
+  setAsidesAmount: number
   plannedCount: number
   plannedAmount: number
   safeToSpendImpact: number
@@ -299,8 +319,9 @@ function SummaryStats({
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Stat label="Recurring bills" value={`${billsCount}`} detail={formatCurrency(billsAmount)} />
+      <Stat label="Set-asides" value={`${setAsidesCount}`} detail={formatCurrency(setAsidesAmount)} />
       <Stat label="Planned expenses" value={`${plannedCount}`} detail={formatCurrency(plannedAmount)} />
-      <Stat label="Total items" value={`${billsCount + plannedCount}`} detail="preview only" />
+      <Stat label="Total items" value={`${billsCount + setAsidesCount + plannedCount}`} detail="preview only" />
       <Stat label="Safe-to-spend impact" value={`-${formatCurrency(safeToSpendImpact)}`} detail="estimated" />
     </div>
   )

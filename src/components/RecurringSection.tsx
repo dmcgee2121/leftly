@@ -153,7 +153,7 @@ export function RecurringSection({
       <Panel
         title={editingTemplateId ? 'Edit recurring template' : 'Add recurring template'}
         action="Saved locally"
-        helper="Recurring items are saved templates. Later, Leftly can use them to build each new pay period automatically. Use Start New Pay Period to pull these templates into your current budget."
+        helper="Recurring items are saved templates. Later, Leftly can use them to build each new pay period automatically. Set-asides reserve money each pay period for a bill that may be due later. They lower your safe-to-spend amount but are not marked as a paid bill."
       >
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <Field label="Name">
@@ -239,7 +239,7 @@ export function RecurringSection({
           ) : null}
 
           {draft.kind === 'bill' ? (
-            <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/55 p-4">
+            <div className="grid gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
               <label className="flex items-start gap-3 text-sm text-slate-200">
                 <input
                   type="checkbox"
@@ -267,6 +267,10 @@ export function RecurringSection({
                   className={!draft.setAsideEnabled ? 'opacity-60' : undefined}
                 />
               </Field>
+
+              <p className="text-sm leading-6 text-slate-400">
+                Example: Rent is $1,200 monthly, set aside $600 from each biweekly check. This reserves cash now so the bill is easier to pay later.
+              </p>
             </div>
           ) : null}
 

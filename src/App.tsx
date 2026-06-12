@@ -35,6 +35,8 @@ import {
   type RecurringItemTemplate,
   type SortMode,
 } from './types/budget'
+import type { EditTarget } from './components/EditItemPanel'
+import { EditItemPanel } from './components/EditItemPanel'
 import { RecurringSection } from './components/RecurringSection'
 import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
@@ -447,6 +449,7 @@ function App() {
   const [recurringTemplates, setRecurringTemplates] = useState<RecurringItemTemplate[]>(initialRecurringTemplates)
   const [payPeriodHistory, setPayPeriodHistory] = useState<PayPeriodSnapshot[]>(initialPayPeriodHistory)
   const [historyStartSnapshot, setHistoryStartSnapshot] = useState<PayPeriodSnapshot | null>(null)
+  const [editingItem, setEditingItem] = useState<EditTarget | null>(null)
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
@@ -741,6 +744,7 @@ function App() {
         paidDate: null,
         category: billDraft.category,
         source: 'manual',
+        createdAt: new Date().toISOString(),
       },
       ...current,
     ])
@@ -785,6 +789,7 @@ function App() {
         date: expenseDraft.date,
         category: expenseDraft.category,
         source: 'manual',
+        createdAt: new Date().toISOString(),
       },
       ...current,
     ])
@@ -880,6 +885,7 @@ function App() {
     setPayPeriod(period)
     setIsStartNewPayPeriodOpen(false)
     setSelectedHistoryId(null)
+    setEditingItem(null)
     setActiveTab('overview')
   }
 
@@ -900,6 +906,7 @@ function App() {
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setIsStartNewPayPeriodOpen(false)
+    setEditingItem(null)
     setActiveTab('overview')
   }
 
@@ -920,6 +927,7 @@ function App() {
       paidDate: bill.isPaid ? '2026-06-11' : null,
       category: bill.category,
       source: 'manual',
+      createdAt: new Date().toISOString(),
     }))
 
     const nextExpenses: Expense[] = demoExpenseSeed.map((expense) => ({
@@ -929,6 +937,7 @@ function App() {
       date: expense.date,
       category: expense.category,
       source: 'manual',
+      createdAt: new Date().toISOString(),
     }))
 
     setPayPeriod(nextPayPeriod)
@@ -950,6 +959,7 @@ function App() {
     setIsStartNewPayPeriodOpen(false)
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
+    setEditingItem(null)
   }
 
   function deleteBill(id: string) {
@@ -958,6 +968,22 @@ function App() {
 
   function deleteExpense(id: string) {
     setExpenses((current) => current.filter((expense) => expense.id !== id))
+  }
+
+  function startEditBill(bill: Bill) {
+    setEditingItem({ kind: 'bill', item: bill })
+  }
+
+  function startEditExpense(expense: Expense) {
+    setEditingItem({ kind: 'expense', item: expense })
+  }
+
+  function saveEditedBill(updatedBill: Bill) {
+    setBills((current) => current.map((bill) => (bill.id === updatedBill.id ? updatedBill : bill)))
+  }
+
+  function saveEditedExpense(updatedExpense: Expense) {
+    setExpenses((current) => current.map((expense) => (expense.id === updatedExpense.id ? updatedExpense : expense)))
   }
 
   function deleteHistorySnapshot(id: string) {
@@ -991,6 +1017,7 @@ function App() {
     setIsStartNewPayPeriodOpen(false)
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
+    setEditingItem(null)
     resetDrafts()
   }
 
@@ -1177,7 +1204,12 @@ function App() {
                                   {bill.category} · due {bill.dueDate}
                                 </p>
                               </div>
-                              <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                                <button type="button" onClick={() => startEditBill(bill)} className="button-secondary">
+                                  Edit
+                                </button>
+                              </div>
                             </div>
                           ))
                         ) : (
@@ -1208,7 +1240,12 @@ function App() {
                                   {expense.category} · {expense.date}
                                 </p>
                               </div>
-                              <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(expense.amount)}</p>
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(expense.amount)}</p>
+                                <button type="button" onClick={() => startEditExpense(expense)} className="button-secondary">
+                                  Edit
+                                </button>
+                              </div>
                             </div>
                           ))
                         ) : (
@@ -1543,6 +1580,8 @@ function App() {
                     onDeleteBill={deleteBill}
                     onDeleteExpense={deleteExpense}
                     onToggleBillPaid={toggleBillPaid}
+                    onEditBill={startEditBill}
+                    onEditExpense={startEditExpense}
                     formatCurrency={formatCurrency}
                     canMoveUp={categoryOrder.indexOf(summary.category) > 0}
                     canMoveDown={categoryOrder.indexOf(summary.category) < categoryOrder.length - 1}
@@ -1586,6 +1625,14 @@ function App() {
               />
             </SectionShell>
           ) : null}
+
+          <EditItemPanel
+            target={editingItem}
+            isOpen={Boolean(editingItem)}
+            onClose={() => setEditingItem(null)}
+            onSaveBill={saveEditedBill}
+            onSaveExpense={saveEditedExpense}
+          />
         </section>
       </div>
     </main>
@@ -1622,6 +1669,8 @@ function CategoryCard({
   onDeleteBill,
   onDeleteExpense,
   onToggleBillPaid,
+  onEditBill,
+  onEditExpense,
   formatCurrency,
   canMoveUp,
   canMoveDown,
@@ -1635,6 +1684,8 @@ function CategoryCard({
   onDeleteBill: (id: string) => void
   onDeleteExpense: (id: string) => void
   onToggleBillPaid: (id: string) => void
+  onEditBill: (bill: Bill) => void
+  onEditExpense: (expense: Expense) => void
   formatCurrency: (value: number) => string
   canMoveUp: boolean
   canMoveDown: boolean
@@ -1730,6 +1781,14 @@ function CategoryCard({
                       Paid
                     </label>
                   ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => (item.kind === 'bill' ? onEditBill(item as Bill) : onEditExpense(item as Expense))}
+                    className="button-secondary"
+                  >
+                    Edit
+                  </button>
 
                   <button
                     type="button"

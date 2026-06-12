@@ -52,6 +52,7 @@ function normalizeBill(bill: Bill | Record<string, unknown>): Bill {
     source: bill.source === 'recurring' ? 'recurring' : 'manual',
     templateId: typeof bill.templateId === 'string' ? bill.templateId : undefined,
     generatedForPeriodId: typeof bill.generatedForPeriodId === 'string' ? bill.generatedForPeriodId : undefined,
+    createdAt: typeof bill.createdAt === 'string' ? bill.createdAt : undefined,
   }
 }
 
@@ -67,6 +68,7 @@ function normalizeExpense(expense: Expense | Record<string, unknown>): Expense {
     templateId: typeof expense.templateId === 'string' ? expense.templateId : undefined,
     generatedForPeriodId: typeof expense.generatedForPeriodId === 'string' ? expense.generatedForPeriodId : undefined,
     setAsideForTemplateId: typeof expense.setAsideForTemplateId === 'string' ? expense.setAsideForTemplateId : undefined,
+    createdAt: typeof expense.createdAt === 'string' ? expense.createdAt : undefined,
   }
 }
 

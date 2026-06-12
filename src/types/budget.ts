@@ -47,6 +47,7 @@ export type Bill = {
   source?: 'manual' | 'recurring'
   templateId?: string
   generatedForPeriodId?: string
+  createdAt?: string
 }
 
 export type Expense = {
@@ -60,6 +61,7 @@ export type Expense = {
   templateId?: string
   generatedForPeriodId?: string
   setAsideForTemplateId?: string
+  createdAt?: string
 }
 
 export type RecurringItemTemplate = {

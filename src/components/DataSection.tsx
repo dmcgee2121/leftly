@@ -10,12 +10,16 @@ const buttonStyles = {
 export function DataSection({
   onExport,
   onImportFile,
+  onExportCurrentPeriodCsv,
+  onExportAllHistoryCsv,
   statusMessage,
   errorMessage,
   isImporting,
 }: {
   onExport: () => void
   onImportFile: (file: File | null) => void
+  onExportCurrentPeriodCsv: () => void
+  onExportAllHistoryCsv: () => void
   statusMessage: string
   errorMessage: string
   isImporting: boolean
@@ -28,6 +32,9 @@ export function DataSection({
         <p className="text-sm font-semibold text-white">Privacy note</p>
         <p className="text-sm leading-6 text-slate-300">
           Leftly stores your data on this device. Export a backup if you want to save or move your data.
+        </p>
+        <p className="text-sm leading-6 text-slate-300">
+          JSON backups restore your Leftly data. CSV exports are for viewing your budget in a spreadsheet.
         </p>
       </div>
 
@@ -43,6 +50,21 @@ export function DataSection({
         >
           Import backup
         </button>
+      </div>
+
+      <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
+        <p className="text-sm font-semibold text-white">CSV exports</p>
+        <p className="text-sm leading-6 text-slate-400">
+          These files open cleanly in Google Sheets, Excel, and Apple Numbers.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button type="button" onClick={onExportCurrentPeriodCsv} className={`${buttonStyles.secondary} w-full`}>
+            Export current period CSV
+          </button>
+          <button type="button" onClick={onExportAllHistoryCsv} className={`${buttonStyles.secondary} w-full`}>
+            Export all history CSV
+          </button>
+        </div>
       </div>
 
       <input

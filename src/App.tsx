@@ -24,6 +24,7 @@ import {
   saveSortMode,
 } from './lib/storage'
 import { generateRecurringItems, getRecurringPeriodKey } from './lib/recurring'
+import { createAllHistoryCsv, createCurrentPeriodCsv, createHistorySnapshotCsv, downloadCsv } from './lib/export'
 import {
   DEFAULT_CATEGORIES,
   type Bill,
@@ -286,6 +287,7 @@ function HistorySection({
   selectedSnapshot,
   onSelectSnapshot,
   onUseAsStartingPoint,
+  onExportSnapshotCsv,
   onBackToList,
   onDeleteSnapshot,
   formatCurrency,
@@ -294,6 +296,7 @@ function HistorySection({
   selectedSnapshot: PayPeriodSnapshot | null
   onSelectSnapshot: (id: string) => void
   onUseAsStartingPoint: (snapshot: PayPeriodSnapshot) => void
+  onExportSnapshotCsv: (snapshot: PayPeriodSnapshot) => void
   onBackToList: () => void
   onDeleteSnapshot: (id: string) => void
   formatCurrency: (value: number) => string
@@ -324,6 +327,9 @@ function HistorySection({
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => onUseAsStartingPoint(selectedSnapshot)} className="button-primary">
               Use as starting point
+            </button>
+            <button type="button" onClick={() => onExportSnapshotCsv(selectedSnapshot)} className="button-secondary">
+              Export CSV
             </button>
             <button type="button" onClick={onBackToList} className="button-secondary">
               Back
@@ -722,6 +728,32 @@ function App() {
 
   function getBackupFilename() {
     return `leftly-backup-${new Date().toISOString().slice(0, 10)}.json`
+  }
+
+  function getCsvDateSuffix(value?: string) {
+    return (value ?? new Date().toISOString().slice(0, 10)).slice(0, 10)
+  }
+
+  function exportCurrentPeriodCsv() {
+    const csv = createCurrentPeriodCsv({
+      payPeriod,
+      bills,
+      expenses,
+      categoryTotals: categorySummaries.map((summary) => ({ category: summary.category, total: summary.total })),
+      totals,
+    })
+
+    downloadCsv(`leftly-current-period-${getCsvDateSuffix(payPeriod?.startDate)}.csv`, csv)
+  }
+
+  function exportHistorySnapshotCsv(snapshot: PayPeriodSnapshot) {
+    const csv = createHistorySnapshotCsv(snapshot)
+    downloadCsv(`leftly-period-${getCsvDateSuffix(snapshot.startDate)}.csv`, csv)
+  }
+
+  function exportAllHistoryCsv() {
+    const csv = createAllHistoryCsv(payPeriodHistory)
+    downloadCsv(`leftly-history-${getCsvDateSuffix()}.csv`, csv)
   }
 
   function exportBackup() {
@@ -1789,6 +1821,7 @@ function App() {
                 selectedSnapshot={selectedHistorySnapshot}
                 onSelectSnapshot={setSelectedHistoryId}
                 onUseAsStartingPoint={setHistoryStartSnapshot}
+                onExportSnapshotCsv={exportHistorySnapshotCsv}
                 onBackToList={() => setSelectedHistoryId(null)}
                 onDeleteSnapshot={deleteHistorySnapshot}
                 formatCurrency={formatCurrency}
@@ -1801,6 +1834,8 @@ function App() {
               <DataSection
                 onExport={exportBackup}
                 onImportFile={importBackupFile}
+                onExportCurrentPeriodCsv={exportCurrentPeriodCsv}
+                onExportAllHistoryCsv={exportAllHistoryCsv}
                 statusMessage={dataMessage}
                 errorMessage={dataError}
                 isImporting={isImportingBackup}

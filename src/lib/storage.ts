@@ -21,6 +21,20 @@ const CATEGORY_ORDER_KEY = 'leftly.categoryOrder'
 const DEFAULT_SORT_MODE: SortMode = 'amount-desc'
 const DEFAULT_CATEGORY_ORDER: CategoryOrderMode = 'total-desc'
 
+export type LeftlyBackup = {
+  version: 1
+  app: 'leftly'
+  exportedAt: string
+  activeBudgetPeriod: BudgetPeriod | null
+  bills: Bill[]
+  expenses: Expense[]
+  recurringTemplates: RecurringItemTemplate[]
+  payPeriodHistory: PayPeriodSnapshot[]
+  categoryOrder: BudgetCategory[]
+  categoryOrderMode: CategoryOrderMode
+  sortMode: SortMode
+}
+
 function readJson<T>(key: string, fallback: T): T {
   try {
     const value = window.localStorage.getItem(key)
@@ -116,6 +130,56 @@ function writeJson(key: string, value: unknown) {
   } catch {
     // Ignore storage failures so the app keeps running.
   }
+}
+
+function isBudgetPeriod(value: unknown): value is BudgetPeriod {
+  const period = value as Record<string, unknown> | null
+  return !!period && typeof period.cadence === 'string' && typeof period.startDate === 'string' && typeof period.endDate === 'string' && typeof period.income === 'number'
+}
+
+function isLeftlyBackup(value: unknown): value is LeftlyBackup {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const backup = value as Record<string, unknown>
+  return (
+    backup.version === 1 &&
+    backup.app === 'leftly' &&
+    typeof backup.exportedAt === 'string' &&
+    (backup.activeBudgetPeriod === null || isBudgetPeriod(backup.activeBudgetPeriod)) &&
+    Array.isArray(backup.bills) &&
+    Array.isArray(backup.expenses) &&
+    Array.isArray(backup.recurringTemplates) &&
+    Array.isArray(backup.payPeriodHistory) &&
+    Array.isArray(backup.categoryOrder) &&
+    (backup.categoryOrderMode === 'total-desc' || backup.categoryOrderMode === 'custom') &&
+    (backup.sortMode === 'amount-desc' || backup.sortMode === 'amount-asc' || backup.sortMode === 'date' || backup.sortMode === 'name')
+  )
+}
+
+export function parseLeftlyBackupJson(text: string): { ok: true; backup: LeftlyBackup } | { ok: false; error: string } {
+  try {
+    const parsed = JSON.parse(text) as unknown
+    if (!isLeftlyBackup(parsed)) {
+      return { ok: false, error: 'That file does not look like a Leftly backup.' }
+    }
+
+    return { ok: true, backup: parsed }
+  } catch {
+    return { ok: false, error: 'That file is not valid JSON.' }
+  }
+}
+
+export function saveLeftlyBackup(backup: LeftlyBackup) {
+  saveActiveBudgetPeriod(backup.activeBudgetPeriod)
+  saveBills(backup.bills)
+  saveExpenses(backup.expenses)
+  saveRecurringTemplates(backup.recurringTemplates)
+  savePayPeriodHistory(backup.payPeriodHistory)
+  saveCategoryOrder(backup.categoryOrder)
+  saveCategoryOrderMode(backup.categoryOrderMode)
+  saveSortMode(backup.sortMode)
 }
 
 export function loadActiveBudgetPeriod(): BudgetPeriod | null {

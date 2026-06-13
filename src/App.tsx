@@ -4,6 +4,7 @@ import {
   clearAllAppData,
   addPayPeriodSnapshot,
   deletePayPeriodSnapshot,
+  parseLeftlyBackupJson,
   loadActiveBudgetPeriod,
   loadBills,
   loadCategoryOrder,
@@ -18,6 +19,7 @@ import {
   saveCategoryOrderMode,
   saveExpenses,
   savePayPeriodHistory,
+  saveLeftlyBackup,
   saveRecurringTemplates,
   saveSortMode,
 } from './lib/storage'
@@ -37,12 +39,14 @@ import {
 } from './types/budget'
 import type { EditTarget } from './components/EditItemPanel'
 import { EditItemPanel } from './components/EditItemPanel'
+import { DataSection } from './components/DataSection'
 import { RecurringSection } from './components/RecurringSection'
 import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 
 type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
   | 'history'
+  | 'data'
 type PayPeriodDraft = {
   cadence: PayCadence
   income: string
@@ -145,6 +149,7 @@ const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'categories', label: 'Categories' },
   { key: 'recurring', label: 'Recurring' },
   { key: 'history', label: 'History' },
+  { key: 'data', label: 'Data' },
 ]
 
 const initialPayPeriod = loadActiveBudgetPeriod()
@@ -226,6 +231,49 @@ function createPayPeriodSnapshot(period: BudgetPeriod, bills: Bill[], expenses: 
     createdAt: archivedAt,
     archivedAt,
   }
+}
+
+function getExpandedCategoriesFromItems(bills: Bill[], expenses: Expense[]) {
+  const seeded = new Set<BudgetCategory>()
+  for (const category of DEFAULT_CATEGORIES) {
+    if (bills.some((bill) => bill.category === category) || expenses.some((expense) => expense.category === category)) {
+      seeded.add(category)
+    }
+  }
+
+  if (seeded.size === 0) {
+    seeded.add('Housing')
+  }
+
+  return seeded
+}
+
+function buildLeftlyBackup(params: {
+  activeBudgetPeriod: BudgetPeriod | null
+  bills: Bill[]
+  expenses: Expense[]
+  recurringTemplates: RecurringItemTemplate[]
+  payPeriodHistory: PayPeriodSnapshot[]
+  categoryOrder: BudgetCategory[]
+  categoryOrderMode: CategoryOrderMode
+  sortMode: SortMode
+}): string {
+  const exportedAt = new Date().toISOString()
+  const backup = {
+    version: 1 as const,
+    app: 'leftly' as const,
+    exportedAt,
+    activeBudgetPeriod: params.activeBudgetPeriod,
+    bills: params.bills,
+    expenses: params.expenses,
+    recurringTemplates: params.recurringTemplates,
+    payPeriodHistory: params.payPeriodHistory,
+    categoryOrder: params.categoryOrder,
+    categoryOrderMode: params.categoryOrderMode,
+    sortMode: params.sortMode,
+  }
+
+  return JSON.stringify(backup, null, 2)
 }
 
 function formatArchivedDate(value: string) {
@@ -487,6 +535,9 @@ function App() {
   const [billSuccess, setBillSuccess] = useState('')
   const [expenseSuccess, setExpenseSuccess] = useState('')
   const [billStatus, setBillStatus] = useState('')
+  const [dataMessage, setDataMessage] = useState('')
+  const [dataError, setDataError] = useState('')
+  const [isImportingBackup, setIsImportingBackup] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
 
@@ -548,6 +599,24 @@ function App() {
     const timer = window.setTimeout(() => setExpenseSuccess(''), 2500)
     return () => window.clearTimeout(timer)
   }, [expenseSuccess])
+
+  useEffect(() => {
+    if (!dataMessage) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setDataMessage(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [dataMessage])
+
+  useEffect(() => {
+    if (!dataError) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setDataError(''), 5000)
+    return () => window.clearTimeout(timer)
+  }, [dataError])
 
   const totals = useMemo(() => {
     const income = payPeriod?.income ?? 0
@@ -649,6 +718,103 @@ function App() {
 
   function formatCurrency(value: number) {
     return currencyFormatter.format(value)
+  }
+
+  function getBackupFilename() {
+    return `leftly-backup-${new Date().toISOString().slice(0, 10)}.json`
+  }
+
+  function exportBackup() {
+    setDataError('')
+    setDataMessage('')
+
+    const json = buildLeftlyBackup({
+      activeBudgetPeriod: payPeriod,
+      bills,
+      expenses,
+      recurringTemplates,
+      payPeriodHistory,
+      categoryOrder,
+      categoryOrderMode,
+      sortMode,
+    })
+
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = window.URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = getBackupFilename()
+    anchor.click()
+    window.URL.revokeObjectURL(url)
+    setDataMessage(`Backup exported as ${anchor.download}.`)
+  }
+
+  async function importBackupFile(file: File | null) {
+    setDataError('')
+    setDataMessage('')
+    setIsImportingBackup(true)
+
+    try {
+      if (!file) {
+        setDataError('Please choose a backup file.')
+        return
+      }
+
+      let text = ''
+      try {
+        text = await file.text()
+      } catch {
+        setDataError('We could not read that file.')
+        return
+      }
+
+      const parsed = parseLeftlyBackupJson(text)
+      if (!parsed.ok) {
+        setDataError(parsed.error)
+        return
+      }
+
+      if (!window.confirm('Importing a backup will replace the current data on this device.')) {
+        return
+      }
+
+      saveLeftlyBackup(parsed.backup)
+
+      const nextPayPeriod = loadActiveBudgetPeriod()
+      const nextBills = loadBills()
+      const nextExpenses = loadExpenses()
+      const nextRecurringTemplates = loadRecurringTemplates()
+      const nextHistory = loadPayPeriodHistory()
+      const nextCategoryOrder = loadCategoryOrder()
+      const nextCategoryOrderMode = loadCategoryOrderMode()
+      const nextSortMode = loadSortMode()
+
+      setPayPeriod(nextPayPeriod)
+      setBills(nextBills)
+      setExpenses(nextExpenses)
+      setRecurringTemplates(nextRecurringTemplates)
+      setPayPeriodHistory(nextHistory)
+      setCategoryOrder(nextCategoryOrder)
+      setCategoryOrderMode(nextCategoryOrderMode)
+      setSortMode(nextSortMode)
+      setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses))
+      setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod))
+      setActiveTab('overview')
+      setIsStartNewPayPeriodOpen(false)
+      setHistoryStartSnapshot(null)
+      setSelectedHistoryId(null)
+      setEditingItem(null)
+      setPayPeriodError('')
+      setBillError('')
+      setExpenseError('')
+      setIncomeSuccess('')
+      setBillSuccess('')
+      setExpenseSuccess('')
+      setBillStatus('')
+      setDataMessage(`Backup imported from ${file.name}.`)
+    } finally {
+      setIsImportingBackup(false)
+    }
   }
 
   function resetDrafts() {
@@ -960,6 +1126,8 @@ function App() {
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setEditingItem(null)
+    setDataMessage('')
+    setDataError('')
   }
 
   function deleteBill(id: string) {
@@ -1018,6 +1186,8 @@ function App() {
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setEditingItem(null)
+    setDataMessage('')
+    setDataError('')
     resetDrafts()
   }
 
@@ -1622,6 +1792,18 @@ function App() {
                 onBackToList={() => setSelectedHistoryId(null)}
                 onDeleteSnapshot={deleteHistorySnapshot}
                 formatCurrency={formatCurrency}
+              />
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'data' ? (
+            <SectionShell title="Data" description="Back up or restore Leftly data stored on this device.">
+              <DataSection
+                onExport={exportBackup}
+                onImportFile={importBackupFile}
+                statusMessage={dataMessage}
+                errorMessage={dataError}
+                isImporting={isImportingBackup}
               />
             </SectionShell>
           ) : null}

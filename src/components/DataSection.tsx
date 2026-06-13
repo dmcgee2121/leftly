@@ -1,0 +1,82 @@
+import { useRef } from 'react'
+
+const buttonStyles = {
+  primary:
+    'inline-flex min-h-11 items-center justify-center rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px',
+  secondary:
+    'inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm font-semibold text-slate-100 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px',
+}
+
+export function DataSection({
+  onExport,
+  onImportFile,
+  statusMessage,
+  errorMessage,
+  isImporting,
+}: {
+  onExport: () => void
+  onImportFile: (file: File | null) => void
+  statusMessage: string
+  errorMessage: string
+  isImporting: boolean
+}) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  return (
+    <div className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5">
+      <div className="grid gap-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/5 p-4">
+        <p className="text-sm font-semibold text-white">Privacy note</p>
+        <p className="text-sm leading-6 text-slate-300">
+          Leftly stores your data on this device. Export a backup if you want to save or move your data.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button type="button" onClick={onExport} className={`${buttonStyles.primary} w-full`} disabled={isImporting}>
+          Export backup
+        </button>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className={`${buttonStyles.secondary} w-full`}
+          disabled={isImporting}
+        >
+          Import backup
+        </button>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(event) => {
+          onImportFile(event.target.files?.[0] ?? null)
+          event.currentTarget.value = ''
+        }}
+      />
+
+      <div className="grid gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/8 p-4">
+        <p className="text-sm font-semibold text-amber-100">Import warning</p>
+        <p className="text-sm leading-6 text-amber-50/80">
+          Importing a backup will replace the current data on this device.
+        </p>
+        <p className="text-sm leading-6 text-slate-300">
+          Make sure the file came from Leftly before importing it.
+        </p>
+      </div>
+
+      {errorMessage ? (
+        <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-3 text-sm font-medium text-rose-200" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+
+      {statusMessage ? (
+        <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-sm font-medium text-emerald-100" role="status">
+          {statusMessage}
+        </p>
+      ) : null}
+    </div>
+  )
+}

@@ -42,6 +42,7 @@ import type { EditTarget } from './components/EditItemPanel'
 import { EditItemPanel } from './components/EditItemPanel'
 import { DataSection } from './components/DataSection'
 import { RecurringSection } from './components/RecurringSection'
+import { SetupFlowPanel } from './components/SetupFlowPanel'
 import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 
@@ -516,18 +517,24 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function FirstRunPanel({ onGoToIncome, onLoadDemoData }: { onGoToIncome: () => void; onLoadDemoData: () => void }) {
+function FirstRunPanel({
+  onStartSetup,
+  onLoadDemoData,
+}: {
+  onStartSetup: () => void
+  onLoadDemoData: () => void
+}) {
   return (
     <div className="grid gap-4 rounded-[1.5rem] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 sm:p-5">
       <div className="grid gap-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Welcome to Leftly</p>
         <p className="text-sm leading-6 text-slate-300">
-          Start by adding income, adding bills, or loading demo data.
+          Set up your first pay period to see what’s left before you spend.
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={onGoToIncome} className="button-secondary w-full">
-          Go to Income
+        <button type="button" onClick={onStartSetup} className="button-primary w-full">
+          Start setup
         </button>
         <button type="button" onClick={onLoadDemoData} className="button-primary w-full">
           Load demo data
@@ -585,7 +592,9 @@ function App() {
   const [billStatus, setBillStatus] = useState('')
   const [dataMessage, setDataMessage] = useState('')
   const [dataError, setDataError] = useState('')
+  const [setupSuccess, setSetupSuccess] = useState('')
   const [isImportingBackup, setIsImportingBackup] = useState(false)
+  const [isSetupOpen, setIsSetupOpen] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
 
@@ -665,6 +674,15 @@ function App() {
     const timer = window.setTimeout(() => setDataError(''), 5000)
     return () => window.clearTimeout(timer)
   }, [dataError])
+
+  useEffect(() => {
+    if (!setupSuccess) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setSetupSuccess(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [setupSuccess])
 
   const totals = useMemo(() => {
     const income = payPeriod?.income ?? 0
@@ -768,6 +786,12 @@ function App() {
     return currencyFormatter.format(value)
   }
 
+  function openSetup() {
+    setActiveTab('overview')
+    setIsSetupOpen(true)
+    setSetupSuccess('')
+  }
+
   function getBackupFilename() {
     return `leftly-backup-${new Date().toISOString().slice(0, 10)}.json`
   }
@@ -796,6 +820,30 @@ function App() {
   function exportAllHistoryCsv() {
     const csv = createAllHistoryCsv(payPeriodHistory)
     downloadCsv(`leftly-history-${getCsvDateSuffix()}.csv`, csv)
+  }
+
+  function handleFinishSetup(result: { period: BudgetPeriod; recurringTemplate?: RecurringItemTemplate }) {
+    setPayPeriod(result.period)
+    setPayPeriodDraft(getDraftFromPeriod(result.period))
+    setBills([])
+    setExpenses([])
+    const recurringTemplate = result.recurringTemplate
+    if (recurringTemplate) {
+      setRecurringTemplates((current) => [recurringTemplate, ...current])
+    }
+    setExpandedCategories(getExpandedCategoriesFromItems([], []))
+    setActiveTab('overview')
+    setIsSetupOpen(false)
+    setSetupSuccess('Setup complete.')
+    setPayPeriodError('')
+    setBillError('')
+    setExpenseError('')
+    setIncomeSuccess('')
+    setBillSuccess('')
+    setExpenseSuccess('')
+    setBillStatus('')
+    setDataMessage('')
+    setDataError('')
   }
 
   function exportBackup() {
@@ -1522,6 +1570,7 @@ function App() {
     setEditingItem(null)
     setDataMessage('Demo data loaded.')
     setDataError('')
+    setIsSetupOpen(false)
   }
 
   function deleteBill(id: string) {
@@ -1576,12 +1625,14 @@ function App() {
     setCategoryOrder([...DEFAULT_CATEGORIES])
     setExpandedCategories(new Set(['Housing']))
     setActiveTab('overview')
+    setIsSetupOpen(false)
     setIsStartNewPayPeriodOpen(false)
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setEditingItem(null)
     setDataMessage('')
     setDataError('')
+    setSetupSuccess('')
     resetDrafts()
   }
 
@@ -1690,8 +1741,18 @@ function App() {
         <section className="mx-auto mt-5 w-full max-w-5xl">
           {activeTab === 'overview' ? (
             <SectionShell title="Overview" description="A snapshot of the current pay period and recent activity.">
+              {setupSuccess ? (
+                <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100">
+                  {setupSuccess}
+                </div>
+              ) : null}
+
               {isFirstRun ? (
-                <FirstRunPanel onGoToIncome={() => setActiveTab('income')} onLoadDemoData={loadDemoData} />
+                isSetupOpen ? (
+                  <SetupFlowPanel onClose={() => setIsSetupOpen(false)} onFinish={handleFinishSetup} />
+                ) : (
+                  <FirstRunPanel onStartSetup={openSetup} onLoadDemoData={loadDemoData} />
+                )
               ) : hasAnyData ? (
                 <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
                   <div className="grid gap-4">

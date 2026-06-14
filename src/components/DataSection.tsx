@@ -79,6 +79,13 @@ export function DataSection({
         </button>
       </div>
 
+      <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
+        <p className="text-sm font-semibold text-white">Add Leftly to your phone</p>
+        <p className="text-sm leading-6 text-slate-400">
+          On Android, open Leftly in Chrome, tap the three-dot menu, then choose Add to Home screen or Install app.
+        </p>
+      </div>
+
       <input
         ref={fileInputRef}
         type="file"

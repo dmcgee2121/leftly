@@ -167,10 +167,10 @@ const categoryOrderOptions: Array<{ value: CategoryOrderMode; label: string }> =
 const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'income', label: 'Income' },
-  { key: 'bill', label: 'Add Bill' },
-  { key: 'expense', label: 'Add Expense' },
+  { key: 'bill', label: 'One-time Bill' },
+  { key: 'expense', label: 'Manual Expense' },
   { key: 'categories', label: 'Categories' },
-  { key: 'recurring', label: 'Recurring' },
+  { key: 'recurring', label: 'Bill Plan' },
   { key: 'history', label: 'History' },
   { key: 'data', label: 'Data' },
 ]
@@ -216,6 +216,30 @@ function formatHistoryPeriodLabel(startDate: string, endDate: string) {
   }
 
   return `${historyDateFormatter.format(start)} - ${historyDateFormatter.format(end)}`
+}
+
+function formatPlanSchedule(template: RecurringItemTemplate) {
+  if (template.frequency === 'monthly') {
+    return template.dueDay ? `Due day ${template.dueDay}` : 'Monthly'
+  }
+
+  if (template.frequency === 'one-time') {
+    return template.anchorDate ? `Anchor ${template.anchorDate}` : 'One-time'
+  }
+
+  if (template.frequency === 'every-pay-period') {
+    return 'Every pay period'
+  }
+
+  return template.anchorDate ? `Anchor ${template.anchorDate}` : template.frequency
+}
+
+function getUpcomingRecurringBills(templates: RecurringItemTemplate[], bills: Bill[]) {
+  const presentTemplateIds = new Set(
+    bills.filter((bill) => bill.source === 'recurring' && bill.templateId).map((bill) => bill.templateId as string),
+  )
+
+  return templates.filter((template) => template.isActive && template.kind === 'bill' && !presentTemplateIds.has(template.id))
 }
 
 function calculatePayPeriodTotals(period: BudgetPeriod, bills: Bill[], expenses: Expense[]): PayPeriodTotals {
@@ -767,6 +791,11 @@ function App() {
       .slice(0, 3)
   }, [categorySummaries])
 
+  const upcomingRecurringBills = useMemo(
+    () => getUpcomingRecurringBills(recurringTemplates, bills),
+    [bills, recurringTemplates],
+  )
+
   const recentBills = useMemo(() => bills.slice(0, 3), [bills])
   const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
   const selectedHistorySnapshot = useMemo(
@@ -823,18 +852,39 @@ function App() {
   }
 
   function handleFinishSetup(result: { period: BudgetPeriod; recurringTemplate?: RecurringItemTemplate }) {
+    const recurringTemplate = result.recurringTemplate
+    const templatesToGenerate = recurringTemplate ? [recurringTemplate, ...recurringTemplates] : recurringTemplates
+    const generated = generateRecurringItems({
+      templates: templatesToGenerate,
+      period: result.period,
+      existingBills: [],
+      existingExpenses: [],
+    })
+
     setPayPeriod(result.period)
     setPayPeriodDraft(getDraftFromPeriod(result.period))
-    setBills([])
-    setExpenses([])
-    const recurringTemplate = result.recurringTemplate
-    if (recurringTemplate) {
-      setRecurringTemplates((current) => [recurringTemplate, ...current])
-    }
-    setExpandedCategories(getExpandedCategoriesFromItems([], []))
+    setBills(generated.bills)
+    setExpenses(generated.expenses)
+    setRecurringTemplates(generated.templates)
+    setExpandedCategories(getExpandedCategoriesFromItems(generated.bills, generated.expenses))
     setActiveTab('overview')
     setIsSetupOpen(false)
-    setSetupSuccess('Setup complete.')
+    if (recurringTemplate) {
+      const billAdded = generated.bills.some((bill) => bill.templateId === recurringTemplate.id)
+      const setAsideAdded = generated.expenses.some((expense) => expense.setAsideForTemplateId === recurringTemplate.id)
+
+      if (billAdded && setAsideAdded) {
+        setSetupSuccess('Setup complete. Your regular bill and set-aside were added to this pay period.')
+      } else if (billAdded) {
+        setSetupSuccess('Setup complete. Your regular bill was added to this pay period.')
+      } else if (setAsideAdded) {
+        setSetupSuccess('Setup complete. Your bill plan was saved and the set-aside was added to this pay period.')
+      } else {
+        setSetupSuccess('Setup complete. Your bill plan was saved, but it is not due in this pay period yet.')
+      }
+    } else {
+      setSetupSuccess('Setup complete.')
+    }
     setPayPeriodError('')
     setBillError('')
     setExpenseError('')
@@ -1761,6 +1811,9 @@ function App() {
                       {payPeriod ? (
                         <>
                           <p className="mt-3 text-xl font-semibold text-white sm:text-2xl">{formatCurrency(payPeriod.income)}</p>
+                          <p className="mt-3 text-sm leading-6 text-slate-400">
+                            Leftly counts bills and planned spending that are active in this pay period. Use Bill Plan to save bills that repeat.
+                          </p>
                           <div className="mt-3 flex flex-wrap gap-2 text-[11px] sm:text-xs">
                             <Badge>{payPeriod.cadence}</Badge>
                             <Badge muted>{payPeriod.startDate}</Badge>
@@ -1878,6 +1931,42 @@ function App() {
                           ))
                         ) : (
                           <EmptyState title="No expenses yet" text="Add an expense in the Add Expense tab to see it here." compact />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
+                      <p className="text-sm font-medium text-white">Upcoming from your bill plan</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        Active bill templates that are not yet in this pay period&apos;s active bills list.
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {upcomingRecurringBills.length > 0 ? (
+                          upcomingRecurringBills.slice(0, 4).map((template) => (
+                            <div
+                              key={template.id}
+                              className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="truncate font-medium text-white">{template.name}</p>
+                                    {template.setAsideEnabled ? <Badge muted>set-aside active</Badge> : null}
+                                  </div>
+                                  <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
+                                    {template.category} · {template.frequency} · {formatPlanSchedule(template)}
+                                  </p>
+                                </div>
+                                <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(template.amount)}</p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <EmptyState
+                            title="Nothing upcoming yet"
+                            text="Save regular bills in Bill Plan and Leftly will show the ones not active in this pay period here."
+                            compact
+                          />
                         )}
                       </div>
                     </div>
@@ -2008,7 +2097,7 @@ function App() {
           ) : null}
 
           {activeTab === 'bill' ? (
-            <SectionShell title="Add Bill" description="Add a bill and keep working in the same tab.">
+            <SectionShell title="One-time Bill" description="Add a one-time bill and keep working in the same tab.">
               {bills.length === 0 ? (
                 <div className="mb-4">
                   <EmptyState title="No bills yet" text="Add your first bill below or load demo data to test the flow." compact />
@@ -2072,7 +2161,7 @@ function App() {
           ) : null}
 
           {activeTab === 'expense' ? (
-            <SectionShell title="Add Expense" description="Add an expense and keep working in the same tab.">
+            <SectionShell title="Manual Expense" description="Add a manual expense and keep working in the same tab.">
               {expenses.length === 0 ? (
                 <div className="mb-4">
                   <EmptyState title="No expenses yet" text="Add your first expense below or load demo data to test the flow." compact />
@@ -2220,7 +2309,10 @@ function App() {
           ) : null}
 
           {activeTab === 'recurring' ? (
-            <SectionShell title="Recurring" description="Save recurring bill and planned expense templates for later use.">
+            <SectionShell
+              title="Bill Plan"
+              description="Bill Plan is where you save bills and planned spending that repeat. Starting a new pay period can pull these into your active budget automatically."
+            >
               <RecurringSection
                 templates={recurringTemplates}
                 onAddTemplate={addRecurringTemplate}

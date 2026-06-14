@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { BudgetCategory, BudgetPeriod, PayCadence, RecurringFrequency, RecurringItemTemplate } from '../types/budget'
+import { buildRecurringPreview } from '../lib/recurring'
 
 const buttonStyles = {
   primary:
@@ -84,6 +85,44 @@ export function SetupFlowPanel({
 
   const canContinue =
     draft.step === 1 ? Boolean(draft.cadence) : draft.step === 2 ? isPayPeriodStepComplete(draft) : true
+
+  const setupReview = useMemo(() => {
+    const periodValidation = validatePayPeriodDraft(draft, false)
+    if (!periodValidation.ok) {
+      return null
+    }
+
+    if (!draft.addRecurringBill) {
+      return {
+        recurringItem: null as RecurringItemTemplate | null,
+        willAddToPeriod: false,
+        status: 'You can skip a regular bill for now and add one later from Bill Plan.',
+      }
+    }
+
+    const recurringValidation = validateRecurringDraft(draft)
+    if (!recurringValidation.ok) {
+      return {
+        recurringItem: null as RecurringItemTemplate | null,
+        willAddToPeriod: false,
+        status: 'Fill in the regular bill details to see whether it will be added to this pay period.',
+      }
+    }
+
+    const preview = buildRecurringPreview({
+      templates: [recurringValidation.template],
+      period: periodValidation.period,
+    })
+    const willAddToPeriod = preview.bills.length > 0 || preview.setAsides.length > 0 || preview.plannedExpenses.length > 0
+
+    return {
+      recurringItem: recurringValidation.template,
+      willAddToPeriod,
+      status: willAddToPeriod
+        ? 'This regular bill will be added to your active budget.'
+        : 'This bill plan will be saved, but it is not due in this pay period yet.',
+    }
+  }, [draft])
 
   function goBack() {
     setError('')
@@ -223,9 +262,33 @@ export function SetupFlowPanel({
   }
 
   return renderPanel(
-      'Add your first recurring bill',
-      'This is optional. You can skip it and add recurring items later from the Recurring tab.',
+    'Add your first regular bill',
+    'Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your paycheck plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
+      <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+        <p className="text-sm font-semibold text-white">Setup review</p>
+        <div className="grid gap-2 text-sm leading-6 text-slate-300 sm:grid-cols-2">
+          <p>
+            <span className="text-slate-500">Pay period:</span> {draft.startDate || 'Select a start date'} to {draft.endDate || 'Select an end date'}
+          </p>
+          <p>
+            <span className="text-slate-500">Income:</span> {draft.income ? formatCurrency(Number(draft.income)) : 'Add income'}
+          </p>
+          <p className="sm:col-span-2">
+            <span className="text-slate-500">Regular bill:</span>{' '}
+            {setupReview?.recurringItem
+              ? `${setupReview.recurringItem.name} · ${formatCurrency(setupReview.recurringItem.amount)} · ${setupReview.recurringItem.frequency}`
+              : draft.addRecurringBill
+                ? 'Fill in the bill details below'
+                : 'No regular bill selected'}
+          </p>
+          <p className="sm:col-span-2">
+            <span className="text-slate-500">Included in this pay period:</span> {setupReview?.willAddToPeriod ? 'Yes' : 'No'}
+          </p>
+        </div>
+        <p className="text-sm leading-6 text-slate-400">{setupReview?.status ?? 'Complete the steps below to see your setup review.'}</p>
+      </div>
+
       <label className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
         <input
           type="checkbox"
@@ -234,9 +297,9 @@ export function SetupFlowPanel({
           className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
         />
         <span>
-          <span className="block font-semibold">Want to add your first recurring bill?</span>
+          <span className="block font-semibold">Save a regular bill now</span>
           <span className="mt-1 block text-sm leading-6 text-slate-400">
-            Turn this on to save one recurring bill template now.
+            Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your paycheck plan.
           </span>
         </span>
       </label>
@@ -429,6 +492,10 @@ function validateRecurringDraft(
 function isPayPeriodStepComplete(draft: SetupDraft) {
   const income = Number(draft.income)
   return Boolean(draft.startDate && draft.endDate && Number.isFinite(income) && income > 0 && draft.endDate >= draft.startDate)
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
 
 function getInitialDraft(): SetupDraft {

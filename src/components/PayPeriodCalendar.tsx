@@ -299,7 +299,7 @@ function DetailItem({
           </div>
           <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}
-            {item.kind === 'bill' && item.paidStatus ? ` · ${item.paidStatus}` : ''}
+            {item.kind === 'bill' && item.paidStatus ? ` \u00B7 ${item.paidStatus}` : ''}
           </p>
         </div>
         <div className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</div>
@@ -341,7 +341,7 @@ function AgendaItemRow({ item }: { item: CalendarItem }) {
           </div>
           <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}
-            {item.kind === 'bill' && item.paidStatus ? ` · ${item.paidStatus}` : ''}
+            {item.kind === 'bill' && item.paidStatus ? ` \u00B7 ${item.paidStatus}` : ''}
           </p>
         </div>
         <div className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</div>
@@ -353,7 +353,7 @@ function AgendaItemRow({ item }: { item: CalendarItem }) {
 function AgendaGapRow({ start, end }: { start: string; end: string }) {
   return (
     <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-[11px] leading-5 text-slate-400">
-      No scheduled items {start} - {end}
+      No scheduled items {start} {"\u2013"} {end}
     </div>
   )
 }
@@ -396,7 +396,7 @@ function AgendaDaySection({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
             <span>{day.items.length} item{day.items.length === 1 ? '' : 's'}</span>
-            {day.items.length > 0 ? <span>• {formatCurrency(totalAmount)}</span> : <span>No scheduled items</span>}
+            {day.items.length > 0 ? <span>{"\u2022"} {formatCurrency(totalAmount)}</span> : <span>No scheduled items</span>}
           </div>
         </div>
         <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] font-semibold text-slate-200">

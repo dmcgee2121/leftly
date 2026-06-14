@@ -308,6 +308,153 @@ function DetailItem({
   )
 }
 
+function itemTypeLabel(item: CalendarItem) {
+  switch (item.kind) {
+    case 'income':
+      return 'Income'
+    case 'bill':
+      return 'Bill'
+    case 'expense':
+      return 'Expense'
+    case 'set-aside':
+      return 'Set-aside'
+  }
+}
+
+function AgendaItemRow({ item }: { item: CalendarItem }) {
+  const isClickable = Boolean(item.onClick)
+
+  return (
+    <button
+      type="button"
+      onClick={item.onClick}
+      disabled={!isClickable}
+      className={`w-full rounded-xl border px-3 py-2 text-left transition ${isClickable ? 'hover:border-slate-500/70 hover:bg-black/10 active:translate-y-px' : ''} ${itemBadgeClasses(item.tone)}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="min-w-0 truncate font-medium text-white">{item.label}</p>
+            <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
+              {itemTypeLabel(item)}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-current/75">
+            {item.category ? item.category : 'Income'}
+            {item.kind === 'bill' && item.paidStatus ? ` · ${item.paidStatus}` : ''}
+          </p>
+        </div>
+        <div className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</div>
+      </div>
+    </button>
+  )
+}
+
+function AgendaGapRow({ start, end }: { start: string; end: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-[11px] leading-5 text-slate-400">
+      No scheduled items {start} - {end}
+    </div>
+  )
+}
+
+function AgendaDaySection({
+  day,
+  expanded,
+  onToggle,
+}: {
+  day: CalendarDay
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const visibleItems = expanded || day.items.length <= 3 ? day.items : day.items.slice(0, 3)
+  const totalAmount = day.items.reduce((sum, item) => sum + item.amount, 0)
+  const groups = {
+    income: visibleItems.filter((item) => item.kind === 'income'),
+    bills: visibleItems.filter((item) => item.kind === 'bill'),
+    setAsides: visibleItems.filter((item) => item.kind === 'set-aside'),
+    expenses: visibleItems.filter((item) => item.kind === 'expense'),
+  }
+
+  return (
+    <section className={`rounded-[1.15rem] border p-3 shadow-sm shadow-slate-950/20 sm:p-4 ${day.isToday ? 'border-cyan-400/20 bg-cyan-400/5' : 'border-slate-800/70 bg-slate-950/55'}`}>
+      <button type="button" onClick={onToggle} className="flex w-full items-start justify-between gap-3 text-left">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">{day.dayLabel}</p>
+            <p className="text-lg font-semibold tracking-tight text-white">{day.date.getDate()}</p>
+            {day.isToday ? (
+              <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
+                Today
+              </span>
+            ) : null}
+            {day.isStart ? (
+              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100">
+                Payday
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+            <span>{day.items.length} item{day.items.length === 1 ? '' : 's'}</span>
+            {day.items.length > 0 ? <span>• {formatCurrency(totalAmount)}</span> : <span>No scheduled items</span>}
+          </div>
+        </div>
+        <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] font-semibold text-slate-200">
+          {expanded ? 'Hide' : 'Show'}
+        </span>
+      </button>
+
+      <div className="mt-3 grid gap-2">
+        {day.items.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-[11px] text-slate-500">
+            No items scheduled on this day.
+          </p>
+        ) : null}
+
+        {groups.income.length > 0 ? (
+          <div className="grid gap-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/80">Income</p>
+            {groups.income.map((item) => (
+              <AgendaItemRow key={item.id} item={item} />
+            ))}
+          </div>
+        ) : null}
+
+        {groups.bills.length > 0 ? (
+          <div className="grid gap-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-200/80">Bills</p>
+            {groups.bills.map((item) => (
+              <AgendaItemRow key={item.id} item={item} />
+            ))}
+          </div>
+        ) : null}
+
+        {groups.setAsides.length > 0 ? (
+          <div className="grid gap-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-200/80">Set-asides</p>
+            {groups.setAsides.map((item) => (
+              <AgendaItemRow key={item.id} item={item} />
+            ))}
+          </div>
+        ) : null}
+
+        {groups.expenses.length > 0 ? (
+          <div className="grid gap-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">Expenses</p>
+            {groups.expenses.map((item) => (
+              <AgendaItemRow key={item.id} item={item} />
+            ))}
+          </div>
+        ) : null}
+
+        {day.items.length > 3 ? (
+          <p className="text-[11px] font-medium text-slate-500">{expanded ? 'Show less' : `Show all ${day.items.length} items`}</p>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
 export function PayPeriodCalendar({
   payPeriod,
   bills,
@@ -347,17 +494,55 @@ export function PayPeriodCalendar({
   }, [days])
 
   const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(selectedDefault)
+  const [viewMode, setViewMode] = useState<'agenda' | 'calendar'>('agenda')
+  const [agendaExpandedIsoDate, setAgendaExpandedIsoDate] = useState<string | null>(null)
   const [showAllSelectedItems, setShowAllSelectedItems] = useState(false)
+
+  useEffect(() => {
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      setViewMode('calendar')
+    }
+  }, [])
 
   useEffect(() => {
     setSelectedIsoDate(selectedDefault)
   }, [selectedDefault, payPeriod?.startDate, payPeriod?.endDate])
 
-  const selectedDay = days.find((day) => day.isoDate === selectedIsoDate) ?? days[0]
+  const selectedDay = days.find((day) => day.isoDate === selectedIsoDate) ?? days[0] ?? null
 
   useEffect(() => {
     setShowAllSelectedItems(false)
   }, [selectedDay?.isoDate])
+
+  const agendaEntries = useMemo(() => {
+    const importantIndexes = days
+      .map((day, index) => ({ day, index }))
+      .filter(({ day }) => day.isStart || day.isToday || day.items.length > 0)
+
+    const entries: Array<
+      | { kind: 'day'; day: CalendarDay }
+      | { kind: 'gap'; startLabel: string; endLabel: string }
+    > = []
+
+    importantIndexes.forEach(({ day, index }, position) => {
+      const previous = importantIndexes[position - 1]
+      if (previous && index - previous.index > 1) {
+        entries.push({
+          kind: 'gap',
+          startLabel: shortDateFormatter.format(days[previous.index + 1].date),
+          endLabel: shortDateFormatter.format(days[index - 1].date),
+        })
+      }
+
+      entries.push({ kind: 'day', day })
+    })
+
+    return entries
+  }, [days])
+
+  useEffect(() => {
+    setAgendaExpandedIsoDate(null)
+  }, [payPeriod?.startDate, payPeriod?.endDate])
 
   if (!payPeriod || !start || !end) {
     return null
@@ -378,13 +563,25 @@ export function PayPeriodCalendar({
       }
     : { income: [], bills: [], setAsides: [], expenses: [] }
 
-  const selectedItemsVisible = showAllSelectedItems || selectedDay.items.length <= 5 ? selectedDay.items : selectedDay.items.slice(0, 5)
+  const selectedItemsVisible = selectedDay
+    ? showAllSelectedItems || selectedDay.items.length <= 5
+      ? selectedDay.items
+      : selectedDay.items.slice(0, 5)
+    : []
   const visibleItemIds = new Set(selectedItemsVisible.map((item) => item.id))
   const visibleGroups = {
     income: groupedItems.income.filter((item) => visibleItemIds.has(item.id)),
     bills: groupedItems.bills.filter((item) => visibleItemIds.has(item.id)),
     setAsides: groupedItems.setAsides.filter((item) => visibleItemIds.has(item.id)),
     expenses: groupedItems.expenses.filter((item) => visibleItemIds.has(item.id)),
+  }
+
+  const agendaIsActive = viewMode === 'agenda'
+  const toggleViewMode = (nextMode: 'agenda' | 'calendar') => {
+    setViewMode(nextMode)
+    if (nextMode === 'agenda') {
+      setAgendaExpandedIsoDate(null)
+    }
   }
 
   return (
@@ -394,14 +591,32 @@ export function PayPeriodCalendar({
           <p className="text-xs font-medium uppercase tracking-[0.22em] text-cyan-200/70">Pay Period Calendar</p>
           <h3 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">{rangeLabel}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            A compact day-by-day view of the current pay period. Tap a day to see the full breakdown below.
+            Agenda on mobile. Calendar on desktop. Empty stretches are collapsed in Agenda.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{dayCount} days</span>
           <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{billCount} bills</span>
           <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{expenseCount} expenses</span>
           <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{setAsideCount} set-asides</span>
+          <div className="inline-flex rounded-full border border-slate-800 bg-slate-950/70 p-1">
+            <button
+              type="button"
+              aria-pressed={agendaIsActive}
+              onClick={() => toggleViewMode('agenda')}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${agendaIsActive ? 'bg-cyan-400/10 text-cyan-100' : 'text-slate-400 hover:text-white'}`}
+            >
+              Agenda
+            </button>
+            <button
+              type="button"
+              aria-pressed={!agendaIsActive}
+              onClick={() => toggleViewMode('calendar')}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${!agendaIsActive ? 'bg-cyan-400/10 text-cyan-100' : 'text-slate-400 hover:text-white'}`}
+            >
+              Calendar
+            </button>
+          </div>
         </div>
       </div>
 
@@ -411,80 +626,101 @@ export function PayPeriodCalendar({
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-        {days.map((day) => (
-          <DayCard key={day.isoDate} day={day} selected={day.isoDate === selectedDay?.isoDate} onSelect={() => setSelectedIsoDate(day.isoDate)} />
-        ))}
-      </div>
-
-      <div className="mt-4 rounded-[1.35rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Selected day</p>
-            <h4 className="mt-1 text-lg font-semibold text-white sm:text-xl">{selectedDay ? longDateFormatter.format(selectedDay.date) : 'No day selected'}</h4>
-          </div>
-          {selectedDay ? (
-            <div className="flex flex-wrap gap-2 text-xs">
-              {selectedDay.isToday ? (
-                <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-cyan-100">Today</span>
-              ) : null}
-              <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">
-                {selectedDay.items.length} item{selectedDay.items.length === 1 ? '' : 's'}
-              </span>
-            </div>
-          ) : null}
+      {agendaIsActive ? (
+        <div className="mt-4 grid gap-3">
+          {agendaEntries.map((entry) =>
+            entry.kind === 'gap' ? (
+              <AgendaGapRow key={`${entry.startLabel}-${entry.endLabel}`} start={entry.startLabel} end={entry.endLabel} />
+            ) : (
+              <AgendaDaySection
+                key={entry.day.isoDate}
+                day={entry.day}
+                expanded={agendaExpandedIsoDate === entry.day.isoDate}
+                onToggle={() =>
+                  setAgendaExpandedIsoDate((current) => (current === entry.day.isoDate ? null : entry.day.isoDate))
+                }
+              />
+            ),
+          )}
         </div>
+      ) : (
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            {days.map((day) => (
+              <DayCard key={day.isoDate} day={day} selected={day.isoDate === selectedDay?.isoDate} onSelect={() => setSelectedIsoDate(day.isoDate)} />
+            ))}
+          </div>
 
-        {selectedDay ? (
-          <div className="mt-3 grid gap-3">
-            {visibleGroups.income.length > 0 ? (
-              <div className="grid gap-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200/80">Income</p>
-                {visibleGroups.income.map((item) => (
-                  <DetailItem key={item.id} item={item} />
-                ))}
+          <div className="mt-4 hidden rounded-[1.35rem] border border-slate-800/80 bg-slate-950/70 p-3 lg:block sm:p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Selected day</p>
+                <h4 className="mt-1 text-lg font-semibold text-white sm:text-xl">{selectedDay ? longDateFormatter.format(selectedDay.date) : 'No day selected'}</h4>
               </div>
-            ) : null}
+              {selectedDay ? (
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {selectedDay.isToday ? (
+                    <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-cyan-100">Today</span>
+                  ) : null}
+                  <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">
+                    {selectedDay.items.length} item{selectedDay.items.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+              ) : null}
+            </div>
 
-            {visibleGroups.bills.length > 0 ? (
-              <div className="grid gap-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-200/80">Bills</p>
-                {visibleGroups.bills.map((item) => (
-                  <DetailItem key={item.id} item={item} />
-                ))}
+            {selectedDay ? (
+              <div className="mt-3 grid gap-3">
+                {visibleGroups.income.length > 0 ? (
+                  <div className="grid gap-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200/80">Income</p>
+                    {visibleGroups.income.map((item) => (
+                      <DetailItem key={item.id} item={item} />
+                    ))}
+                  </div>
+                ) : null}
+
+                {visibleGroups.bills.length > 0 ? (
+                  <div className="grid gap-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-200/80">Bills</p>
+                    {visibleGroups.bills.map((item) => (
+                      <DetailItem key={item.id} item={item} />
+                    ))}
+                  </div>
+                ) : null}
+
+                {visibleGroups.setAsides.length > 0 ? (
+                  <div className="grid gap-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-200/80">Set-asides</p>
+                    {visibleGroups.setAsides.map((item) => (
+                      <DetailItem key={item.id} item={item} />
+                    ))}
+                  </div>
+                ) : null}
+
+                {visibleGroups.expenses.length > 0 ? (
+                  <div className="grid gap-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">Expenses</p>
+                    {visibleGroups.expenses.map((item) => (
+                      <DetailItem key={item.id} item={item} />
+                    ))}
+                  </div>
+                ) : null}
+
+                {selectedDay.items.length > 5 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSelectedItems((current) => !current)}
+                    className="inline-flex w-fit items-center rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-xs font-semibold text-slate-200"
+                  >
+                    {showAllSelectedItems ? 'Show less' : `Show all ${selectedDay.items.length} items`}
+                  </button>
+                ) : null}
               </div>
-            ) : null}
-
-            {visibleGroups.setAsides.length > 0 ? (
-              <div className="grid gap-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-200/80">Set-asides</p>
-                {visibleGroups.setAsides.map((item) => (
-                  <DetailItem key={item.id} item={item} />
-                ))}
-              </div>
-            ) : null}
-
-            {visibleGroups.expenses.length > 0 ? (
-              <div className="grid gap-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">Expenses</p>
-                {visibleGroups.expenses.map((item) => (
-                  <DetailItem key={item.id} item={item} />
-                ))}
-              </div>
-            ) : null}
-
-            {selectedDay.items.length > 5 ? (
-              <button
-                type="button"
-                onClick={() => setShowAllSelectedItems((current) => !current)}
-                className="inline-flex w-fit items-center rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-xs font-semibold text-slate-200"
-              >
-                {showAllSelectedItems ? 'Show less' : `Show all ${selectedDay.items.length} items`}
-              </button>
             ) : null}
           </div>
-        ) : null}
-      </div>
+        </>
+      )}
     </section>
   )
 }

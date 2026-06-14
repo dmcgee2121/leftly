@@ -82,11 +82,8 @@ export function SetupFlowPanel({
     return 'Step 3 of 3: First recurring item'
   }, [draft.step])
 
-  const canContinue = draft.step === 1
-    ? Boolean(draft.cadence)
-    : draft.step === 2
-      ? validatePayPeriodDraft(draft, false).ok
-      : true
+  const canContinue =
+    draft.step === 1 ? Boolean(draft.cadence) : draft.step === 2 ? isPayPeriodStepComplete(draft) : true
 
   function goBack() {
     setError('')
@@ -143,7 +140,7 @@ export function SetupFlowPanel({
   if (draft.step === 1) {
     return renderPanel(
       'Welcome to Leftly',
-      'Set up your first pay period to see what\'s left before you spend.',
+      "Set up your first pay period to see what's left before you spend.",
       <>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Pay cadence">
@@ -226,8 +223,8 @@ export function SetupFlowPanel({
   }
 
   return renderPanel(
-    'Add your first recurring bill',
-    'This is optional. You can skip it and add recurring items later from the Recurring tab.',
+      'Add your first recurring bill',
+      'This is optional. You can skip it and add recurring items later from the Recurring tab.',
     <form className="grid gap-4" onSubmit={handleFinish}>
       <label className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
         <input
@@ -427,6 +424,11 @@ function validateRecurringDraft(
       createdAt: new Date().toISOString(),
     },
   }
+}
+
+function isPayPeriodStepComplete(draft: SetupDraft) {
+  const income = Number(draft.income)
+  return Boolean(draft.startDate && draft.endDate && Number.isFinite(income) && income > 0 && draft.endDate >= draft.startDate)
 }
 
 function getInitialDraft(): SetupDraft {

@@ -1849,7 +1849,7 @@ function App() {
               ) : hasAnyData ? (
                 <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
                   <div className="grid gap-4">
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-5">
                       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 sm:text-sm sm:tracking-[0.2em]">Current pay period</p>
                       {payPeriod ? (
                         <>
@@ -1884,7 +1884,7 @@ function App() {
                           topCategories.map((summary, index) => (
                             <div
                               key={summary.category}
-                              className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3 sm:items-center sm:px-4"
+                              className="flex items-start justify-between gap-3 rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5 sm:items-center sm:px-4"
                             >
                               <div>
                                 <div className="flex items-center gap-2">
@@ -1936,32 +1936,39 @@ function App() {
                                   <p className="truncate font-medium text-white">{bill.name}</p>
                                   {bill.source === 'recurring' ? <Badge muted>Bill Plan</Badge> : null}
                                 </div>
-                                <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
+                                <p className="mt-1 text-[11px] text-slate-400">
                                   {bill.category} · due {bill.dueDate}
                                 </p>
                               </div>
                               <div className="flex flex-wrap items-center justify-end gap-2">
                                 <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
-                                <button type="button" onClick={() => startEditBill(bill)} className="button-secondary">
+                                <button type="button" onClick={() => startEditBill(bill)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
                                   Edit
                                 </button>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <EmptyState title="No bills yet" text="Add a bill in the One-time Bill tab to see it here." compact />
+                          <EmptyState title="No bills yet" text="Add a bill to see it here." compact />
                         )}
                       </div>
+                      {bills.length > 3 ? (
+                        <div className="mt-3">
+                          <button type="button" onClick={() => setActiveTab('bill')} className="button-secondary w-full sm:w-auto">
+                            View all bills in One-time Bill
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
 
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-5">
                       <p className="text-sm font-medium text-white">Recent expenses</p>
                       <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {recentExpenses.length > 0 ? (
                           recentExpenses.map((expense) => (
                             <div
                               key={expense.id}
-                              className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3 sm:items-center sm:px-4"
+                              className="flex items-start justify-between gap-3 rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5 sm:items-center sm:px-4"
                             >
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -1972,25 +1979,25 @@ function App() {
                                     </Badge>
                                   ) : null}
                                 </div>
-                                <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
+                                <p className="mt-1 text-[11px] text-slate-400">
                                   {expense.category} · {expense.date}
                                 </p>
                               </div>
                               <div className="flex flex-wrap items-center justify-end gap-2">
-                                <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(expense.amount)}</p>
-                                <button type="button" onClick={() => startEditExpense(expense)} className="button-secondary">
+                                <p className="text-sm font-semibold text-white">{formatCurrency(expense.amount)}</p>
+                                <button type="button" onClick={() => startEditExpense(expense)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
                                   Edit
                                 </button>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <EmptyState title="No expenses yet" text="Add an expense in the Manual Expense tab to see it here." compact />
+                          <EmptyState title="No expenses yet" text="Add an expense to see it here." compact />
                         )}
                       </div>
                     </div>
 
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-5">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-sm font-medium text-white">Upcoming from your Bill Plan</p>
@@ -2006,10 +2013,10 @@ function App() {
                       </div>
                       <div className="mt-3 space-y-2">
                         {upcomingRecurringBills.length > 0 ? (
-                          upcomingRecurringBills.slice(0, 4).map((template) => (
+                          upcomingRecurringBills.slice(0, 2).map((template) => (
                             <div
                               key={template.id}
-                              className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3"
+                              className="rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -2017,11 +2024,11 @@ function App() {
                                     <p className="truncate font-medium text-white">{template.name}</p>
                                     {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
                                   </div>
-                                  <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
+                                  <p className="mt-1 text-[11px] text-slate-400">
                                     {template.category} · {template.frequency} · {formatPlanSchedule(template)}
                                   </p>
                                 </div>
-                                <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(template.amount)}</p>
+                                <p className="text-sm font-semibold text-white">{formatCurrency(template.amount)}</p>
                               </div>
                             </div>
                           ))
@@ -2033,6 +2040,9 @@ function App() {
                           />
                         )}
                       </div>
+                      {upcomingRecurringBills.length > 2 ? (
+                        <p className="mt-2 text-xs text-slate-500">+{upcomingRecurringBills.length - 2} more in Bill Plan</p>
+                      ) : null}
                     </div>
                   </div>
                 </div>

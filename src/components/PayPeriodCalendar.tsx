@@ -201,12 +201,14 @@ function itemBadgeClasses(tone: CalendarItemTone) {
 
 function DayChip({ item }: { item: CalendarItem }) {
   return (
-    <div className={`flex min-w-0 items-start gap-2 rounded-full border px-2 py-1 text-[11px] leading-4 ${toneClasses(item.tone)}`}>
-      <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{item.label}</span>
-        <span className="block truncate text-[10px] font-normal text-current/70">{formatCurrency(item.amount)}</span>
-      </span>
+    <div className={`flex min-w-0 items-start gap-2 rounded-xl border px-2.5 py-2 text-[11px] leading-4 ${toneClasses(item.tone)}`}>
+      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <span className="truncate font-medium">{item.label}</span>
+          <span className="shrink-0 font-semibold">{formatCurrency(item.amount)}</span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -228,7 +230,7 @@ function DayCard({
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`min-h-[5.5rem] rounded-[1.15rem] border p-3 text-left shadow-sm shadow-slate-950/20 transition active:translate-y-px sm:min-h-[6rem] sm:p-3.5 ${
+      className={`min-h-[4.5rem] rounded-[1.1rem] border p-2.5 text-left shadow-sm shadow-slate-950/20 transition active:translate-y-px sm:min-h-[5.5rem] sm:p-3.5 ${
         selected
           ? 'border-cyan-400/30 bg-cyan-400/8 ring-1 ring-cyan-400/20'
           : day.isToday
@@ -255,7 +257,7 @@ function DayCard({
         </div>
       </div>
 
-      <div className="mt-2.5 grid gap-1.5">
+      <div className="mt-2 grid gap-1">
         {visibleItems.length > 0 ? (
           visibleItems.map((item) => <DayChip key={item.id + item.label} item={item} />)
         ) : (
@@ -285,11 +287,9 @@ function DetailItem({
       type="button"
       onClick={item.onClick}
       disabled={!isClickable}
-      className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
-        isClickable ? 'hover:border-slate-500/70 hover:bg-black/10 active:translate-y-px' : ''
-      } ${itemBadgeClasses(item.tone)}`}
+      className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${isClickable ? 'hover:border-slate-500/70 hover:bg-black/10 active:translate-y-px' : ''} ${itemBadgeClasses(item.tone)}`}
     >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="min-w-0 truncate font-medium text-white">{item.label}</p>
@@ -297,7 +297,7 @@ function DetailItem({
               {item.detail}
             </span>
           </div>
-          <p className="mt-1 text-xs text-current/75">
+          <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}
             {item.kind === 'bill' && item.paidStatus ? ` · ${item.paidStatus}` : ''}
           </p>
@@ -347,16 +347,22 @@ export function PayPeriodCalendar({
   }, [days])
 
   const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(selectedDefault)
+  const [showAllSelectedItems, setShowAllSelectedItems] = useState(false)
 
   useEffect(() => {
     setSelectedIsoDate(selectedDefault)
   }, [selectedDefault, payPeriod?.startDate, payPeriod?.endDate])
 
+  const selectedDay = days.find((day) => day.isoDate === selectedIsoDate) ?? days[0]
+
+  useEffect(() => {
+    setShowAllSelectedItems(false)
+  }, [selectedDay?.isoDate])
+
   if (!payPeriod || !start || !end) {
     return null
   }
 
-  const selectedDay = days.find((day) => day.isoDate === selectedIsoDate) ?? days[0]
   const dayCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
   const billCount = bills.length
   const expenseCount = expenses.length
@@ -371,6 +377,15 @@ export function PayPeriodCalendar({
         expenses: selectedDay.items.filter((item) => item.kind === 'expense'),
       }
     : { income: [], bills: [], setAsides: [], expenses: [] }
+
+  const selectedItemsVisible = showAllSelectedItems || selectedDay.items.length <= 5 ? selectedDay.items : selectedDay.items.slice(0, 5)
+  const visibleItemIds = new Set(selectedItemsVisible.map((item) => item.id))
+  const visibleGroups = {
+    income: groupedItems.income.filter((item) => visibleItemIds.has(item.id)),
+    bills: groupedItems.bills.filter((item) => visibleItemIds.has(item.id)),
+    setAsides: groupedItems.setAsides.filter((item) => visibleItemIds.has(item.id)),
+    expenses: groupedItems.expenses.filter((item) => visibleItemIds.has(item.id)),
+  }
 
   return (
     <section className="rounded-[1.5rem] border border-slate-800/80 bg-[linear-gradient(180deg,rgba(8,12,20,0.96),rgba(6,10,16,0.92))] p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
@@ -402,7 +417,7 @@ export function PayPeriodCalendar({
         ))}
       </div>
 
-      <div className="mt-4 rounded-[1.35rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5">
+      <div className="mt-4 rounded-[1.35rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Selected day</p>
@@ -413,53 +428,59 @@ export function PayPeriodCalendar({
               {selectedDay.isToday ? (
                 <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-cyan-100">Today</span>
               ) : null}
-              <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{selectedDay.items.length} item{selectedDay.items.length === 1 ? '' : 's'}</span>
+              <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">
+                {selectedDay.items.length} item{selectedDay.items.length === 1 ? '' : 's'}
+              </span>
             </div>
           ) : null}
         </div>
 
         {selectedDay ? (
-          <div className="mt-4 grid gap-4">
-            {groupedItems.income.length > 0 ? (
-              <div className="grid gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/80">Income</p>
-                {groupedItems.income.map((item) => (
+          <div className="mt-3 grid gap-3">
+            {visibleGroups.income.length > 0 ? (
+              <div className="grid gap-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200/80">Income</p>
+                {visibleGroups.income.map((item) => (
                   <DetailItem key={item.id} item={item} />
                 ))}
               </div>
             ) : null}
 
-            {groupedItems.bills.length > 0 ? (
-              <div className="grid gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-200/80">Bills</p>
-                {groupedItems.bills.map((item) => (
+            {visibleGroups.bills.length > 0 ? (
+              <div className="grid gap-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-200/80">Bills</p>
+                {visibleGroups.bills.map((item) => (
                   <DetailItem key={item.id} item={item} />
                 ))}
               </div>
             ) : null}
 
-            {groupedItems.setAsides.length > 0 ? (
-              <div className="grid gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200/80">Set-asides</p>
-                {groupedItems.setAsides.map((item) => (
+            {visibleGroups.setAsides.length > 0 ? (
+              <div className="grid gap-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-200/80">Set-asides</p>
+                {visibleGroups.setAsides.map((item) => (
                   <DetailItem key={item.id} item={item} />
                 ))}
               </div>
             ) : null}
 
-            {groupedItems.expenses.length > 0 ? (
-              <div className="grid gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80">Expenses</p>
-                {groupedItems.expenses.map((item) => (
+            {visibleGroups.expenses.length > 0 ? (
+              <div className="grid gap-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">Expenses</p>
+                {visibleGroups.expenses.map((item) => (
                   <DetailItem key={item.id} item={item} />
                 ))}
               </div>
             ) : null}
 
-            {selectedDay.items.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
-                No bills or spending scheduled for this day. Tap a different day or apply Bill Plan items to add more.
-              </div>
+            {selectedDay.items.length > 5 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllSelectedItems((current) => !current)}
+                className="inline-flex w-fit items-center rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-xs font-semibold text-slate-200"
+              >
+                {showAllSelectedItems ? 'Show less' : `Show all ${selectedDay.items.length} items`}
+              </button>
             ) : null}
           </div>
         ) : null}

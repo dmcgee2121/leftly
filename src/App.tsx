@@ -92,32 +92,53 @@ type CategorySummary = {
   total: number
 }
 
-const demoBillSeed: Array<{
-  name: string
-  amount: number
-  dueDate: string
-  category: BudgetCategory
-  isPaid: boolean
-}> = [
-  { name: 'Rent', amount: 1150, dueDate: '2026-06-15', category: 'Housing', isPaid: true },
-  { name: 'Electric', amount: 92.4, dueDate: '2026-06-18', category: 'Utilities', isPaid: false },
-  { name: 'Internet', amount: 74.99, dueDate: '2026-06-20', category: 'Utilities', isPaid: true },
-  { name: 'Spotify', amount: 11.99, dueDate: '2026-06-22', category: 'Subscriptions', isPaid: true },
-  { name: 'Car payment', amount: 285, dueDate: '2026-06-21', category: 'Transportation', isPaid: false },
-  { name: 'Student loan', amount: 180, dueDate: '2026-06-24', category: 'Debt', isPaid: false },
-  { name: 'Renter insurance', amount: 27, dueDate: '2026-06-25', category: 'Insurance', isPaid: true },
-]
+function formatIsoDate(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
 
-const demoExpenseSeed: Array<{
-  name: string
-  amount: number
-  date: string
-  category: BudgetCategory
-}> = [
-  { name: 'Groceries', amount: 86.12, date: '2026-06-11', category: 'Food' },
-  { name: 'Gas', amount: 41.38, date: '2026-06-12', category: 'Transportation' },
-  { name: 'Lunch', amount: 15.79, date: '2026-06-13', category: 'Food' },
-]
+function addDays(value: Date, days: number) {
+  const next = new Date(value)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function cloneBillForDemo(bill: Bill): Bill {
+  return {
+    ...bill,
+    id: crypto.randomUUID(),
+  }
+}
+
+function cloneExpenseForDemo(expense: Expense): Expense {
+  return {
+    ...expense,
+    id: crypto.randomUUID(),
+  }
+}
+
+function buildDemoHistorySnapshot(params: {
+  label: string
+  period: BudgetPeriod
+  bills: Bill[]
+  expenses: Expense[]
+}): PayPeriodSnapshot {
+  const archivedAt = new Date().toISOString()
+  const totals = calculatePayPeriodTotals(params.period, params.bills, params.expenses)
+
+  return {
+    id: crypto.randomUUID(),
+    label: params.label,
+    cadence: params.period.cadence,
+    startDate: params.period.startDate,
+    endDate: params.period.endDate,
+    income: params.period.income,
+    bills: params.bills.map((bill) => ({ ...bill })),
+    expenses: params.expenses.map((expense) => ({ ...expense })),
+    totals,
+    createdAt: archivedAt,
+    archivedAt,
+  }
+}
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -491,6 +512,27 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3">
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+    </div>
+  )
+}
+
+function FirstRunPanel({ onGoToIncome, onLoadDemoData }: { onGoToIncome: () => void; onLoadDemoData: () => void }) {
+  return (
+    <div className="grid gap-4 rounded-[1.5rem] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 sm:p-5">
+      <div className="grid gap-2">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Welcome to Leftly</p>
+        <p className="text-sm leading-6 text-slate-300">
+          Start by adding income, adding bills, or loading demo data.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button type="button" onClick={onGoToIncome} className="button-secondary w-full">
+          Go to Income
+        </button>
+        <button type="button" onClick={onLoadDemoData} className="button-primary w-full">
+          Load demo data
+        </button>
+      </div>
     </div>
   )
 }
@@ -1109,40 +1151,360 @@ function App() {
   }
 
   function loadDemoData() {
+    if (!window.confirm('Load demo data? This will replace the current data on this device.')) {
+      return
+    }
+
+    const today = new Date()
+    const startDate = formatIsoDate(today)
+    const endDate = formatIsoDate(addDays(today, 13))
     const nextPayPeriod: BudgetPeriod = {
       cadence: 'biweekly',
       income: 3200,
-      startDate: '2026-06-10',
-      endDate: '2026-06-23',
+      startDate,
+      endDate,
     }
 
-    const nextBills: Bill[] = demoBillSeed.map((bill) => ({
-      id: crypto.randomUUID(),
-      name: bill.name,
-      amount: bill.amount,
-      dueDate: bill.dueDate,
-      isPaid: bill.isPaid,
-      paidDate: bill.isPaid ? '2026-06-11' : null,
-      category: bill.category,
-      source: 'manual',
-      createdAt: new Date().toISOString(),
-    }))
+    const rentTemplateId = crypto.randomUUID()
+    const groceriesTemplateId = crypto.randomUUID()
+    const gasTemplateId = crypto.randomUUID()
+    const phoneTemplateId = crypto.randomUUID()
 
-    const nextExpenses: Expense[] = demoExpenseSeed.map((expense) => ({
-      id: crypto.randomUUID(),
-      name: expense.name,
-      amount: expense.amount,
-      date: expense.date,
-      category: expense.category,
-      source: 'manual',
-      createdAt: new Date().toISOString(),
-    }))
+    const nextRecurringTemplates: RecurringItemTemplate[] = [
+      {
+        id: rentTemplateId,
+        name: 'Rent',
+        amount: 1200,
+        category: 'Housing',
+        kind: 'bill',
+        frequency: 'monthly',
+        dueDay: 1,
+        setAsideEnabled: true,
+        setAsideAmount: 600,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: groceriesTemplateId,
+        name: 'Groceries',
+        amount: 200,
+        category: 'Food',
+        kind: 'planned-expense',
+        frequency: 'every-pay-period',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: gasTemplateId,
+        name: 'Gas',
+        amount: 80,
+        category: 'Transportation',
+        kind: 'planned-expense',
+        frequency: 'every-pay-period',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: phoneTemplateId,
+        name: 'Phone',
+        amount: 85,
+        category: 'Utilities',
+        kind: 'bill',
+        frequency: 'monthly',
+        dueDay: 12,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      },
+    ]
+
+    const periodKey = getRecurringPeriodKey(nextPayPeriod)
+    const nextBills: Bill[] = [
+      {
+        id: crypto.randomUUID(),
+        name: 'Rent',
+        amount: 1200,
+        dueDate: startDate,
+        isPaid: false,
+        paidDate: null,
+        category: 'Housing',
+        source: 'recurring',
+        templateId: rentTemplateId,
+        generatedForPeriodId: periodKey,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Phone',
+        amount: 85,
+        dueDate: endDate,
+        isPaid: false,
+        paidDate: null,
+        category: 'Utilities',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Internet',
+        amount: 75,
+        dueDate: formatIsoDate(addDays(today, 4)),
+        isPaid: true,
+        paidDate: startDate,
+        category: 'Utilities',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Car insurance',
+        amount: 145,
+        dueDate: formatIsoDate(addDays(today, 7)),
+        isPaid: false,
+        paidDate: null,
+        category: 'Insurance',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Netflix',
+        amount: 15.99,
+        dueDate: formatIsoDate(addDays(today, 9)),
+        isPaid: true,
+        paidDate: formatIsoDate(addDays(today, 1)),
+        category: 'Subscriptions',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Credit card payment',
+        amount: 125,
+        dueDate: formatIsoDate(addDays(today, 11)),
+        isPaid: false,
+        paidDate: null,
+        category: 'Debt',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+    ]
+
+    const nextExpenses: Expense[] = [
+      {
+        id: crypto.randomUUID(),
+        name: 'Groceries',
+        amount: 185,
+        date: startDate,
+        category: 'Food',
+        isPlanned: true,
+        source: 'recurring',
+        templateId: groceriesTemplateId,
+        generatedForPeriodId: periodKey,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Gas',
+        amount: 60,
+        date: formatIsoDate(addDays(today, 2)),
+        category: 'Transportation',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Lunch',
+        amount: 18.5,
+        date: formatIsoDate(addDays(today, 3)),
+        category: 'Food',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Walmart',
+        amount: 42.75,
+        date: formatIsoDate(addDays(today, 5)),
+        category: 'Personal',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Rent set-aside',
+        amount: 600,
+        date: startDate,
+        category: 'Housing',
+        isPlanned: true,
+        source: 'recurring',
+        setAsideForTemplateId: rentTemplateId,
+        generatedForPeriodId: periodKey,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Phone',
+        amount: 85,
+        date: endDate,
+        category: 'Utilities',
+        isPlanned: true,
+        source: 'recurring',
+        templateId: phoneTemplateId,
+        generatedForPeriodId: periodKey,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Gas reserve',
+        amount: 80,
+        date: startDate,
+        category: 'Transportation',
+        isPlanned: true,
+        source: 'recurring',
+        templateId: gasTemplateId,
+        generatedForPeriodId: periodKey,
+        createdAt: new Date().toISOString(),
+      },
+    ]
+
+    const firstHistoryPeriod: BudgetPeriod = {
+      cadence: 'biweekly',
+      income: 3100,
+      startDate: formatIsoDate(addDays(today, -28)),
+      endDate: formatIsoDate(addDays(today, -15)),
+    }
+
+    const secondHistoryPeriod: BudgetPeriod = {
+      cadence: 'biweekly',
+      income: 3250,
+      startDate: formatIsoDate(addDays(today, -14)),
+      endDate: formatIsoDate(addDays(today, -1)),
+    }
+
+    const firstHistoryBills = [
+      cloneBillForDemo({
+        id: crypto.randomUUID(),
+        name: 'Rent',
+        amount: 1200,
+        dueDate: firstHistoryPeriod.startDate,
+        isPaid: true,
+        paidDate: firstHistoryPeriod.startDate,
+        category: 'Housing',
+        source: 'recurring',
+        templateId: rentTemplateId,
+        generatedForPeriodId: getRecurringPeriodKey(firstHistoryPeriod),
+        createdAt: new Date().toISOString(),
+      }),
+      cloneBillForDemo({
+        id: crypto.randomUUID(),
+        name: 'Phone',
+        amount: 85,
+        dueDate: firstHistoryPeriod.endDate,
+        isPaid: false,
+        paidDate: null,
+        category: 'Utilities',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      }),
+    ]
+
+    const firstHistoryExpenses = [
+      cloneExpenseForDemo({
+        id: crypto.randomUUID(),
+        name: 'Groceries',
+        amount: 175,
+        date: firstHistoryPeriod.startDate,
+        category: 'Food',
+        isPlanned: true,
+        source: 'recurring',
+        templateId: groceriesTemplateId,
+        generatedForPeriodId: getRecurringPeriodKey(firstHistoryPeriod),
+        createdAt: new Date().toISOString(),
+      }),
+      cloneExpenseForDemo({
+        id: crypto.randomUUID(),
+        name: 'Gas',
+        amount: 54.2,
+        date: formatIsoDate(addDays(today, -23)),
+        category: 'Transportation',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      }),
+    ]
+
+    const secondHistoryBills = [
+      cloneBillForDemo({
+        id: crypto.randomUUID(),
+        name: 'Rent',
+        amount: 1200,
+        dueDate: secondHistoryPeriod.startDate,
+        isPaid: true,
+        paidDate: secondHistoryPeriod.startDate,
+        category: 'Housing',
+        source: 'recurring',
+        templateId: rentTemplateId,
+        generatedForPeriodId: getRecurringPeriodKey(secondHistoryPeriod),
+        createdAt: new Date().toISOString(),
+      }),
+      cloneBillForDemo({
+        id: crypto.randomUUID(),
+        name: 'Netflix',
+        amount: 15.99,
+        dueDate: secondHistoryPeriod.endDate,
+        isPaid: true,
+        paidDate: formatIsoDate(addDays(today, -8)),
+        category: 'Subscriptions',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      }),
+    ]
+
+    const secondHistoryExpenses = [
+      cloneExpenseForDemo({
+        id: crypto.randomUUID(),
+        name: 'Groceries',
+        amount: 190,
+        date: secondHistoryPeriod.startDate,
+        category: 'Food',
+        isPlanned: true,
+        source: 'recurring',
+        templateId: groceriesTemplateId,
+        generatedForPeriodId: getRecurringPeriodKey(secondHistoryPeriod),
+        createdAt: new Date().toISOString(),
+      }),
+      cloneExpenseForDemo({
+        id: crypto.randomUUID(),
+        name: 'Lunch',
+        amount: 16.8,
+        date: formatIsoDate(addDays(today, -10)),
+        category: 'Food',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      }),
+    ]
+
+    const nextHistory = [
+      buildDemoHistorySnapshot({
+        label: formatHistoryPeriodLabel(secondHistoryPeriod.startDate, secondHistoryPeriod.endDate),
+        period: secondHistoryPeriod,
+        bills: secondHistoryBills,
+        expenses: secondHistoryExpenses,
+      }),
+      buildDemoHistorySnapshot({
+        label: formatHistoryPeriodLabel(firstHistoryPeriod.startDate, firstHistoryPeriod.endDate),
+        period: firstHistoryPeriod,
+        bills: firstHistoryBills,
+        expenses: firstHistoryExpenses,
+      }),
+    ]
 
     setPayPeriod(nextPayPeriod)
     setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod))
     setBills(nextBills)
     setExpenses(nextExpenses)
-    setExpandedCategories(new Set(DEFAULT_CATEGORIES))
+    setRecurringTemplates(nextRecurringTemplates)
+    setPayPeriodHistory(nextHistory)
+    setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses))
     setSortMode('amount-desc')
     setCategoryOrderMode('total-desc')
     setCategoryOrder([...DEFAULT_CATEGORIES])
@@ -1158,7 +1520,7 @@ function App() {
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setEditingItem(null)
-    setDataMessage('')
+    setDataMessage('Demo data loaded.')
     setDataError('')
   }
 
@@ -1256,6 +1618,7 @@ function App() {
   }
 
   const hasAnyData = payPeriod || bills.length > 0 || expenses.length > 0
+  const isFirstRun = !payPeriod && bills.length === 0 && expenses.length === 0 && recurringTemplates.length === 0 && payPeriodHistory.length === 0
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#050914] text-slate-100">
@@ -1327,7 +1690,9 @@ function App() {
         <section className="mx-auto mt-5 w-full max-w-5xl">
           {activeTab === 'overview' ? (
             <SectionShell title="Overview" description="A snapshot of the current pay period and recent activity.">
-              {hasAnyData ? (
+              {isFirstRun ? (
+                <FirstRunPanel onGoToIncome={() => setActiveTab('income')} onLoadDemoData={loadDemoData} />
+              ) : hasAnyData ? (
                 <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
                   <div className="grid gap-4">
                     <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
@@ -1836,6 +2201,7 @@ function App() {
                 onImportFile={importBackupFile}
                 onExportCurrentPeriodCsv={exportCurrentPeriodCsv}
                 onExportAllHistoryCsv={exportAllHistoryCsv}
+                onLoadDemoData={loadDemoData}
                 statusMessage={dataMessage}
                 errorMessage={dataError}
                 isImporting={isImportingBackup}

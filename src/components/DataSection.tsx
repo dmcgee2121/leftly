@@ -12,6 +12,7 @@ export function DataSection({
   onImportFile,
   onExportCurrentPeriodCsv,
   onExportAllHistoryCsv,
+  onLoadDemoData,
   statusMessage,
   errorMessage,
   isImporting,
@@ -20,6 +21,7 @@ export function DataSection({
   onImportFile: (file: File | null) => void
   onExportCurrentPeriodCsv: () => void
   onExportAllHistoryCsv: () => void
+  onLoadDemoData: () => void
   statusMessage: string
   errorMessage: string
   isImporting: boolean
@@ -65,6 +67,16 @@ export function DataSection({
             Export all history CSV
           </button>
         </div>
+      </div>
+
+      <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
+        <p className="text-sm font-semibold text-white">Demo data</p>
+        <p className="text-sm leading-6 text-slate-400">
+          Demo data is only for testing. It replaces the current local data on this device.
+        </p>
+        <button type="button" onClick={onLoadDemoData} className={`${buttonStyles.primary} w-full`} disabled={isImporting}>
+          Load demo data
+        </button>
       </div>
 
       <input

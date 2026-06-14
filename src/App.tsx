@@ -808,6 +808,10 @@ function App() {
     () => getUpcomingRecurringBills(recurringTemplates, bills),
     [bills, recurringTemplates],
   )
+  const hasActiveBillPlanItems = useMemo(
+    () => recurringTemplates.some((template) => template.isActive),
+    [recurringTemplates],
+  )
 
   const recentBills = useMemo(() => bills.slice(0, 3), [bills])
   const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
@@ -835,7 +839,7 @@ function App() {
   }
 
   function openBillPlanApply() {
-    if (!payPeriod) {
+    if (!payPeriod || !hasActiveBillPlanItems) {
       return
     }
 
@@ -1986,7 +1990,7 @@ function App() {
                             Active bill templates that are not yet in this pay period&apos;s active bills list.
                           </p>
                         </div>
-                        {payPeriod ? (
+                        {payPeriod && hasActiveBillPlanItems ? (
                           <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto sm:min-w-0 sm:px-3 sm:py-2.5 sm:text-xs">
                             Review items for this period
                           </button>
@@ -2365,7 +2369,7 @@ function App() {
               title="Bill Plan"
               description="Bill Plan is where you save bills and planned spending that repeat. Starting a new pay period can pull these into your active budget automatically."
             >
-              {payPeriod ? (
+              {payPeriod && hasActiveBillPlanItems ? (
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-slate-400">
                     Apply saved Bill Plan items to the current pay period without starting a new one.

@@ -155,9 +155,9 @@ export function EditItemPanel({
             <h3 className="mt-1 text-lg font-semibold text-white">{target.item.name}</h3>
             <div className="mt-2 flex flex-wrap gap-2">
               <Badge>{target.kind === 'bill' ? 'Bill' : 'Expense'}</Badge>
-              {target.kind === 'bill' && target.item.source === 'recurring' ? <Badge muted>Recurring</Badge> : null}
+              {target.kind === 'bill' && target.item.source === 'recurring' ? <Badge muted>Bill Plan</Badge> : null}
               {target.kind === 'expense' && target.item.source === 'recurring' ? (
-                <Badge muted>{target.item.setAsideForTemplateId ? 'Set-aside' : target.item.isPlanned ? 'Planned' : 'Recurring'}</Badge>
+                <Badge muted>{target.item.setAsideForTemplateId ? 'Set-aside' : target.item.isPlanned ? 'Planned spending' : 'Bill Plan'}</Badge>
               ) : null}
             </div>
           </div>

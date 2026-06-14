@@ -321,7 +321,7 @@ export function StartFromHistoryPanel({
             <p className="text-sm font-semibold text-white">Copy preview</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Stat label="Copied bills" value={`${preview.bills.length}`} detail={formatCurrency(copiedBillsAmount)} />
-              <Stat label="Copied planned expenses / set-asides" value={`${copiedPlannedExpensesCount}`} detail={formatCurrency(copiedPlannedExpensesAmount)} />
+              <Stat label="Copied planned spending / set-asides" value={`${copiedPlannedExpensesCount}`} detail={formatCurrency(copiedPlannedExpensesAmount)} />
               <Stat label="Manual expenses" value={draft.copyManualExpenses ? `${preview.manualExpensesCount}` : '0'} detail={draft.copyManualExpenses ? formatCurrency(preview.manualExpensesTotal) : 'not copied'} />
               <Stat label="Total copied items" value={`${preview.bills.length + copiedPlannedExpensesCount + (draft.copyManualExpenses ? preview.manualExpensesCount : 0)}`} detail="preview only" />
             </div>
@@ -336,9 +336,9 @@ export function StartFromHistoryPanel({
                 emptyLabel="No bills will be copied."
               />
               <PreviewGroup
-                title="Planned expenses and set-asides"
+                title="Planned spending and set-asides"
                 items={preview.expenses.filter((expense) => expense.source === 'recurring')}
-                emptyLabel="No planned recurring expenses or set-asides will be copied."
+                emptyLabel="No planned spending or set-asides will be copied."
               />
               {draft.copyManualExpenses ? (
                 <PreviewGroup
@@ -350,11 +350,11 @@ export function StartFromHistoryPanel({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setMode('edit')} className={buttonStyles.secondary}>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
               Back to edit
             </button>
-            <button type="button" onClick={() => handleSubmit()} className={buttonStyles.primary}>
+            <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
               Start pay period
             </button>
           </div>
@@ -437,11 +437,11 @@ function PreviewGroup({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate font-medium text-white">{item.name}</p>
-                  <Badge muted>{item.setAsideForTemplateId ? 'Set-aside' : item.isPlanned ? 'Planned' : 'Recurring'}</Badge>
+                  <Badge muted>{item.setAsideForTemplateId ? 'Set-aside' : item.isPlanned ? 'Planned spending' : 'Bill Plan'}</Badge>
                 </div>
                 <p className="text-xs text-slate-400">
-                  {item.category} Â· {item.dueDate ?? item.date ?? 'copied from archive'}
-                  {item.source === 'recurring' ? ' Â· recurring' : ' Â· manual'}
+                  {item.category} ? {item.dueDate ?? item.date ?? 'copied from archive'}
+                  {item.source === 'recurring' ? ' ? recurring' : ' ? manual'}
                 </p>
               </div>
               <p className="text-sm font-semibold text-white">{formatCurrency(item.amount)}</p>

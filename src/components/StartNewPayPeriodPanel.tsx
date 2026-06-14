@@ -197,11 +197,11 @@ export function StartNewPayPeriodPanel({
               className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
             />
             <span>
-              <span className="block font-semibold">Generate recurring items for this pay period</span>
+              <span className="block font-semibold">Apply Bill Plan items to this pay period</span>
               <span className="mt-1 block text-sm leading-6 text-slate-400">
                 {templates.length > 0
-                  ? 'Checked by default because recurring templates are saved.'
-                  : 'No recurring templates are saved yet.'}
+                  ? 'Checked by default because Bill Plan items are saved.'
+                  : 'No Bill Plan items are saved yet.'}
               </span>
             </span>
           </label>
@@ -224,12 +224,12 @@ export function StartNewPayPeriodPanel({
             <SummaryCard label="Pay period" value={`${draft.startDate} to ${draft.endDate}`} />
             <SummaryCard label="Income" value={formatCurrency(Number(draft.income))} />
             <SummaryCard label="Cadence" value={draft.cadence} />
-            <SummaryCard label="Recurring generation" value={draft.generateRecurring ? 'Enabled' : 'Disabled'} />
+            <SummaryCard label="Bill Plan generation" value={draft.generateRecurring ? 'Enabled' : 'Disabled'} />
           </div>
 
           <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold text-white">Recurring preview</p>
+              <p className="text-sm font-semibold text-white">Bill Plan preview</p>
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{preview.total} item{preview.total === 1 ? '' : 's'}</p>
             </div>
 
@@ -250,7 +250,7 @@ export function StartNewPayPeriodPanel({
                     <PreviewGroup
                       title="Bills due this period"
                       items={preview.bills}
-                      emptyLabel="No recurring bills fall inside this pay period."
+                      emptyLabel="No Bill Plan bills fall inside this pay period."
                     />
                     <PreviewGroup
                       title="Set-asides"
@@ -258,29 +258,29 @@ export function StartNewPayPeriodPanel({
                       emptyLabel="No set-asides are scheduled for this pay period."
                     />
                     <PreviewGroup
-                      title="Planned expenses"
+                      title="Planned spending"
                       items={preview.plannedExpenses}
-                      emptyLabel="No recurring planned expenses fall inside this pay period."
+                      emptyLabel="No Bill Plan planned expenses fall inside this pay period."
                     />
                   </>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
-                    <p className="text-sm font-medium text-white">No recurring items fall inside this pay period.</p>
+                    <p className="text-sm font-medium text-white">No Bill Plan items fall inside this pay period.</p>
                   </div>
                 )}
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
-                <p className="text-sm font-medium text-white">No recurring items fall inside this pay period.</p>
+                <p className="text-sm font-medium text-white">No Bill Plan items fall inside this pay period.</p>
               </div>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setMode('edit')} className={buttonStyles.secondary}>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
               Back to edit
             </button>
-            <button type="button" onClick={() => handleSubmit()} className={buttonStyles.primary}>
+            <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
               Start pay period
             </button>
           </div>
@@ -318,9 +318,9 @@ function SummaryStats({
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Stat label="Recurring bills" value={`${billsCount}`} detail={formatCurrency(billsAmount)} />
+      <Stat label="Bill Plan bills" value={`${billsCount}`} detail={formatCurrency(billsAmount)} />
       <Stat label="Set-asides" value={`${setAsidesCount}`} detail={formatCurrency(setAsidesAmount)} />
-      <Stat label="Planned expenses" value={`${plannedCount}`} detail={formatCurrency(plannedAmount)} />
+      <Stat label="Planned spending" value={`${plannedCount}`} detail={formatCurrency(plannedAmount)} />
       <Stat label="Total items" value={`${billsCount + setAsidesCount + plannedCount}`} detail="preview only" />
       <Stat label="Safe-to-spend impact" value={`-${formatCurrency(safeToSpendImpact)}`} detail="estimated" />
     </div>
@@ -370,7 +370,7 @@ function PreviewGroup({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate font-medium text-white">{item.name}</p>
-                  <Badge>{item.isSetAside ? 'Set-aside' : 'Recurring'}</Badge>
+                  <Badge>{item.isSetAside ? 'Set-aside' : 'Bill Plan'}</Badge>
                 </div>
                 <p className="text-xs text-slate-400">
                   {item.category} · {item.dateLabel} · {item.frequency} · {item.kind === 'bill' ? 'Due date' : 'Date'}

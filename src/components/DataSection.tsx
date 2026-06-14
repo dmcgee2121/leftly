@@ -42,7 +42,7 @@ export function DataSection({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <button type="button" onClick={onExport} className={`${buttonStyles.primary} w-full`} disabled={isImporting}>
-          Export backup
+          Export JSON backup
         </button>
         <button
           type="button"
@@ -50,7 +50,7 @@ export function DataSection({
           className={`${buttonStyles.secondary} w-full`}
           disabled={isImporting}
         >
-          Import backup
+          Import JSON backup
         </button>
       </div>
 
@@ -61,13 +61,13 @@ export function DataSection({
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={onExportCurrentPeriodCsv} className={`${buttonStyles.secondary} w-full`}>
-            Export current period CSV
-          </button>
-          <button type="button" onClick={onExportAllHistoryCsv} className={`${buttonStyles.secondary} w-full`}>
-            Export all history CSV
-          </button>
-        </div>
+          Export current period CSV
+        </button>
+        <button type="button" onClick={onExportAllHistoryCsv} className={`${buttonStyles.secondary} w-full`}>
+          Export all history CSV
+        </button>
       </div>
+    </div>
 
       <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
         <p className="text-sm font-semibold text-white">Demo data</p>
@@ -82,7 +82,7 @@ export function DataSection({
       <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
         <p className="text-sm font-semibold text-white">Add Leftly to your phone</p>
         <p className="text-sm leading-6 text-slate-400">
-          On Android, open Leftly in Chrome, tap the three-dot menu, then choose Add to Home screen or Install app.
+          Open Leftly in your mobile browser, then use the browser menu to add it to your home screen or install it as an app.
         </p>
       </div>
 
@@ -100,7 +100,7 @@ export function DataSection({
       <div className="grid gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/8 p-4">
         <p className="text-sm font-semibold text-amber-100">Import warning</p>
         <p className="text-sm leading-6 text-amber-50/80">
-          Importing a backup will replace the current data on this device.
+          Importing this JSON backup will replace the current Leftly data on this device.
         </p>
         <p className="text-sm leading-6 text-slate-300">
           Make sure the file came from Leftly before importing it.

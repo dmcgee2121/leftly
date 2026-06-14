@@ -188,7 +188,7 @@ export function ApplyBillPlanPanel({
               Review what will be added before Leftly updates your active budget.
             </p>
           </div>
-          <button type="button" onClick={onClose} className={buttonStyles.secondary}>
+          <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
             Cancel
           </button>
         </div>
@@ -210,14 +210,14 @@ export function ApplyBillPlanPanel({
         <div className="mt-4 grid gap-4">
           <PreviewGroup title="Bills due this period" toAdd={preview.billsToAdd} alreadyAdded={preview.billsAlreadyAdded} />
           <PreviewGroup title="Set-asides" toAdd={preview.setAsidesToAdd} alreadyAdded={preview.setAsidesAlreadyAdded} />
-          <PreviewGroup title="Planned expenses" toAdd={preview.plannedToAdd} alreadyAdded={preview.plannedAlreadyAdded} />
+          <PreviewGroup title="Planned spending" toAdd={preview.plannedToAdd} alreadyAdded={preview.plannedAlreadyAdded} />
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <button type="button" onClick={onClose} className={buttonStyles.secondary}>
+          <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
             Cancel
           </button>
-          <button type="button" onClick={handleApply} className={buttonStyles.primary}>
+          <button type="button" onClick={handleApply} className={`${buttonStyles.primary} w-full sm:w-auto`}>
             Apply to this pay period
           </button>
         </div>
@@ -256,7 +256,7 @@ function PreviewGroup({
       </div>
 
       {toAdd.length === 0 && alreadyAdded.length === 0 ? (
-        <p className="mt-3 text-sm leading-6 text-slate-400">Nothing to show here.</p>
+        <p className="mt-3 text-sm leading-6 text-slate-400">Nothing to add yet. Bill Plan items only appear here when they belong in this pay period.</p>
       ) : (
         <div className="mt-3 grid gap-3">
           {toAdd.map((item) => (

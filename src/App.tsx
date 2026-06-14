@@ -416,12 +416,12 @@ function HistorySection({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-medium text-white">{bill.name}</p>
-                        {bill.source === 'recurring' ? <Badge muted>Recurring</Badge> : null}
+                        {bill.source === 'recurring' ? <Badge muted>Bill Plan</Badge> : null}
                         <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
                       </div>
                       <p className="mt-1 text-xs text-slate-400">
                         {bill.category} · Due {bill.dueDate}
-                        {bill.source === 'recurring' ? ' · generated from recurring template' : ''}
+                        {bill.source === 'recurring' ? ' · generated from Bill Plan' : ''}
                       </p>
                     </div>
                     <p className="text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
@@ -446,7 +446,7 @@ function HistorySection({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-medium text-white">{expense.name}</p>
                         {expense.source === 'recurring' ? (
-                          <Badge muted>{expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned' : 'Recurring'}</Badge>
+                          <Badge muted>{expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned spending' : 'Bill Plan'}</Badge>
                         ) : null}
                       </div>
                       <p className="mt-1 text-xs text-slate-400">
@@ -900,13 +900,13 @@ function App() {
       const setAsideAdded = generated.expenses.some((expense) => expense.setAsideForTemplateId === recurringTemplate.id)
 
       if (billAdded && setAsideAdded) {
-        setSetupSuccess('Setup complete. Your regular bill and set-aside were added to this pay period.')
+        setSetupSuccess('Setup complete. Your pay period and Bill Plan are ready.')
       } else if (billAdded) {
-        setSetupSuccess('Setup complete. Your regular bill was added to this pay period.')
+        setSetupSuccess('Setup complete. Your bill was added to this pay period.')
       } else if (setAsideAdded) {
-        setSetupSuccess('Setup complete. Your bill plan was saved and the set-aside was added to this pay period.')
+        setSetupSuccess('Setup complete. Your Bill Plan was saved and the set-aside was added to this pay period.')
       } else {
-        setSetupSuccess('Setup complete. Your bill plan was saved, but it is not due in this pay period yet.')
+        setSetupSuccess('Setup complete. Your Bill Plan was saved, but it is not due in this pay period yet.')
       }
     } else {
       setSetupSuccess('Setup complete.')
@@ -928,7 +928,15 @@ function App() {
     setRecurringTemplates(result.templates)
     setIsApplyBillPlanOpen(false)
 
-    setBillPlanMessage('Bill Plan applied to this pay period.')
+    const addedBills = result.bills.length - bills.length
+    const addedExpenses = result.expenses.length - expenses.length
+    if (addedBills > 0 || addedExpenses > 0) {
+      setBillPlanMessage(
+        `Bill Plan applied. Added ${addedBills} bill${addedBills === 1 ? '' : 's'} and ${addedExpenses} expense${addedExpenses === 1 ? '' : 's'} to this pay period.`,
+      )
+    } else {
+      setBillPlanMessage('Bill Plan reviewed. No new items were added to this pay period.')
+    }
   }
 
   function exportBackup() {
@@ -981,7 +989,7 @@ function App() {
         return
       }
 
-      if (!window.confirm('Importing a backup will replace the current data on this device.')) {
+      if (!window.confirm('Importing this JSON backup will replace the current Leftly data on this device.')) {
         return
       }
 
@@ -1284,7 +1292,7 @@ function App() {
   }
 
   function loadDemoData() {
-    if (!window.confirm('Load demo data? This will replace the current data on this device.')) {
+    if (!window.confirm('Load demo data? This will replace the current Leftly data on this device.')) {
       return
     }
 
@@ -1695,7 +1703,7 @@ function App() {
   }
 
   function handleReset() {
-    if (!window.confirm('This will clear the current Leftly data from this browser. Continue?')) {
+    if (!window.confirm('Reset all Leftly data in this browser? This cannot be undone.')) {
       return
     }
 
@@ -1784,13 +1792,13 @@ function App() {
               {formatCurrency(totals.leftover)}
             </p>
             <p className="max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
-              Income minus paid bills, unpaid bills, set-asides, and expenses.
+              Income minus bills, set-asides, and expenses in the current pay period.
             </p>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
             <MetricCard label="Income" value={formatCurrency(totals.income)} />
-            <MetricCard label="Total planned bills" value={formatCurrency(totals.totalPlannedBills)} />
+            <MetricCard label="Planned bills" value={formatCurrency(totals.totalPlannedBills)} />
             <MetricCard label="Paid bills" value={formatCurrency(totals.paidBills)} />
             <MetricCard label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
             <MetricCard label="Manual expenses" value={formatCurrency(totals.totalExpenses)} />
@@ -1818,7 +1826,7 @@ function App() {
               Load demo data
             </button>
             <button type="button" onClick={handleReset} className="button-secondary w-full sm:w-auto">
-              Reset data
+              Reset all data
             </button>
           </div>
         </div>
@@ -1847,7 +1855,7 @@ function App() {
                         <>
                           <p className="mt-3 text-xl font-semibold text-white sm:text-2xl">{formatCurrency(payPeriod.income)}</p>
                           <p className="mt-3 text-sm leading-6 text-slate-400">
-                            Leftly counts bills and planned spending that are active in this pay period. Use Bill Plan to save bills that repeat.
+                            Leftly counts active bills, planned spending, and set-asides in this pay period. Use Bill Plan to save repeating bills.
                           </p>
                           <div className="mt-3 flex flex-wrap gap-2 text-[11px] sm:text-xs">
                             <Badge>{payPeriod.cadence}</Badge>
@@ -1926,7 +1934,7 @@ function App() {
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="truncate font-medium text-white">{bill.name}</p>
-                                  {bill.source === 'recurring' ? <Badge muted>Recurring</Badge> : null}
+                                  {bill.source === 'recurring' ? <Badge muted>Bill Plan</Badge> : null}
                                 </div>
                                 <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
                                   {bill.category} · due {bill.dueDate}
@@ -1941,7 +1949,7 @@ function App() {
                             </div>
                           ))
                         ) : (
-                          <EmptyState title="No bills yet" text="Add a bill in the Add Bill tab to see it here." compact />
+                          <EmptyState title="No bills yet" text="Add a bill in the One-time Bill tab to see it here." compact />
                         )}
                       </div>
                     </div>
@@ -1960,7 +1968,7 @@ function App() {
                                   <p className="truncate font-medium text-white">{expense.name}</p>
                                   {expense.source === 'recurring' ? (
                                     <Badge muted={Boolean(expense.setAsideForTemplateId)}>
-                                      {expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned' : 'Recurring'}
+                                      {expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned spending' : 'Bill Plan'}
                                     </Badge>
                                   ) : null}
                                 </div>
@@ -1977,7 +1985,7 @@ function App() {
                             </div>
                           ))
                         ) : (
-                          <EmptyState title="No expenses yet" text="Add an expense in the Add Expense tab to see it here." compact />
+                          <EmptyState title="No expenses yet" text="Add an expense in the Manual Expense tab to see it here." compact />
                         )}
                       </div>
                     </div>
@@ -1985,14 +1993,14 @@ function App() {
                     <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <p className="text-sm font-medium text-white">Upcoming from your bill plan</p>
+                          <p className="text-sm font-medium text-white">Upcoming from your Bill Plan</p>
                           <p className="mt-1 text-xs leading-5 text-slate-400">
-                            Active bill templates that are not yet in this pay period&apos;s active bills list.
+                            Active Bill Plan items that are not yet in this pay period&apos;s active list.
                           </p>
                         </div>
                         {payPeriod && hasActiveBillPlanItems ? (
                           <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto sm:min-w-0 sm:px-3 sm:py-2.5 sm:text-xs">
-                            Review items for this period
+                            Review Bill Plan items
                           </button>
                         ) : null}
                       </div>
@@ -2007,7 +2015,7 @@ function App() {
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <p className="truncate font-medium text-white">{template.name}</p>
-                                    {template.setAsideEnabled ? <Badge muted>set-aside active</Badge> : null}
+                                    {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
                                   </div>
                                   <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
                                     {template.category} · {template.frequency} · {formatPlanSchedule(template)}
@@ -2020,7 +2028,7 @@ function App() {
                         ) : (
                           <EmptyState
                             title="Nothing upcoming yet"
-                            text="Save regular bills in Bill Plan and Leftly will show the ones not active in this pay period here."
+                            text="Save bills in Bill Plan and Leftly will show the ones not active in this pay period here."
                             compact
                           />
                         )}
@@ -2029,10 +2037,10 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <EmptyState
-                  title="No budget data yet"
-                  text="Add income, bills, or expenses to turn the overview into a working budget snapshot."
-                />
+                  <EmptyState
+                    title="No budget data yet"
+                    text="Start with setup, then add income, a bill, or an expense to turn the overview into a working budget snapshot."
+                  />
               )}
             </SectionShell>
           ) : null}
@@ -2072,7 +2080,7 @@ function App() {
                     </>
                   ) : (
                     <EmptyState
-                      title="No income yet"
+                      title="No active pay period yet"
                       text="Set up a pay period on the form to unlock the budget calculations."
                       compact
                     />
@@ -2209,7 +2217,7 @@ function App() {
 
                 <div className="flex items-stretch gap-3">
                   <button type="submit" className="button-primary w-full sm:w-auto">
-                    Add bill
+                    Save bill
                   </button>
                 </div>
               </form>
@@ -2288,7 +2296,7 @@ function App() {
 
                 <div className="flex items-stretch gap-3">
                   <button type="submit" className="button-primary w-full sm:w-auto">
-                    Add expense
+                    Save expense
                   </button>
                 </div>
               </form>
@@ -2323,7 +2331,7 @@ function App() {
                 </div>
                 <div className="flex justify-end">
                   <button type="button" onClick={handleReset} className="button-secondary w-full sm:w-auto">
-                    Reset data
+                    Reset all data
                   </button>
                 </div>
               </div>
@@ -2419,7 +2427,7 @@ function App() {
           ) : null}
 
           {activeTab === 'data' ? (
-            <SectionShell title="Data" description="Back up or restore Leftly data stored on this device.">
+            <SectionShell title="Data" description="Back up or restore the Leftly data stored on this device.">
               <DataSection
                 onExport={exportBackup}
                 onImportFile={importBackupFile}
@@ -2573,7 +2581,7 @@ function CategoryCard({
                     <p className="truncate text-sm font-medium text-white">{item.name}</p>
                     {item.source === 'recurring' ? (
                       <Badge muted={Boolean(item.setAsideForTemplateId)}>
-                        {item.setAsideForTemplateId ? 'Set-aside' : item.isPlanned ? 'Planned' : 'Recurring'}
+                        {item.setAsideForTemplateId ? 'Set-aside' : item.isPlanned ? 'Planned spending' : 'Bill Plan'}
                       </Badge>
                     ) : null}
                     <Badge muted>{item.kind}</Badge>

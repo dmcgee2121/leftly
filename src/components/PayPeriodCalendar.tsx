@@ -147,7 +147,7 @@ function buildDays(
       label: isSetAside ? `Set-aside ${expense.name}` : expense.isPlanned ? `Planned ${expense.name}` : expense.name,
       amount: expense.amount,
       category: expense.category,
-      detail: isSetAside ? 'Set-aside' : expense.isPlanned ? 'Planned expense' : 'Expense',
+      detail: isSetAside ? 'Set-aside' : expense.isPlanned ? 'Planned spending' : 'Expense',
       onClick: onEditExpense ? () => onEditExpense(expense) : undefined,
     })
   }
@@ -227,6 +227,7 @@ function DayCard({
     <button
       type="button"
       onClick={onSelect}
+      aria-pressed={selected}
       className={`min-h-[5.5rem] rounded-[1.15rem] border p-3 text-left shadow-sm shadow-slate-950/20 transition active:translate-y-px sm:min-h-[6rem] sm:p-3.5 ${
         selected
           ? 'border-cyan-400/30 bg-cyan-400/8 ring-1 ring-cyan-400/20'
@@ -259,11 +260,13 @@ function DayCard({
           visibleItems.map((item) => <DayChip key={item.id + item.label} item={item} />)
         ) : (
           <p className="rounded-full border border-dashed border-slate-800 bg-slate-950/35 px-2 py-1.5 text-[11px] text-slate-500">
-            No items
+            No items on this day
           </p>
         )}
         {overflowCount > 0 ? (
-          <p className="text-[11px] font-medium text-slate-400">+{overflowCount} more</p>
+          <p className="inline-flex w-fit rounded-full border border-slate-700 bg-slate-900/70 px-2 py-1 text-[11px] font-medium text-slate-300">
+            +{overflowCount} more
+          </p>
         ) : null}
       </div>
     </button>
@@ -393,7 +396,7 @@ export function PayPeriodCalendar({
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         {days.map((day) => (
           <DayCard key={day.isoDate} day={day} selected={day.isoDate === selectedDay?.isoDate} onSelect={() => setSelectedIsoDate(day.isoDate)} />
         ))}
@@ -454,9 +457,9 @@ export function PayPeriodCalendar({
             ) : null}
 
             {selectedDay.items.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
-                No bills or spending scheduled for this day.
-              </p>
+              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
+                No bills or spending scheduled for this day. Tap a different day or apply Bill Plan items to add more.
+              </div>
             ) : null}
           </div>
         ) : null}

@@ -100,7 +100,7 @@ export function RecurringSection({
     const parsedSetAsideAmount = draft.setAsideAmount.trim() === '' ? undefined : Number(draft.setAsideAmount)
     const setAsideAmount = Number.isFinite(parsedSetAsideAmount) ? parsedSetAsideAmount : undefined
     if (!draft.name.trim()) {
-      setError('Recurring item name is required.')
+      setError('Bill Plan item name is required.')
       return
     }
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -151,9 +151,9 @@ export function RecurringSection({
   return (
     <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
       <Panel
-        title={editingTemplateId ? 'Edit recurring template' : 'Add recurring template'}
+        title={editingTemplateId ? 'Edit Bill Plan item' : 'Add Bill Plan item'}
         action="Saved locally"
-        helper="Recurring items are saved templates. Later, Leftly can use them to build each new pay period automatically. Set-asides reserve money each pay period for a bill that may be due later. They lower your safe-to-spend amount but are not marked as a paid bill."
+        helper="Bill Plan items are saved templates. Later, Leftly can use them to build each new pay period automatically. Set-asides reserve money each pay period for a bill that may be due later. They lower your safe-to-spend amount but are not marked as a paid bill."
       >
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <Field label="Name">
@@ -187,7 +187,7 @@ export function RecurringSection({
               }
             >
               <option value="bill">Bill</option>
-              <option value="planned-expense">Planned expense</option>
+              <option value="planned-expense">Planned spending</option>
             </select>
           </Field>
 
@@ -282,7 +282,7 @@ export function RecurringSection({
 
           <div className="flex flex-wrap gap-3">
             <button type="submit" className={buttonStyles.primary}>
-              {editingTemplateId ? 'Save template' : 'Save template'}
+              {editingTemplateId ? 'Save Bill Plan item' : 'Save Bill Plan item'}
             </button>
             {editingTemplateId ? (
               <button type="button" onClick={resetForm} className={buttonStyles.secondary}>
@@ -293,7 +293,7 @@ export function RecurringSection({
         </form>
       </Panel>
 
-      <Panel title="Saved templates" action={`${sortedTemplates.length} total`} helper="Deactivate or reactivate templates without deleting them.">
+      <Panel title="Saved Bill Plan items" action={`${sortedTemplates.length} total`} helper="Deactivate or reactivate items without deleting them.">
         {sortedTemplates.length > 0 ? (
           <div className="grid gap-3">
             {sortedTemplates.map((template) => (
@@ -303,7 +303,7 @@ export function RecurringSection({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-semibold text-white">{template.name}</p>
-                        <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned expense'}</Badge>
+                        <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned spending'}</Badge>
                         {template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0 ? (
                           <Badge muted>Set-aside</Badge>
                         ) : null}
@@ -351,8 +351,8 @@ export function RecurringSection({
           </div>
         ) : (
           <EmptyState
-            title="No recurring templates yet"
-            text="Save a recurring rent template, subscription, or grocery budget here. It will stay in the browser until you delete it."
+            title="No Bill Plan items yet"
+            text="Save a repeating rent bill, subscription, or planned spending item here. It will stay in the browser until you delete it."
           />
         )}
       </Panel>

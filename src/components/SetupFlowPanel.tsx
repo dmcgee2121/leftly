@@ -253,7 +253,7 @@ export function SetupFlowPanel({
             Cancel
           </button>
           <button type="button" onClick={goNext} className={buttonStyles.primary} disabled={!canContinue}>
-            Continue
+            Next
           </button>
         </div>
       </>,
@@ -262,8 +262,8 @@ export function SetupFlowPanel({
   }
 
   return renderPanel(
-    'Add your first regular bill',
-    'Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your paycheck plan.',
+    'Add your first Bill Plan item',
+    'Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your pay period plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
       <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
         <p className="text-sm font-semibold text-white">Setup review</p>
@@ -275,12 +275,12 @@ export function SetupFlowPanel({
             <span className="text-slate-500">Income:</span> {draft.income ? formatCurrency(Number(draft.income)) : 'Add income'}
           </p>
           <p className="sm:col-span-2">
-            <span className="text-slate-500">Regular bill:</span>{' '}
+            <span className="text-slate-500">Bill Plan item:</span>{' '}
             {setupReview?.recurringItem
               ? `${setupReview.recurringItem.name} · ${formatCurrency(setupReview.recurringItem.amount)} · ${setupReview.recurringItem.frequency}`
               : draft.addRecurringBill
                 ? 'Fill in the bill details below'
-                : 'No regular bill selected'}
+                : 'No Bill Plan item selected'}
           </p>
           <p className="sm:col-span-2">
             <span className="text-slate-500">Included in this pay period:</span> {setupReview?.willAddToPeriod ? 'Yes' : 'No'}
@@ -297,9 +297,9 @@ export function SetupFlowPanel({
           className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
         />
         <span>
-          <span className="block font-semibold">Save a regular bill now</span>
+          <span className="block font-semibold">Save a Bill Plan item now</span>
           <span className="mt-1 block text-sm leading-6 text-slate-400">
-            Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your paycheck plan.
+            Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your pay period plan.
           </span>
         </span>
       </label>
@@ -395,7 +395,7 @@ export function SetupFlowPanel({
           }}
           className={buttonStyles.secondary}
         >
-          Skip
+          Skip for now
         </button>
         <button type="submit" className={buttonStyles.primary}>
           Finish setup
@@ -455,13 +455,13 @@ function validateRecurringDraft(
 ): { ok: true; template: RecurringItemTemplate } | { ok: false; error: string } {
   const amount = Number(draft.recurringAmount)
   if (!draft.recurringName.trim()) {
-    return { ok: false, error: 'Recurring bill name is required.' }
+    return { ok: false, error: 'Bill Plan item name is required.' }
   }
   if (!Number.isFinite(amount) || amount <= 0) {
-    return { ok: false, error: 'Recurring bill amount must be greater than 0.' }
+    return { ok: false, error: 'Bill Plan item amount must be greater than 0.' }
   }
   if (!draft.recurringCategory) {
-    return { ok: false, error: 'Recurring bill category is required.' }
+    return { ok: false, error: 'Bill Plan item category is required.' }
   }
   if (draft.recurringFrequency === 'monthly') {
     const dueDay = Number(draft.monthlyDueDay)

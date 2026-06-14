@@ -41,9 +41,11 @@ import {
 import type { EditTarget } from './components/EditItemPanel'
 import { EditItemPanel } from './components/EditItemPanel'
 import { DataSection } from './components/DataSection'
+import { ApplyBillPlanPanel } from './components/ApplyBillPlanPanel'
 import { RecurringSection } from './components/RecurringSection'
 import { SetupFlowPanel } from './components/SetupFlowPanel'
 import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
+import { PayPeriodCalendar } from './components/PayPeriodCalendar'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 
 type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
@@ -617,8 +619,10 @@ function App() {
   const [dataMessage, setDataMessage] = useState('')
   const [dataError, setDataError] = useState('')
   const [setupSuccess, setSetupSuccess] = useState('')
+  const [billPlanMessage, setBillPlanMessage] = useState('')
   const [isImportingBackup, setIsImportingBackup] = useState(false)
   const [isSetupOpen, setIsSetupOpen] = useState(false)
+  const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
 
@@ -707,6 +711,15 @@ function App() {
     const timer = window.setTimeout(() => setSetupSuccess(''), 3000)
     return () => window.clearTimeout(timer)
   }, [setupSuccess])
+
+  useEffect(() => {
+    if (!billPlanMessage) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setBillPlanMessage(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [billPlanMessage])
 
   const totals = useMemo(() => {
     const income = payPeriod?.income ?? 0
@@ -821,6 +834,15 @@ function App() {
     setSetupSuccess('')
   }
 
+  function openBillPlanApply() {
+    if (!payPeriod) {
+      return
+    }
+
+    setIsApplyBillPlanOpen(true)
+    setBillPlanMessage('')
+  }
+
   function getBackupFilename() {
     return `leftly-backup-${new Date().toISOString().slice(0, 10)}.json`
   }
@@ -894,6 +916,15 @@ function App() {
     setBillStatus('')
     setDataMessage('')
     setDataError('')
+  }
+
+  function handleApplyBillPlan(result: { bills: Bill[]; expenses: Expense[]; templates: RecurringItemTemplate[] }) {
+    setBills(result.bills)
+    setExpenses(result.expenses)
+    setRecurringTemplates(result.templates)
+    setIsApplyBillPlanOpen(false)
+
+    setBillPlanMessage('Bill Plan applied to this pay period.')
   }
 
   function exportBackup() {
@@ -1866,6 +1897,18 @@ function App() {
                     </div>
                   </div>
 
+                  {payPeriod ? (
+                    <div className="lg:col-span-2">
+                      <PayPeriodCalendar
+                        payPeriod={payPeriod}
+                        bills={bills}
+                        expenses={expenses}
+                        onEditBill={startEditBill}
+                        onEditExpense={startEditExpense}
+                      />
+                    </div>
+                  ) : null}
+
                   <div className="grid gap-4">
                     <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
                       <p className="text-sm font-medium text-white">Recent bills</p>
@@ -1936,10 +1979,19 @@ function App() {
                     </div>
 
                     <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
-                      <p className="text-sm font-medium text-white">Upcoming from your bill plan</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-400">
-                        Active bill templates that are not yet in this pay period&apos;s active bills list.
-                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-white">Upcoming from your bill plan</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">
+                            Active bill templates that are not yet in this pay period&apos;s active bills list.
+                          </p>
+                        </div>
+                        {payPeriod ? (
+                          <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto sm:min-w-0 sm:px-3 sm:py-2.5 sm:text-xs">
+                            Review items for this period
+                          </button>
+                        ) : null}
+                      </div>
                       <div className="mt-3 space-y-2">
                         {upcomingRecurringBills.length > 0 ? (
                           upcomingRecurringBills.slice(0, 4).map((template) => (
@@ -2313,6 +2365,21 @@ function App() {
               title="Bill Plan"
               description="Bill Plan is where you save bills and planned spending that repeat. Starting a new pay period can pull these into your active budget automatically."
             >
+              {payPeriod ? (
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-slate-400">
+                    Apply saved Bill Plan items to the current pay period without starting a new one.
+                  </p>
+                  <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto">
+                    Apply Bill Plan to this pay period
+                  </button>
+                </div>
+              ) : null}
+              {billPlanMessage ? (
+                <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100">
+                  {billPlanMessage}
+                </div>
+              ) : null}
               <RecurringSection
                 templates={recurringTemplates}
                 onAddTemplate={addRecurringTemplate}
@@ -2368,6 +2435,15 @@ function App() {
             onClose={() => setEditingItem(null)}
             onSaveBill={saveEditedBill}
             onSaveExpense={saveEditedExpense}
+          />
+          <ApplyBillPlanPanel
+            activePayPeriod={payPeriod}
+            templates={recurringTemplates}
+            bills={bills}
+            expenses={expenses}
+            isOpen={isApplyBillPlanOpen}
+            onClose={() => setIsApplyBillPlanOpen(false)}
+            onApply={handleApplyBillPlan}
           />
         </section>
       </div>

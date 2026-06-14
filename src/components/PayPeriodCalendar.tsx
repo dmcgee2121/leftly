@@ -1,0 +1,466 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { Bill, BudgetPeriod, Expense } from '../types/budget'
+
+type CalendarItemKind = 'income' | 'bill' | 'expense' | 'set-aside'
+type CalendarItemTone = 'income' | 'bill' | 'expense' | 'set-aside' | 'paid'
+
+type CalendarItem = {
+  id: string
+  kind: CalendarItemKind
+  tone: CalendarItemTone
+  label: string
+  amount: number
+  category?: string
+  paidStatus?: 'Paid' | 'Unpaid'
+  detail: string
+  onClick?: () => void
+}
+
+type CalendarDay = {
+  isoDate: string
+  date: Date
+  dayLabel: string
+  shortLabel: string
+  isToday: boolean
+  isStart: boolean
+  items: CalendarItem[]
+}
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+})
+
+const weekdayFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'short' })
+const shortDateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+const longDateFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+function formatCurrency(amount: number) {
+  return currencyFormatter.format(amount)
+}
+
+function toLocalIsoDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function startOfLocalDay(value: string) {
+  return new Date(`${value}T00:00:00`)
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function isSameLocalDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  )
+}
+
+function buildDays(
+  payPeriod: BudgetPeriod,
+  bills: Bill[],
+  expenses: Expense[],
+  onEditBill?: (bill: Bill) => void,
+  onEditExpense?: (expense: Expense) => void,
+) {
+  const start = startOfLocalDay(payPeriod.startDate)
+  const end = startOfLocalDay(payPeriod.endDate)
+  const today = new Date()
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const billByDate = new Map<string, CalendarItem[]>()
+
+  const ensureBucket = (isoDate: string) => {
+    const existing = billByDate.get(isoDate)
+    if (existing) {
+      return existing
+    }
+
+    const bucket: CalendarItem[] = []
+    billByDate.set(isoDate, bucket)
+    return bucket
+  }
+
+  const days: CalendarDay[] = []
+  for (let current = new Date(start); current <= end; current = addDays(current, 1)) {
+    const isoDate = toLocalIsoDate(current)
+    days.push({
+      isoDate,
+      date: new Date(current),
+      dayLabel: weekdayFormatter.format(current),
+      shortLabel: shortDateFormatter.format(current),
+      isToday: isSameLocalDay(current, todayStart),
+      isStart: current.getTime() === start.getTime(),
+      items: ensureBucket(isoDate),
+    })
+  }
+
+  if (billByDate.has(payPeriod.startDate)) {
+    ensureBucket(payPeriod.startDate).unshift({
+      id: 'income',
+      kind: 'income',
+      tone: 'income',
+      label: 'Payday',
+      amount: payPeriod.income,
+      category: 'Income',
+      detail: 'Income',
+    })
+  }
+
+  for (const bill of bills) {
+    const isoDate = toLocalIsoDate(startOfLocalDay(bill.dueDate))
+    if (!billByDate.has(isoDate)) {
+      continue
+    }
+
+    ensureBucket(isoDate).push({
+      id: bill.id,
+      kind: 'bill',
+      tone: bill.isPaid ? 'paid' : 'bill',
+      label: bill.name,
+      amount: bill.amount,
+      category: bill.category,
+      paidStatus: bill.isPaid ? 'Paid' : 'Unpaid',
+      detail: bill.isPaid ? 'Paid bill' : 'Bill',
+      onClick: onEditBill ? () => onEditBill(bill) : undefined,
+    })
+  }
+
+  for (const expense of expenses) {
+    const isoDate = toLocalIsoDate(startOfLocalDay(expense.date))
+    if (!billByDate.has(isoDate)) {
+      continue
+    }
+
+    const isSetAside = Boolean(expense.setAsideForTemplateId)
+    ensureBucket(isoDate).push({
+      id: expense.id,
+      kind: isSetAside ? 'set-aside' : 'expense',
+      tone: isSetAside ? 'set-aside' : expense.isPlanned ? 'set-aside' : 'expense',
+      label: isSetAside ? `Set-aside ${expense.name}` : expense.isPlanned ? `Planned ${expense.name}` : expense.name,
+      amount: expense.amount,
+      category: expense.category,
+      detail: isSetAside ? 'Set-aside' : expense.isPlanned ? 'Planned expense' : 'Expense',
+      onClick: onEditExpense ? () => onEditExpense(expense) : undefined,
+    })
+  }
+
+  for (const day of days) {
+    day.items.sort((left, right) => {
+      const order: Record<CalendarItemTone, number> = {
+        income: 0,
+        bill: 1,
+        paid: 1,
+        'set-aside': 2,
+        expense: 3,
+      }
+
+      return order[left.tone] - order[right.tone]
+    })
+  }
+
+  return days
+}
+
+function toneClasses(tone: CalendarItemTone) {
+  switch (tone) {
+    case 'income':
+      return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100'
+    case 'bill':
+      return 'border-rose-500/25 bg-rose-500/10 text-rose-100'
+    case 'paid':
+      return 'border-slate-700 bg-slate-900/80 text-slate-300'
+    case 'expense':
+      return 'border-amber-500/25 bg-amber-500/10 text-amber-100'
+    case 'set-aside':
+      return 'border-indigo-500/25 bg-indigo-500/10 text-indigo-100'
+  }
+}
+
+function itemBadgeClasses(tone: CalendarItemTone) {
+  switch (tone) {
+    case 'income':
+      return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
+    case 'bill':
+      return 'border-rose-500/20 bg-rose-500/10 text-rose-100'
+    case 'paid':
+      return 'border-slate-700 bg-slate-900/70 text-slate-300'
+    case 'expense':
+      return 'border-amber-500/20 bg-amber-500/10 text-amber-100'
+    case 'set-aside':
+      return 'border-indigo-500/20 bg-indigo-500/10 text-indigo-100'
+  }
+}
+
+function DayChip({ item }: { item: CalendarItem }) {
+  return (
+    <div className={`flex min-w-0 items-start gap-2 rounded-full border px-2 py-1 text-[11px] leading-4 ${toneClasses(item.tone)}`}>
+      <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{item.label}</span>
+        <span className="block truncate text-[10px] font-normal text-current/70">{formatCurrency(item.amount)}</span>
+      </span>
+    </div>
+  )
+}
+
+function DayCard({
+  day,
+  selected,
+  onSelect,
+}: {
+  day: CalendarDay
+  selected: boolean
+  onSelect: () => void
+}) {
+  const visibleItems = day.items.slice(0, 2)
+  const overflowCount = Math.max(0, day.items.length - visibleItems.length)
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`min-h-[5.5rem] rounded-[1.15rem] border p-3 text-left shadow-sm shadow-slate-950/20 transition active:translate-y-px sm:min-h-[6rem] sm:p-3.5 ${
+        selected
+          ? 'border-cyan-400/30 bg-cyan-400/8 ring-1 ring-cyan-400/20'
+          : day.isToday
+            ? 'border-cyan-400/20 bg-cyan-400/5'
+            : 'border-slate-800/70 bg-slate-950/55 hover:border-slate-700 hover:bg-slate-950/70'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">{day.dayLabel}</p>
+          <p className="mt-1 text-lg font-semibold tracking-tight text-white">{day.date.getDate()}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          {day.isStart ? (
+            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100">
+              Payday
+            </span>
+          ) : null}
+          {day.isToday ? (
+            <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
+              Today
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-2.5 grid gap-1.5">
+        {visibleItems.length > 0 ? (
+          visibleItems.map((item) => <DayChip key={item.id + item.label} item={item} />)
+        ) : (
+          <p className="rounded-full border border-dashed border-slate-800 bg-slate-950/35 px-2 py-1.5 text-[11px] text-slate-500">
+            No items
+          </p>
+        )}
+        {overflowCount > 0 ? (
+          <p className="text-[11px] font-medium text-slate-400">+{overflowCount} more</p>
+        ) : null}
+      </div>
+    </button>
+  )
+}
+
+function DetailItem({
+  item,
+}: {
+  item: CalendarItem
+}) {
+  const isClickable = Boolean(item.onClick)
+
+  return (
+    <button
+      type="button"
+      onClick={item.onClick}
+      disabled={!isClickable}
+      className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
+        isClickable ? 'hover:border-slate-500/70 hover:bg-black/10 active:translate-y-px' : ''
+      } ${itemBadgeClasses(item.tone)}`}
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="min-w-0 truncate font-medium text-white">{item.label}</p>
+            <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
+              {item.detail}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-current/75">
+            {item.category ? item.category : 'Income'}
+            {item.kind === 'bill' && item.paidStatus ? ` · ${item.paidStatus}` : ''}
+          </p>
+        </div>
+        <div className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</div>
+      </div>
+    </button>
+  )
+}
+
+export function PayPeriodCalendar({
+  payPeriod,
+  bills,
+  expenses,
+  onEditBill,
+  onEditExpense,
+}: {
+  payPeriod: BudgetPeriod | null
+  bills: Bill[]
+  expenses: Expense[]
+  onEditBill?: (bill: Bill) => void
+  onEditExpense?: (expense: Expense) => void
+}) {
+  const days = useMemo(() => {
+    if (!payPeriod) {
+      return []
+    }
+
+    return buildDays(payPeriod, bills, expenses, onEditBill, onEditExpense)
+  }, [bills, expenses, onEditBill, onEditExpense, payPeriod])
+
+  const hasScheduledItems = days.some((day) => day.items.some((item) => item.kind !== 'income'))
+  const start = payPeriod ? startOfLocalDay(payPeriod.startDate) : null
+  const end = payPeriod ? startOfLocalDay(payPeriod.endDate) : null
+  const selectedDefault = useMemo(() => {
+    if (!days.length) {
+      return null
+    }
+
+    const todayMatch = days.find((day) => day.isToday)
+    if (todayMatch) {
+      return todayMatch.isoDate
+    }
+
+    const activeMatch = days.find((day) => day.items.length > 0)
+    return activeMatch?.isoDate ?? days[0].isoDate
+  }, [days])
+
+  const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(selectedDefault)
+
+  useEffect(() => {
+    setSelectedIsoDate(selectedDefault)
+  }, [selectedDefault, payPeriod?.startDate, payPeriod?.endDate])
+
+  if (!payPeriod || !start || !end) {
+    return null
+  }
+
+  const selectedDay = days.find((day) => day.isoDate === selectedIsoDate) ?? days[0]
+  const dayCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
+  const billCount = bills.length
+  const expenseCount = expenses.length
+  const setAsideCount = expenses.filter((expense) => Boolean(expense.setAsideForTemplateId)).length
+  const rangeLabel = `${longDateFormatter.format(start)} - ${longDateFormatter.format(end)}`
+
+  const groupedItems = selectedDay
+    ? {
+        income: selectedDay.items.filter((item) => item.kind === 'income'),
+        bills: selectedDay.items.filter((item) => item.kind === 'bill'),
+        setAsides: selectedDay.items.filter((item) => item.kind === 'set-aside'),
+        expenses: selectedDay.items.filter((item) => item.kind === 'expense'),
+      }
+    : { income: [], bills: [], setAsides: [], expenses: [] }
+
+  return (
+    <section className="rounded-[1.5rem] border border-slate-800/80 bg-[linear-gradient(180deg,rgba(8,12,20,0.96),rgba(6,10,16,0.92))] p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.22em] text-cyan-200/70">Pay Period Calendar</p>
+          <h3 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">{rangeLabel}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            A compact day-by-day view of the current pay period. Tap a day to see the full breakdown below.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{dayCount} days</span>
+          <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{billCount} bills</span>
+          <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{expenseCount} expenses</span>
+          <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{setAsideCount} set-asides</span>
+        </div>
+      </div>
+
+      {hasScheduledItems ? null : (
+        <div className="mt-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
+          Nothing scheduled yet. Add bills, expenses, or apply your Bill Plan to fill out this pay period.
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+        {days.map((day) => (
+          <DayCard key={day.isoDate} day={day} selected={day.isoDate === selectedDay?.isoDate} onSelect={() => setSelectedIsoDate(day.isoDate)} />
+        ))}
+      </div>
+
+      <div className="mt-4 rounded-[1.35rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Selected day</p>
+            <h4 className="mt-1 text-lg font-semibold text-white sm:text-xl">{selectedDay ? longDateFormatter.format(selectedDay.date) : 'No day selected'}</h4>
+          </div>
+          {selectedDay ? (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {selectedDay.isToday ? (
+                <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-cyan-100">Today</span>
+              ) : null}
+              <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{selectedDay.items.length} item{selectedDay.items.length === 1 ? '' : 's'}</span>
+            </div>
+          ) : null}
+        </div>
+
+        {selectedDay ? (
+          <div className="mt-4 grid gap-4">
+            {groupedItems.income.length > 0 ? (
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/80">Income</p>
+                {groupedItems.income.map((item) => (
+                  <DetailItem key={item.id} item={item} />
+                ))}
+              </div>
+            ) : null}
+
+            {groupedItems.bills.length > 0 ? (
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-200/80">Bills</p>
+                {groupedItems.bills.map((item) => (
+                  <DetailItem key={item.id} item={item} />
+                ))}
+              </div>
+            ) : null}
+
+            {groupedItems.setAsides.length > 0 ? (
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200/80">Set-asides</p>
+                {groupedItems.setAsides.map((item) => (
+                  <DetailItem key={item.id} item={item} />
+                ))}
+              </div>
+            ) : null}
+
+            {groupedItems.expenses.length > 0 ? (
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80">Expenses</p>
+                {groupedItems.expenses.map((item) => (
+                  <DetailItem key={item.id} item={item} />
+                ))}
+              </div>
+            ) : null}
+
+            {selectedDay.items.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
+                No bills or spending scheduled for this day.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  )
+}

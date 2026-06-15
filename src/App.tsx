@@ -615,6 +615,7 @@ function App() {
   const [incomeSuccess, setIncomeSuccess] = useState('')
   const [billSuccess, setBillSuccess] = useState('')
   const [expenseSuccess, setExpenseSuccess] = useState('')
+  const [isQuickAddExpenseOpen, setIsQuickAddExpenseOpen] = useState(false)
   const [billStatus, setBillStatus] = useState('')
   const [dataMessage, setDataMessage] = useState('')
   const [dataError, setDataError] = useState('')
@@ -625,6 +626,7 @@ function App() {
   const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
+  const todayIsoDate = formatIsoDate(new Date())
 
   useEffect(() => {
     saveActiveBudgetPeriod(payPeriod)
@@ -1140,49 +1142,95 @@ function App() {
     setActiveTab('bill')
   }
 
-  function handleAddExpense(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setExpenseError('')
-    setExpenseSuccess('')
+  function addExpenseFromDraft(draft: ExpenseDraft) {
+    const amount = Number(draft.amount)
 
-    const amount = Number(expenseDraft.amount)
-
-    if (!expenseDraft.name.trim()) {
+    if (!draft.name.trim()) {
       setExpenseError('Expense name is required.')
-      return
+      return false
     }
 
-    if (!expenseDraft.date) {
+    if (!draft.date) {
       setExpenseError('Date is required.')
-      return
+      return false
     }
 
     if (!Number.isFinite(amount) || amount <= 0) {
       setExpenseError('Amount must be greater than 0.')
-      return
+      return false
     }
 
     setExpenses((current) => [
       {
         id: crypto.randomUUID(),
-        name: expenseDraft.name.trim(),
+        name: draft.name.trim(),
         amount,
-        date: expenseDraft.date,
-        category: expenseDraft.category,
+        date: draft.date,
+        category: draft.category,
         source: 'manual',
         createdAt: new Date().toISOString(),
       },
       ...current,
     ])
 
+    return true
+  }
+
+  function resetExpenseDraft(nextCategory: BudgetCategory = expenseDraft.category) {
     setExpenseDraft({
       name: '',
       amount: '',
       date: '',
-      category: expenseDraft.category,
+      category: nextCategory,
     })
+  }
+
+  function openQuickAddExpense() {
+    if (!payPeriod) {
+      return
+    }
+
+    setActiveTab('overview')
+    setExpenseError('')
+    setExpenseSuccess('')
+    setIsQuickAddExpenseOpen(true)
+    setExpenseDraft((current) => ({
+      ...current,
+      date: current.date || todayIsoDate,
+    }))
+  }
+
+  function closeQuickAddExpense() {
+    setIsQuickAddExpenseOpen(false)
+    setExpenseError('')
+  }
+
+  function handleAddExpense(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setExpenseError('')
+    setExpenseSuccess('')
+
+    if (!addExpenseFromDraft(expenseDraft)) {
+      return
+    }
+
+    resetExpenseDraft(expenseDraft.category)
     setExpenseSuccess('Expense added.')
     setActiveTab('expense')
+  }
+
+  function handleQuickAddExpense(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setExpenseError('')
+    setExpenseSuccess('')
+
+    if (!addExpenseFromDraft(expenseDraft)) {
+      return
+    }
+
+    resetExpenseDraft(expenseDraft.category)
+    setExpenseSuccess('Expense added.')
+    setIsQuickAddExpenseOpen(false)
   }
 
   function toggleBillPaid(id: string) {
@@ -1906,6 +1954,112 @@ function App() {
                           />
                         )}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-white">Quick Add</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">Log a manual expense fast or jump to the bill tabs.</p>
+                        </div>
+                        {!payPeriod ? (
+                          <p className="text-xs leading-5 text-slate-500">Start a pay period before logging bills or expenses.</p>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        <button
+                          type="button"
+                          onClick={openQuickAddExpense}
+                          disabled={!payPeriod}
+                          className="button-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Manual Expense
+                        </button>
+                        <button type="button" onClick={() => payPeriod && setActiveTab('bill')} disabled={!payPeriod} className="button-secondary w-full disabled:cursor-not-allowed disabled:opacity-50">
+                          One-time Bill
+                        </button>
+                        <button type="button" onClick={() => payPeriod && setActiveTab('recurring')} disabled={!payPeriod} className="button-secondary w-full disabled:cursor-not-allowed disabled:opacity-50">
+                          Bill Plan
+                        </button>
+                      </div>
+
+                      {isQuickAddExpenseOpen && payPeriod ? (
+                        <form className="mt-3 grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:p-4" onSubmit={handleQuickAddExpense}>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <Field label="Name">
+                              <input
+                                value={expenseDraft.name}
+                                onChange={(event) =>
+                                  setExpenseDraft((current) => ({
+                                    ...current,
+                                    name: event.target.value,
+                                  }))
+                                }
+                                placeholder="Groceries"
+                              />
+                            </Field>
+                            <Field label="Amount">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={expenseDraft.amount}
+                                onChange={(event) =>
+                                  setExpenseDraft((current) => ({
+                                    ...current,
+                                    amount: event.target.value,
+                                  }))
+                                }
+                                placeholder="48.25"
+                              />
+                            </Field>
+                            <Field label="Category">
+                              <select
+                                value={expenseDraft.category}
+                                onChange={(event) =>
+                                  setExpenseDraft((current) => ({
+                                    ...current,
+                                    category: event.target.value as BudgetCategory,
+                                  }))
+                                }
+                              >
+                                {DEFAULT_CATEGORIES.map((category) => (
+                                  <option key={category} value={category}>
+                                    {category}
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+                            <Field label="Date">
+                              <input
+                                type="date"
+                                value={expenseDraft.date || todayIsoDate}
+                                onChange={(event) =>
+                                  setExpenseDraft((current) => ({
+                                    ...current,
+                                    date: event.target.value,
+                                  }))
+                                }
+                              />
+                            </Field>
+                          </div>
+
+                          {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
+                          {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
+
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <button type="submit" className="button-primary w-full sm:w-auto">
+                              Save expense
+                            </button>
+                            <button type="button" onClick={closeQuickAddExpense} className="button-secondary w-full sm:w-auto">
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : null}
                     </div>
                   </div>
 

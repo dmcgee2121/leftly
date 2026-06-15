@@ -23,12 +23,30 @@ type RecurringDraft = {
   setAsideAmount: string
 }
 
+type BulkRecurringDraft = {
+  name: string
+  amount: string
+  category: RecurringItemTemplate['category']
+  frequency: RecurringFrequency
+  dueDay: string
+}
+
 const frequencyLabels: Record<RecurringFrequency, string> = {
   'every-pay-period': 'Every pay period',
   weekly: 'Weekly',
   biweekly: 'Biweekly',
   monthly: 'Monthly',
   'one-time': 'One-time',
+}
+
+function createBulkRows(): BulkRecurringDraft[] {
+  return Array.from({ length: 3 }, () => ({
+    name: '',
+    amount: '',
+    category: 'Other / Misc',
+    frequency: 'monthly',
+    dueDay: '',
+  }))
 }
 
 export function RecurringSection({
@@ -41,7 +59,7 @@ export function RecurringSection({
   onAddTemplate: (template: RecurringItemTemplate) => void
   onUpdateTemplate: (template: RecurringItemTemplate) => void
   onDeleteTemplate: (id: string) => void
-}) {
+  }) {
   const [draft, setDraft] = useState<RecurringDraft>({
     name: '',
     amount: '',
@@ -55,6 +73,11 @@ export function RecurringSection({
   })
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [isBulkOpen, setIsBulkOpen] = useState(false)
+  const [bulkRows, setBulkRows] = useState<BulkRecurringDraft[]>(() => createBulkRows())
+  const [bulkError, setBulkError] = useState('')
+  const [bulkSuccess, setBulkSuccess] = useState('')
+  const [bulkReminder, setBulkReminder] = useState(false)
 
   const sortedTemplates = useMemo(
     () => [...templates].sort((a, b) => Number(b.isActive) - Number(a.isActive) || b.createdAt.localeCompare(a.createdAt)),
@@ -75,6 +98,30 @@ export function RecurringSection({
       setAsideAmount: '',
     })
     setError('')
+  }
+
+  function openBulkPanel() {
+    setIsBulkOpen(true)
+    setBulkError('')
+    setBulkSuccess('')
+    setBulkReminder(false)
+  }
+
+  function addBulkRow() {
+    setBulkRows((current) => [
+      ...current,
+      {
+        name: '',
+        amount: '',
+        category: 'Other / Misc',
+        frequency: 'monthly',
+        dueDay: '',
+      },
+    ])
+  }
+
+  function updateBulkRow(index: number, patch: Partial<BulkRecurringDraft>) {
+    setBulkRows((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)))
   }
 
   function startEdit(template: RecurringItemTemplate) {
@@ -148,8 +195,215 @@ export function RecurringSection({
     resetForm()
   }
 
+  function handleBulkSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBulkError('')
+    setBulkSuccess('')
+
+    const nextTemplates: RecurringItemTemplate[] = []
+
+    for (let index = 0; index < bulkRows.length; index += 1) {
+      const row = bulkRows[index]
+      const name = row.name.trim()
+      const amount = Number(row.amount)
+      const dueDay = row.dueDay.trim()
+      const hasContent = name !== '' || row.amount.trim() !== '' || dueDay !== ''
+
+      if (!hasContent) {
+        continue
+      }
+
+      if (!name) {
+        setBulkError(`Row ${index + 1} needs a bill name.`)
+        return
+      }
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setBulkError(`Row ${index + 1} needs an amount greater than 0.`)
+        return
+      }
+
+      if (row.frequency !== 'monthly') {
+        setBulkError(`Row ${index + 1} must use Monthly frequency for bulk bills.`)
+        return
+      }
+
+      if (!dueDay || Number(dueDay) < 1 || Number(dueDay) > 31) {
+        setBulkError(`Row ${index + 1} needs a due day between 1 and 31.`)
+        return
+      }
+
+      nextTemplates.push({
+        id: crypto.randomUUID(),
+        name,
+        amount,
+        category: row.category,
+        kind: 'bill',
+        frequency: 'monthly',
+        dueDay: Number(dueDay),
+        anchorDate: undefined,
+        setAsideEnabled: false,
+        setAsideAmount: undefined,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      })
+    }
+
+    if (nextTemplates.length === 0) {
+      setBulkError('Add at least one complete bill row.')
+      return
+    }
+
+    nextTemplates.forEach((template) => onAddTemplate(template))
+    setBulkSuccess(`${nextTemplates.length} bills added to Bill Plan.`)
+    setBulkReminder(true)
+    setIsBulkOpen(false)
+    setBulkRows(createBulkRows())
+    setBulkError('')
+  }
+
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+    <div className="grid gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm leading-6 text-slate-400">
+          Bill Plan is where you save repeating bills and planned spending. Use the bulk tool to enter monthly bills faster.
+        </p>
+        <button type="button" onClick={openBulkPanel} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
+          Add multiple bills
+        </button>
+      </div>
+
+      {bulkSuccess ? (
+        <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100" role="status">
+          {bulkSuccess}
+        </p>
+      ) : null}
+
+      {bulkReminder ? (
+        <p className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm text-cyan-100">
+          Want these included in your current pay period? Use Apply Bill Plan to this pay period.
+        </p>
+      ) : null}
+
+      {isBulkOpen ? (
+        <section className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Add multiple bills</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Add several monthly bills at once. Blank rows are ignored.
+              </p>
+            </div>
+            <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-medium text-slate-300">
+              Saved locally
+            </span>
+          </div>
+
+          <form className="grid gap-4" onSubmit={handleBulkSave}>
+            <div className="grid gap-3">
+              {bulkRows.map((row, index) => (
+                <div key={index} className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">Row {index + 1}</p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBulkRows((current) => current.filter((_, rowIndex) => rowIndex !== index))
+                      }
+                      className="button-secondary !min-h-0 !px-3 !py-2 !text-xs"
+                      disabled={bulkRows.length <= 1}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Field label="Name">
+                      <input
+                        value={row.name}
+                        onChange={(event) => updateBulkRow(index, { name: event.target.value })}
+                        placeholder="Rent"
+                      />
+                    </Field>
+                    <Field label="Amount">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={row.amount}
+                        onChange={(event) => updateBulkRow(index, { amount: event.target.value })}
+                        placeholder="1200"
+                      />
+                    </Field>
+                    <Field label="Category">
+                      <select
+                        value={row.category}
+                        onChange={(event) => updateBulkRow(index, { category: event.target.value as RecurringItemTemplate['category'] })}
+                      >
+                        {DEFAULT_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Frequency">
+                      <select
+                        value={row.frequency}
+                        onChange={(event) => updateBulkRow(index, { frequency: event.target.value as RecurringFrequency })}
+                      >
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </Field>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <Field label="Due day">
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        step="1"
+                        value={row.dueDay}
+                        onChange={(event) => updateBulkRow(index, { dueDay: event.target.value })}
+                        placeholder="1"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {bulkError ? (
+              <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
+                {bulkError}
+              </p>
+            ) : null}
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button type="button" onClick={addBulkRow} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
+                Add another row
+              </button>
+              <button type="submit" className={buttonStyles.primary + ' w-full sm:w-auto'}>
+                Save bills
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBulkOpen(false)
+                  setBulkError('')
+                  setBulkSuccess('')
+                  setBulkReminder(false)
+                  setBulkRows(createBulkRows())
+                }}
+                className={buttonStyles.secondary + ' w-full sm:w-auto'}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
+
+      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
       <Panel
         title={editingTemplateId ? 'Edit Bill Plan item' : 'Add Bill Plan item'}
         action="Saved locally"
@@ -356,6 +610,7 @@ export function RecurringSection({
           />
         )}
       </Panel>
+      </div>
     </div>
   )
 }

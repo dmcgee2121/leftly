@@ -95,14 +95,30 @@ type CategorySummary = {
   total: number
 }
 
+type DueSoonBillRow = {
+  bill: Bill
+  status: 'Overdue' | 'Due today' | 'Due in next 7 days'
+  statusTone: 'rose' | 'cyan' | 'amber'
+  dueDateLabel: string
+}
+
 function formatIsoDate(date: Date) {
   return date.toISOString().slice(0, 10)
 }
+
+const dueSoonDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+})
 
 function addDays(value: Date, days: number) {
   const next = new Date(value)
   next.setDate(next.getDate() + days)
   return next
+}
+
+function parseLocalDate(value: string) {
+  return new Date(`${value}T00:00:00`)
 }
 
 function cloneBillForDemo(bill: Bill): Bill {
@@ -824,6 +840,65 @@ function App() {
 
   const recentBills = useMemo(() => bills.slice(0, 3), [bills])
   const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
+  const dueSoonBills = useMemo<DueSoonBillRow[]>(() => {
+    if (!payPeriod) {
+      return []
+    }
+
+    const today = new Date()
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const soonEnd = addDays(todayStart, 7)
+    const currentPeriodKey = getRecurringPeriodKey(payPeriod)
+    const dueSoonOrder: Record<DueSoonBillRow['status'], number> = {
+      Overdue: 0,
+      'Due today': 1,
+      'Due in next 7 days': 2,
+    }
+
+    return bills
+      .filter((bill) => {
+        if (bill.isPaid || !bill.dueDate) {
+          return false
+        }
+
+        return bill.source !== 'recurring' || bill.generatedForPeriodId === currentPeriodKey || !bill.generatedForPeriodId
+      })
+      .map((bill) => {
+        const dueDate = parseLocalDate(bill.dueDate)
+        if (Number.isNaN(dueDate.getTime()) || dueDate > soonEnd) {
+          return null
+        }
+
+        let status: DueSoonBillRow['status']
+        let statusTone: DueSoonBillRow['statusTone']
+
+        if (dueDate < todayStart) {
+          status = 'Overdue'
+          statusTone = 'rose'
+        } else if (dueDate.getTime() === todayStart.getTime()) {
+          status = 'Due today'
+          statusTone = 'cyan'
+        } else {
+          status = 'Due in next 7 days'
+          statusTone = 'amber'
+        }
+
+        return {
+          bill,
+          status,
+          statusTone,
+          dueDateLabel: dueSoonDateFormatter.format(dueDate),
+        }
+      })
+      .filter((item): item is DueSoonBillRow => Boolean(item))
+      .sort(
+        (left, right) =>
+          dueSoonOrder[left.status] - dueSoonOrder[right.status] ||
+          parseLocalDate(left.bill.dueDate).getTime() - parseLocalDate(right.bill.dueDate).getTime() ||
+          left.bill.name.localeCompare(right.bill.name),
+      )
+  }, [bills, payPeriod])
+
   const selectedHistorySnapshot = useMemo(
     () => payPeriodHistory.find((snapshot) => snapshot.id === selectedHistoryId) ?? null,
     [payPeriodHistory, selectedHistoryId],
@@ -2067,6 +2142,93 @@ function App() {
                           </div>
                         </form>
                       ) : null}
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-white">Due Soon</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">Unpaid bills that need attention in the next 7 days.</p>
+                        </div>
+                        {payPeriod && dueSoonBills.length > 0 ? (
+                          <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+                            <span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-100">
+                              {dueSoonBills.filter((item) => item.status === 'Overdue').length} overdue
+                            </span>
+                            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-100">
+                              {dueSoonBills.filter((item) => item.status === 'Due today').length} today
+                            </span>
+                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-amber-100">
+                              {dueSoonBills.filter((item) => item.status === 'Due in next 7 days').length} soon
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {payPeriod ? (
+                        dueSoonBills.length > 0 ? (
+                          <>
+                            <div className="mt-3 grid gap-2">
+                              {dueSoonBills.slice(0, 3).map(({ bill, status, statusTone, dueDateLabel }) => (
+                                <div
+                                  key={bill.id}
+                                  className="flex flex-col gap-3 rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="truncate font-medium text-white">{bill.name}</p>
+                                      <span
+                                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                                          statusTone === 'rose'
+                                            ? 'border-rose-500/20 bg-rose-500/10 text-rose-100'
+                                            : statusTone === 'cyan'
+                                              ? 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
+                                              : 'border-amber-500/20 bg-amber-500/10 text-amber-100'
+                                        }`}
+                                      >
+                                        {status}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-[11px] text-slate-400">
+                                      {bill.category} · due {dueDateLabel}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+                                    <p className="text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleBillPaid(bill.id)}
+                                      className="button-secondary !min-h-0 !px-3 !py-2 !text-xs"
+                                    >
+                                      Mark paid
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {dueSoonBills.length > 3 ? (
+                              <div className="mt-3 flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                                <p>+{dueSoonBills.length - 3} more unpaid bills</p>
+                                <button type="button" onClick={() => setActiveTab('bill')} className="button-secondary w-full sm:w-auto">
+                                  View all bills in One-time Bill
+                                </button>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <p className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-sm text-slate-400">
+                            No unpaid bills due soon.
+                          </p>
+                        )
+                      ) : (
+                        <p className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-sm text-slate-400">
+                          Start a pay period to see bills due soon.
+                        </p>
+                      )}
                     </div>
                   </div>
 

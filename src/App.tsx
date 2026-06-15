@@ -430,6 +430,13 @@ function HistorySection({
           <MetricCard label="Leftover" value={formatCurrency(selectedSnapshot.totals.leftover)} />
         </div>
 
+        {selectedSnapshot.rolloverAmount && selectedSnapshot.rolloverAmount > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <MetricCard label="Base income" value={formatCurrency(selectedSnapshot.baseIncome ?? selectedSnapshot.income - selectedSnapshot.rolloverAmount)} />
+            <MetricCard label="Rollover" value={formatCurrency(selectedSnapshot.rolloverAmount)} />
+          </div>
+        ) : null}
+
         <div className="grid gap-4 xl:grid-cols-2">
           <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
             <p className="text-sm font-semibold text-white">Bills</p>
@@ -527,6 +534,7 @@ function HistorySection({
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-base font-semibold text-white">{snapshot.label}</h3>
                     <Badge muted>{snapshot.cadence}</Badge>
+                    {snapshot.rolloverAmount && snapshot.rolloverAmount > 0 ? <Badge success>Rollover</Badge> : null}
                   </div>
                   <p className="mt-1 text-sm text-slate-400">Archived {formatArchivedDate(snapshot.archivedAt)}</p>
                 </button>
@@ -1481,7 +1489,12 @@ function App() {
     setIsStartNewPayPeriodOpen(false)
     setSelectedHistoryId(null)
     setEditingItem(null)
-    setActiveTab('overview')
+    setActiveTab('income')
+    if (period.rolloverAmount && period.rolloverAmount > 0) {
+      setIncomeSuccess(`New pay period started with ${formatCurrency(period.rolloverAmount)} rolled over.`)
+    } else {
+      setIncomeSuccess('New pay period started.')
+    }
   }
 
   function handleStartFromHistory(result: {
@@ -2075,7 +2088,13 @@ function App() {
                             <Badge>{payPeriod.cadence}</Badge>
                             <Badge muted>{payPeriod.startDate}</Badge>
                             <Badge muted>{payPeriod.endDate}</Badge>
+                            {payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? <Badge success>Rollover from previous pay period</Badge> : null}
                           </div>
+                          {payPeriod.baseIncome && payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? (
+                            <p className="mt-3 text-xs leading-5 text-slate-500">
+                              Base income {formatCurrency(payPeriod.baseIncome)} + rollover {formatCurrency(payPeriod.rolloverAmount)}
+                            </p>
+                          ) : null}
                           <div className="mt-4">
                             <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
                               Start new pay period
@@ -2537,6 +2556,7 @@ function App() {
 
               <StartNewPayPeriodPanel
                 currentPayPeriod={payPeriod}
+                currentReview={currentPayPeriodReview}
                 templates={recurringTemplates}
                 isOpen={isStartNewPayPeriodOpen}
                 onClose={() => setIsStartNewPayPeriodOpen(false)}
@@ -2545,21 +2565,27 @@ function App() {
 
               <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
                 <div className="rounded-[1.5rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-5">
-                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-200/80">Current income</p>
-                  {payPeriod ? (
-                    <>
-                      <p className="mt-3 text-4xl font-semibold tracking-tight text-white">
-                        {formatCurrency(payPeriod.income)}
-                      </p>
-                      <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                        <Badge>{payPeriod.cadence}</Badge>
-                        <Badge muted>{payPeriod.startDate}</Badge>
-                        <Badge muted>{payPeriod.endDate}</Badge>
-                      </div>
-                      <p className="mt-4 text-sm leading-6 text-slate-400">
-                        This pay period drives the leftover and safe-to-spend calculations.
-                      </p>
-                    </>
+                      <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-200/80">Current income</p>
+                      {payPeriod ? (
+                        <>
+                          <p className="mt-3 text-4xl font-semibold tracking-tight text-white">
+                            {formatCurrency(payPeriod.income)}
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                            <Badge>{payPeriod.cadence}</Badge>
+                            <Badge muted>{payPeriod.startDate}</Badge>
+                            <Badge muted>{payPeriod.endDate}</Badge>
+                            {payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? <Badge success>Rollover from previous pay period</Badge> : null}
+                          </div>
+                          {payPeriod.baseIncome && payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? (
+                            <p className="mt-4 text-sm leading-6 text-slate-400">
+                              Base income {formatCurrency(payPeriod.baseIncome)} plus {formatCurrency(payPeriod.rolloverAmount)} rolled over.
+                            </p>
+                          ) : null}
+                          <p className="mt-4 text-sm leading-6 text-slate-400">
+                            This pay period drives the leftover and safe-to-spend calculations.
+                          </p>
+                        </>
                   ) : (
                     <EmptyState
                       title="No active pay period yet"

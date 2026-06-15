@@ -24,16 +24,30 @@ type StartNewPeriodDraft = {
   generateRecurring: boolean
 }
 
+type CurrentPayPeriodReview = {
+  periodLabel: string
+  income: number
+  totalBills: number
+  paidBillsCount: number
+  unpaidBillsCount: number
+  totalExpenses: number
+  totalSetAsides: number
+  leftover: number
+  topCategory: { category: string; total: number } | null
+}
+
 type PanelMode = 'edit' | 'review'
 
 export function StartNewPayPeriodPanel({
   currentPayPeriod,
+  currentReview,
   templates,
   isOpen,
   onClose,
   onSubmit,
 }: {
   currentPayPeriod: BudgetPeriod | null
+  currentReview: CurrentPayPeriodReview | null
   templates: RecurringItemTemplate[]
   isOpen: boolean
   onClose: () => void
@@ -48,6 +62,7 @@ export function StartNewPayPeriodPanel({
   })
   const [mode, setMode] = useState<PanelMode>('edit')
   const [error, setError] = useState('')
+  const [applyRollover, setApplyRollover] = useState(false)
 
   useEffect(() => {
     if (!isOpen) {
@@ -63,6 +78,7 @@ export function StartNewPayPeriodPanel({
     })
     setMode('edit')
     setError('')
+    setApplyRollover(false)
   }, [currentPayPeriod, isOpen, templates.length])
 
   const preview = useMemo(() => {
@@ -125,12 +141,19 @@ export function StartNewPayPeriodPanel({
       return
     }
 
+    const baseIncome = Number(draft.income)
+    const rolloverAmount = applyRollover && currentReview?.leftover && currentReview.leftover > 0 ? currentReview.leftover : 0
+    const nextIncome = baseIncome + rolloverAmount
+
     onSubmit(
       {
         cadence: draft.cadence,
-        income: Number(draft.income),
+        income: nextIncome,
         startDate: draft.startDate,
         endDate: draft.endDate,
+        baseIncome,
+        rolloverAmount: rolloverAmount > 0 ? rolloverAmount : undefined,
+        rolloverApplied: rolloverAmount > 0,
       },
       {
         generateRecurring: draft.generateRecurring,
@@ -158,6 +181,72 @@ export function StartNewPayPeriodPanel({
 
       {mode === 'edit' ? (
         <form className="mt-4 grid gap-4" onSubmit={(event) => event.preventDefault()}>
+          {currentReview ? (
+            <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-semibold text-white">Current pay period review</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{currentReview.periodLabel}</p>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <SummaryCard label="Income" value={formatCurrency(currentReview.income)} />
+                <SummaryCard
+                  label="Bills"
+                  value={formatCurrency(currentReview.totalBills)}
+                  detail={`${currentReview.paidBillsCount} paid / ${currentReview.unpaidBillsCount} unpaid`}
+                />
+                <SummaryCard label="Expenses" value={formatCurrency(currentReview.totalExpenses)} />
+                <SummaryCard label="Set-asides" value={formatCurrency(currentReview.totalSetAsides)} />
+                <SummaryCard label="Leftover" value={formatCurrency(currentReview.leftover)} />
+                <SummaryCard
+                  label="Top spending category"
+                  value={currentReview.topCategory ? currentReview.topCategory.category : 'None yet'}
+                  detail={currentReview.topCategory ? formatCurrency(currentReview.topCategory.total) : 'No expenses logged'}
+                />
+              </div>
+
+              {currentReview.leftover > 0 ? (
+                <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                  <p className="text-sm font-semibold text-emerald-100">You have {formatCurrency(currentReview.leftover)} left over from this pay period.</p>
+                  <p className="mt-1 text-sm leading-6 text-emerald-50/80">Apply this to the next pay period?</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${!applyRollover ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50' : 'border-slate-800 bg-slate-950/50 text-slate-200'}`}>
+                      <input
+                        type="radio"
+                        name="rollover"
+                        checked={!applyRollover}
+                        onChange={() => setApplyRollover(false)}
+                        className="mt-1 h-4 w-4 border-slate-700 text-cyan-400 focus:ring-cyan-400"
+                      />
+                      <span>
+                        <span className="block font-semibold">No, start fresh</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Keep the next pay period separate.</span>
+                      </span>
+                    </label>
+
+                    <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${applyRollover ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-50' : 'border-slate-800 bg-slate-950/50 text-slate-200'}`}>
+                      <input
+                        type="radio"
+                        name="rollover"
+                        checked={applyRollover}
+                        onChange={() => setApplyRollover(true)}
+                        className="mt-1 h-4 w-4 border-slate-700 text-cyan-400 focus:ring-cyan-400"
+                      />
+                      <span>
+                        <span className="block font-semibold">Yes, add as rollover income</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Adds {formatCurrency(currentReview.leftover)} to the new pay period.</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
+                  No leftover amount is available to roll over.
+                </p>
+              )}
+            </div>
+          ) : null}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Income amount">
               <input
@@ -218,11 +307,13 @@ export function StartNewPayPeriodPanel({
             </button>
           </div>
         </form>
-      ) : (
+  ) : (
         <div className="mt-4 grid gap-4">
           <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 sm:grid-cols-2">
             <SummaryCard label="Pay period" value={`${draft.startDate} to ${draft.endDate}`} />
-            <SummaryCard label="Income" value={formatCurrency(Number(draft.income))} />
+            <SummaryCard label="Base income" value={formatCurrency(Number(draft.income))} />
+            <SummaryCard label="Rollover" value={applyRollover && currentReview && currentReview.leftover > 0 ? formatCurrency(currentReview.leftover) : formatCurrency(0)} detail={applyRollover && currentReview && currentReview.leftover > 0 ? 'Rollover from previous pay period' : 'Starting fresh'} />
+            <SummaryCard label="New pay period income" value={formatCurrency(Number(draft.income) + (applyRollover && currentReview && currentReview.leftover > 0 ? currentReview.leftover : 0))} />
             <SummaryCard label="Cadence" value={draft.cadence} />
             <SummaryCard label="Bill Plan generation" value={draft.generateRecurring ? 'Enabled' : 'Disabled'} />
           </div>
@@ -290,11 +381,14 @@ export function StartNewPayPeriodPanel({
   )
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <p className="text-sm font-semibold text-white">{value}</p>
+        {detail ? <p className="text-xs text-slate-400">{detail}</p> : null}
+      </div>
     </div>
   )
 }

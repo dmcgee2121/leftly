@@ -298,6 +298,9 @@ function createPayPeriodSnapshot(period: BudgetPeriod, bills: Bill[], expenses: 
     startDate: period.startDate,
     endDate: period.endDate,
     income: period.income,
+    baseIncome: period.baseIncome,
+    rolloverAmount: period.rolloverAmount,
+    rolloverApplied: period.rolloverApplied,
     bills: bills.map((bill) => ({ ...bill })),
     expenses: expenses.map((expense) => ({ ...expense })),
     totals: calculatePayPeriodTotals(period, bills, expenses),
@@ -943,6 +946,42 @@ function App() {
 
     return new Set(expenses.map((expense) => expense.category)).size
   }, [expenses, payPeriod])
+
+  const currentPayPeriodReview = useMemo(() => {
+    if (!payPeriod) {
+      return null
+    }
+
+    const categories = new Map<BudgetCategory, { total: number; count: number }>()
+    for (const expense of expenses) {
+      const current = categories.get(expense.category)
+      if (current) {
+        current.total += expense.amount
+        current.count += 1
+      } else {
+        categories.set(expense.category, { total: expense.amount, count: 1 })
+      }
+    }
+
+    const topCategory = [...categories.entries()].sort((left, right) => right[1].total - left[1].total || left[0].localeCompare(right[0]))[0]
+
+    return {
+      periodLabel: formatHistoryPeriodLabel(payPeriod.startDate, payPeriod.endDate),
+      income: payPeriod.income,
+      totalBills: totals.totalPlannedBills,
+      paidBillsCount: bills.filter((bill) => bill.isPaid).length,
+      unpaidBillsCount: bills.filter((bill) => !bill.isPaid).length,
+      totalExpenses: totals.totalExpenses,
+      totalSetAsides: totals.totalSetAside,
+      leftover: totals.leftover,
+      topCategory: topCategory
+        ? {
+            category: topCategory[0],
+            total: topCategory[1].total,
+          }
+        : null,
+    }
+  }, [bills, expenses, payPeriod, totals])
 
   const selectedHistorySnapshot = useMemo(
     () => payPeriodHistory.find((snapshot) => snapshot.id === selectedHistoryId) ?? null,

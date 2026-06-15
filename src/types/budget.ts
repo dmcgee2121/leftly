@@ -24,6 +24,9 @@ export type BudgetPeriod = {
   startDate: string
   endDate: string
   income: number
+  baseIncome?: number
+  rolloverAmount?: number
+  rolloverApplied?: boolean
 }
 
 export type PayPeriodTotals = {
@@ -86,6 +89,9 @@ export type PayPeriodSnapshot = {
   startDate: string
   endDate: string
   income: number
+  baseIncome?: number
+  rolloverAmount?: number
+  rolloverApplied?: boolean
   bills: Bill[]
   expenses: Expense[]
   totals: PayPeriodTotals

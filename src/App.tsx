@@ -177,6 +177,8 @@ const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'data', label: 'Data' },
 ]
 
+const mobileMoreTabKeys: TabKey[] = ['income', 'bill', 'expense', 'categories', 'data']
+
 const initialPayPeriod = loadActiveBudgetPeriod()
 const initialBills = loadBills()
 const initialExpenses = loadExpenses()
@@ -625,6 +627,7 @@ function App() {
   const [isSetupOpen, setIsSetupOpen] = useState(false)
   const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
   const todayIsoDate = formatIsoDate(new Date())
 
@@ -686,6 +689,10 @@ function App() {
     const timer = window.setTimeout(() => setExpenseSuccess(''), 2500)
     return () => window.clearTimeout(timer)
   }, [expenseSuccess])
+
+  useEffect(() => {
+    setIsMoreMenuOpen(false)
+  }, [activeTab])
 
   useEffect(() => {
     if (!dataMessage) {
@@ -1817,7 +1824,7 @@ function App() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.08),_transparent_32%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-slate-950/80 to-transparent" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 pb-6 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 pb-32 sm:px-6 sm:py-5 sm:pb-6 lg:px-8 lg:py-6">
         <header className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/82 px-4 py-4 shadow-2xl shadow-slate-950/40 backdrop-blur sm:rounded-[2rem] sm:px-5 sm:py-6 xl:px-8">
           <div className="flex flex-col items-center gap-3 text-center sm:gap-4">
             <p className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
@@ -1855,7 +1862,7 @@ function App() {
           </div>
         </section>
 
-        <div className="mt-4 flex flex-col gap-3 sm:mt-5 sm:gap-3">
+        <div className="mt-4 hidden flex-col gap-3 sm:mt-5 sm:gap-3 md:flex">
           <div className="no-scrollbar -mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0">
             <div className="flex min-w-max flex-nowrap gap-2 sm:min-w-0 sm:flex-wrap">
             {tabLabels.map((tab) => (
@@ -2622,6 +2629,113 @@ function App() {
             onApply={handleApplyBillPlan}
           />
         </section>
+
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800/80 bg-slate-950/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-20px_40px_rgba(2,6,23,0.35)] backdrop-blur md:hidden">
+          <div className="mx-auto grid max-w-7xl grid-cols-5 gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              aria-label="Go to Overview"
+              aria-pressed={activeTab === 'overview'}
+              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
+                activeTab === 'overview'
+                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
+                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              type="button"
+              onClick={openQuickAddExpense}
+              disabled={!payPeriod}
+              aria-label="Open Quick Add"
+              aria-pressed={isQuickAddExpenseOpen && activeTab === 'overview'}
+              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                isQuickAddExpenseOpen && activeTab === 'overview'
+                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
+                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
+              }`}
+            >
+              Quick Add
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('recurring')}
+              aria-label="Go to Bill Plan"
+              aria-pressed={activeTab === 'recurring'}
+              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
+                activeTab === 'recurring'
+                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
+                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
+              }`}
+            >
+              Bill Plan
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('history')}
+              aria-label="Go to History"
+              aria-pressed={activeTab === 'history'}
+              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
+                activeTab === 'history'
+                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
+                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
+              }`}
+            >
+              History
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsMoreMenuOpen((current) => !current)}
+              aria-label="Open More menu"
+              aria-pressed={isMoreMenuOpen || mobileMoreTabKeys.includes(activeTab)}
+              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
+                isMoreMenuOpen || mobileMoreTabKeys.includes(activeTab)
+                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
+                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
+              }`}
+            >
+              More
+            </button>
+          </div>
+        </div>
+
+        {isMoreMenuOpen ? (
+          <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="More navigation menu">
+            <button
+              type="button"
+              aria-label="Close More menu"
+              className="absolute inset-0 bg-slate-950/60"
+              onClick={() => setIsMoreMenuOpen(false)}
+            />
+            <div className="absolute inset-x-3 bottom-24 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/98 p-3 shadow-2xl shadow-slate-950/60">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-white">More</p>
+                <button type="button" onClick={() => setIsMoreMenuOpen(false)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
+                  Close
+                </button>
+              </div>
+              <div className="grid gap-2">
+                <button type="button" onClick={() => setActiveTab('income')} className="button-secondary w-full justify-start text-left">
+                  Income
+                </button>
+                <button type="button" onClick={() => setActiveTab('bill')} className="button-secondary w-full justify-start text-left">
+                  One-time Bill
+                </button>
+                <button type="button" onClick={() => setActiveTab('expense')} className="button-secondary w-full justify-start text-left">
+                  Manual Expense
+                </button>
+                <button type="button" onClick={() => setActiveTab('categories')} className="button-secondary w-full justify-start text-left">
+                  Categories
+                </button>
+                <button type="button" onClick={() => setActiveTab('data')} className="button-secondary w-full justify-start text-left">
+                  Data
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   )

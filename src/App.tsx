@@ -102,6 +102,12 @@ type DueSoonBillRow = {
   dueDateLabel: string
 }
 
+type SpendingSnapshotRow = {
+  category: BudgetCategory
+  total: number
+  count: number
+}
+
 function formatIsoDate(date: Date) {
   return date.toISOString().slice(0, 10)
 }
@@ -898,6 +904,45 @@ function App() {
           left.bill.name.localeCompare(right.bill.name),
       )
   }, [bills, payPeriod])
+
+  const spendingSnapshot = useMemo<SpendingSnapshotRow[]>(() => {
+    if (!payPeriod || expenses.length === 0) {
+      return []
+    }
+
+    const byCategory = new Map<BudgetCategory, SpendingSnapshotRow>()
+
+    for (const expense of expenses) {
+      const current = byCategory.get(expense.category)
+      if (current) {
+        current.total += expense.amount
+        current.count += 1
+      } else {
+        byCategory.set(expense.category, {
+          category: expense.category,
+          total: expense.amount,
+          count: 1,
+        })
+      }
+    }
+
+    return [...byCategory.values()]
+      .sort((left, right) => right.total - left.total || left.category.localeCompare(right.category))
+      .slice(0, 4)
+  }, [expenses, payPeriod])
+
+  const spendingSnapshotTotal = useMemo(
+    () => spendingSnapshot.reduce((sum, row) => sum + row.total, 0),
+    [spendingSnapshot],
+  )
+
+  const spendingSnapshotCategoryCount = useMemo(() => {
+    if (!payPeriod || expenses.length === 0) {
+      return 0
+    }
+
+    return new Set(expenses.map((expense) => expense.category)).size
+  }, [expenses, payPeriod])
 
   const selectedHistorySnapshot = useMemo(
     () => payPeriodHistory.find((snapshot) => snapshot.id === selectedHistoryId) ?? null,
@@ -2227,6 +2272,71 @@ function App() {
                       ) : (
                         <p className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-sm text-slate-400">
                           Start a pay period to see bills due soon.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-white">Spending Snapshot</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">Active expenses in this pay period, grouped by category.</p>
+                        </div>
+                        {payPeriod && spendingSnapshot.length > 0 ? (
+                          <p className="text-xs leading-5 text-slate-500">
+                            {spendingSnapshotCategoryCount} {spendingSnapshotCategoryCount === 1 ? 'category' : 'categories'} tracked
+                          </p>
+                        ) : null}
+                      </div>
+
+                      {payPeriod ? (
+                        spendingSnapshot.length > 0 ? (
+                          <>
+                            <div className="mt-3 grid gap-2">
+                              {spendingSnapshot.map((row) => {
+                                const share = spendingSnapshotTotal > 0 ? Math.max(6, (row.total / spendingSnapshotTotal) * 100) : 0
+
+                                return (
+                                  <div
+                                    key={row.category}
+                                    className="rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="truncate font-medium text-white">{row.category}</p>
+                                        <p className="mt-1 text-[11px] text-slate-400">
+                                          {formatCurrency(row.total)} · {row.count} item{row.count === 1 ? '' : 's'}
+                                        </p>
+                                      </div>
+                                      <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(row.total)}</p>
+                                    </div>
+
+                                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800/80">
+                                      <div
+                                        className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400"
+                                        style={{ width: `${share}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+
+                            {spendingSnapshotCategoryCount > spendingSnapshot.length ? (
+                              <p className="mt-3 text-xs text-slate-500">+{spendingSnapshotCategoryCount - spendingSnapshot.length} more categories</p>
+                            ) : null}
+                          </>
+                        ) : (
+                          <div className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-3">
+                            <p className="text-sm text-slate-300">No spending logged yet.</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">Use Quick Add to log spending as it happens.</p>
+                          </div>
+                        )
+                      ) : (
+                        <p className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-sm text-slate-400">
+                          Start a pay period to see your spending snapshot.
                         </p>
                       )}
                     </div>

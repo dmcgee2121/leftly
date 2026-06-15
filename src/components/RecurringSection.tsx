@@ -59,7 +59,7 @@ export function RecurringSection({
   onAddTemplate: (template: RecurringItemTemplate) => void
   onUpdateTemplate: (template: RecurringItemTemplate) => void
   onDeleteTemplate: (id: string) => void
-  }) {
+}) {
   const [draft, setDraft] = useState<RecurringDraft>({
     name: '',
     amount: '',
@@ -78,11 +78,66 @@ export function RecurringSection({
   const [bulkError, setBulkError] = useState('')
   const [bulkSuccess, setBulkSuccess] = useState('')
   const [bulkReminder, setBulkReminder] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'set-asides'>('all')
 
   const sortedTemplates = useMemo(
     () => [...templates].sort((a, b) => Number(b.isActive) - Number(a.isActive) || b.createdAt.localeCompare(a.createdAt)),
     [templates],
   )
+
+  const recurringSummary = useMemo(() => {
+    const activeTemplates = templates.filter((template) => template.isActive)
+    const inactiveTemplates = templates.filter((template) => !template.isActive)
+    const setAsideTemplates = templates.filter((template) => template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0)
+
+    return {
+      activeMonthlyEstimate: activeTemplates.reduce((sum, template) => sum + (template.kind === 'bill' ? template.amount : 0), 0),
+      activeCount: activeTemplates.length,
+      inactiveCount: inactiveTemplates.length,
+      setAsideCount: setAsideTemplates.length,
+    }
+  }, [templates])
+
+  const filteredTemplates = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    return sortedTemplates.filter((template) => {
+      const categoryLabel = template.category || 'Other'
+      const frequencyLabel = frequencyLabels[template.frequency]
+      const matchesSearch =
+        query === '' ||
+        template.name.toLowerCase().includes(query) ||
+        categoryLabel.toLowerCase().includes(query) ||
+        frequencyLabel.toLowerCase().includes(query)
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && template.isActive) ||
+        (statusFilter === 'inactive' && !template.isActive) ||
+        (statusFilter === 'set-asides' && template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0)
+
+      return matchesSearch && matchesStatus
+    })
+  }, [searchQuery, sortedTemplates, statusFilter])
+
+  const groupedTemplates = useMemo(() => {
+    const order = [...DEFAULT_CATEGORIES, 'Other / Misc', 'Other']
+    const buckets = new Map<string, RecurringItemTemplate[]>()
+
+    for (const category of order) {
+      buckets.set(category, [])
+    }
+
+    for (const template of filteredTemplates) {
+      const category = template.category || 'Other / Misc'
+      const bucket = buckets.get(category) ?? []
+      bucket.push(template)
+      buckets.set(category, bucket)
+    }
+
+    return order
+      .map((category) => ({ category, items: buckets.get(category) ?? [] }))
+      .filter((group) => group.items.length > 0)
+  }, [filteredTemplates])
 
   function resetForm() {
     setEditingTemplateId(null)
@@ -264,13 +319,69 @@ export function RecurringSection({
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm leading-6 text-slate-400">
-          Bill Plan is where you save repeating bills and planned spending. Use the bulk tool to enter monthly bills faster.
-        </p>
-        <button type="button" onClick={openBulkPanel} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
-          Add multiple bills
-        </button>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Active monthly estimate</p>
+          <p className="mt-2 text-xl font-semibold text-white">{formatCurrency(recurringSummary.activeMonthlyEstimate)}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Active items</p>
+          <p className="mt-2 text-xl font-semibold text-white">{recurringSummary.activeCount}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Inactive items</p>
+          <p className="mt-2 text-xl font-semibold text-white">{recurringSummary.inactiveCount}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Set-asides</p>
+          <p className="mt-2 text-xl font-semibold text-white">{recurringSummary.setAsideCount}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-3 sm:p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-white">Bill Plan management</p>
+            <p className="mt-1 text-sm leading-6 text-slate-400">
+              Search, filter, and organize recurring bills. Use the bulk tool to enter monthly bills faster.
+            </p>
+          </div>
+          <button type="button" onClick={openBulkPanel} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
+            Add multiple bills
+          </button>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <Field label="Search">
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search name, category, or frequency"
+            />
+          </Field>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'active', label: 'Active' },
+              { key: 'inactive', label: 'Inactive' },
+              { key: 'set-asides', label: 'Set-asides' },
+            ].map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => setStatusFilter(chip.key as typeof statusFilter)}
+                aria-pressed={statusFilter === chip.key}
+                className={`min-h-11 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                  statusFilter === chip.key
+                    ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
+                    : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-white'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {bulkSuccess ? (
@@ -547,67 +658,94 @@ export function RecurringSection({
         </form>
       </Panel>
 
-      <Panel title="Saved Bill Plan items" action={`${sortedTemplates.length} total`} helper="Deactivate or reactivate items without deleting them.">
-        {sortedTemplates.length > 0 ? (
-          <div className="grid gap-3">
-            {sortedTemplates.map((template) => (
-              <article key={template.id} className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
-                <div className="grid gap-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate font-semibold text-white">{template.name}</p>
-                        <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned spending'}</Badge>
-                        {template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0 ? (
-                          <Badge muted>Set-aside</Badge>
-                        ) : null}
-                        <Badge muted>{template.isActive ? 'Active' : 'Inactive'}</Badge>
-                      </div>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {formatCurrency(template.amount)} · {template.category} · {frequencyLabels[template.frequency]}
-                        {template.dueDay ? ` · due day ${template.dueDay}` : ''}
-                        {template.anchorDate ? ` · anchor ${template.anchorDate}` : ''}
-                      </p>
-                    </div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{template.createdAt.slice(0, 10)}</p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => startEdit(template)} className={buttonStyles.secondary}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateTemplate({ ...template, isActive: !template.isActive })}
-                      className={buttonStyles.secondary}
-                    >
-                      {template.isActive ? 'Deactivate' : 'Reactivate'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!window.confirm(`Delete ${template.name}? This cannot be undone.`)) {
-                          return
-                        }
-                        if (editingTemplateId === template.id) {
-                          resetForm()
-                        }
-                        onDeleteTemplate(template.id)
-                      }}
-                      className={buttonStyles.danger}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
+      <Panel
+        title="Saved Bill Plan items"
+        action={`${filteredTemplates.length} shown`}
+        helper="Deactivate, reactivate, or edit items without deleting them."
+      >
+        {templates.length === 0 ? (
           <EmptyState
             title="No Bill Plan items yet"
-            text="Save a repeating rent bill, subscription, or planned spending item here. It will stay in the browser until you delete it."
+            text="Save one bill or use Add multiple bills to build your Bill Plan. It will stay in the browser until you delete it."
           />
+        ) : filteredTemplates.length === 0 ? (
+          <EmptyState title="No Bill Plan items match this filter." text="Clear the search or change the filter chips to show items again." />
+        ) : (
+          <div className="grid gap-4">
+            {groupedTemplates.map((group) => (
+              <section key={group.category} className="grid gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">{group.category}</h4>
+                  <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
+                    {group.items.length}
+                  </span>
+                </div>
+
+                <div className="grid gap-2">
+                  {group.items.map((template) => {
+                    const isSetAside =
+                      template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0
+                    const scheduleLabel =
+                      template.frequency === 'monthly'
+                        ? template.dueDay
+                          ? `Due day ${template.dueDay}`
+                          : 'Monthly'
+                        : frequencyLabels[template.frequency]
+
+                    return (
+                      <article key={template.id} className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-3 sm:p-4">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate font-semibold text-white">{template.name}</p>
+                                <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned spending'}</Badge>
+                                {isSetAside ? <Badge muted>Set-aside</Badge> : null}
+                                <Badge muted>{template.isActive ? 'Active' : 'Inactive'}</Badge>
+                              </div>
+                              <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-sm">
+                                {formatCurrency(template.amount)} · {template.category} · {scheduleLabel}
+                                {template.anchorDate ? ` · anchor ${template.anchorDate}` : ''}
+                              </p>
+                            </div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{template.createdAt.slice(0, 10)}</p>
+                          </div>
+
+                          <div className="grid gap-2 sm:flex sm:flex-wrap">
+                            <button type="button" onClick={() => startEdit(template)} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onUpdateTemplate({ ...template, isActive: !template.isActive })}
+                              className={buttonStyles.secondary + ' w-full sm:w-auto'}
+                            >
+                              {template.isActive ? 'Deactivate' : 'Reactivate'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!window.confirm(`Delete ${template.name}? This cannot be undone.`)) {
+                                  return
+                                }
+                                if (editingTemplateId === template.id) {
+                                  resetForm()
+                                }
+                                onDeleteTemplate(template.id)
+                              }}
+                              className={buttonStyles.danger + ' w-full sm:w-auto'}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
         )}
       </Panel>
       </div>

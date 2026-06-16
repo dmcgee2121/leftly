@@ -1,0 +1,4 @@
+Leftly production deploy trigger
+
+Triggered from ChatGPT on 2026-06-15 after local-only polish commits.
+Latest included app fix: 23461c7 Fix history bill totals formatting [skip netlify]

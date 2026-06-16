@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { BudgetCategory, BudgetPeriod, PayCadence, RecurringFrequency, RecurringItemTemplate } from '../types/budget'
 import { buildRecurringPreview } from '../lib/recurring'
@@ -69,11 +69,6 @@ export function SetupFlowPanel({
 }) {
   const [draft, setDraft] = useState<SetupDraft>(() => getInitialDraft(defaultPayCadence))
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    setDraft(getInitialDraft(defaultPayCadence))
-    setError('')
-  }, [defaultPayCadence])
 
   const stepTitle = useMemo(() => {
     if (draft.step === 1) {

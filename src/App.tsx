@@ -680,9 +680,10 @@ function HistorySection({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
-        <p className="text-sm leading-6 text-slate-400">
-          Archived pay periods are saved snapshots of each budget cycle. They stay local in this browser until you delete them.
+      <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 sm:p-5">
+        <p className="text-sm font-semibold text-white">No pay periods archived yet</p>
+        <p className="mt-1 text-sm leading-6 text-slate-400">
+          Start a new pay period to save a snapshot here. You can review older paychecks from this same screen later.
         </p>
       </div>
 
@@ -690,9 +691,9 @@ function HistorySection({
         <div className="grid gap-2.5 sm:gap-3">
           {snapshots.map((snapshot) => (
             <article key={snapshot.id} className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 shadow-lg shadow-slate-950/20 sm:p-4">
-              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <button type="button" onClick={() => onSelectSnapshot(snapshot.id)} className="min-w-0 flex-1 text-left">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <h3 className="text-sm font-semibold text-white sm:text-base">{snapshot.label}</h3>
                     <Badge muted>{snapshot.cadence}</Badge>
                     {snapshot.rolloverAmount && snapshot.rolloverAmount > 0 ? (

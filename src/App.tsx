@@ -493,51 +493,51 @@ function HistorySection({
     const visibleExpenses = showAllExpenses || expenseItems.length <= 5 ? expenseItems : expenseItems.slice(0, 5)
 
     return (
-      <div className="grid gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="grid gap-3 sm:gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Archived pay period</p>
-            <h3 className="mt-1 text-xl font-semibold text-white">{selectedSnapshot.label}</h3>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 sm:text-sm">Archived pay period</p>
+            <h3 className="mt-1 text-lg font-semibold text-white sm:text-xl">{selectedSnapshot.label}</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">
               Archived {formatArchivedDate(selectedSnapshot.archivedAt)} · {selectedSnapshot.cadence}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] sm:mt-3 sm:gap-2 sm:text-[11px]">
               <Badge muted>{selectedSnapshot.cadence}</Badge>
               {rolloverAmount > 0 ? <Badge success>Rollover {formatCurrency(rolloverAmount)}</Badge> : null}
               {rolloverApplied !== null ? <Badge muted>{rolloverApplied ? 'Rollover applied' : 'Rollover not applied'}</Badge> : null}
               {carriedOverSummary.count > 0 ? <Badge muted>{carriedOverSummary.count} carried over</Badge> : null}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => onUseAsStartingPoint(selectedSnapshot)} className="button-primary">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <button type="button" onClick={() => onUseAsStartingPoint(selectedSnapshot)} className="button-primary w-full sm:w-auto">
               Use as starting point
             </button>
-            <button type="button" onClick={() => onExportSnapshotCsv(selectedSnapshot)} className="button-secondary">
+            <button type="button" onClick={() => onExportSnapshotCsv(selectedSnapshot)} className="button-secondary w-full sm:w-auto">
               Export CSV
             </button>
-            <button type="button" onClick={onBackToList} className="button-secondary">
+            <button type="button" onClick={onBackToList} className="button-secondary w-full sm:w-auto">
               Back
             </button>
             <button
               type="button"
               onClick={() => onDeleteSnapshot(selectedSnapshot.id)}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px sm:w-auto"
             >
               Delete snapshot
             </button>
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">Pay period review</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">What happened in this paycheck</p>
+              <p className="text-sm font-semibold text-white sm:text-base">Pay period review</p>
+              <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-slate-500 sm:text-xs">What happened in this paycheck</p>
             </div>
-            <p className="text-xs text-slate-400">Final Leftly {formatCurrency(finalLeftly)}</p>
+            <p className="text-xs font-medium text-slate-300 sm:text-sm">Final Leftly {formatCurrency(finalLeftly)}</p>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-2 xl:grid-cols-4">
             <MiniStat label="Starting income" value={formatCurrency(startingIncome)} />
             <MiniStat label="Total bills" value={formatCurrency(selectedSnapshot.totals.totalBills)} />
             <MiniStat label="Paid bills" value={`${selectedSnapshot.totals.paidBills}`} />
@@ -562,37 +562,37 @@ function HistorySection({
         </div>
 
         {rolloverAmount > 0 || carriedOverSummary.count > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
             {rolloverAmount > 0 ? (
-              <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+              <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
                 <p className="text-sm font-semibold text-white">Rollover</p>
-                <p className="mt-2 text-sm text-slate-300">{formatCurrency(rolloverAmount)}</p>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-2 text-base font-semibold text-slate-100 sm:text-lg">{formatCurrency(rolloverAmount)}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
                   {rolloverApplied !== null ? (rolloverApplied ? 'Applied to the next pay period.' : 'Not applied to the next pay period.') : 'Rollover metadata available.'}
                 </p>
               </div>
             ) : null}
             {carriedOverSummary.count > 0 ? (
-              <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+              <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
                 <p className="text-sm font-semibold text-white">Carried over bills</p>
-                <p className="mt-2 text-sm text-slate-300">
+                <p className="mt-2 text-base font-semibold text-slate-100 sm:text-lg">
                   {carriedOverSummary.count} unpaid bill{carriedOverSummary.count === 1 ? '' : 's'} · {formatCurrency(carriedOverSummary.amount)}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">These were moved forward from the previous pay period.</p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">These were moved forward from the previous pay period.</p>
               </div>
             ) : null}
           </div>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+        <div className="grid gap-3 xl:grid-cols-2">
+          <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
             <p className="text-sm font-semibold text-white">Bills</p>
             <div className="mt-3 grid gap-2">
               {billItems.length > 0 ? (
                 billItems.map((bill) => (
                   <div
                     key={bill.id}
-                    className={`flex flex-col gap-2 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between ${
+                    className={`flex flex-col gap-2 rounded-2xl border p-2.5 sm:flex-row sm:items-center sm:justify-between sm:p-3 ${
                       bill.isPaid ? 'border-slate-800/70 bg-slate-950/60' : 'border-rose-500/25 bg-rose-500/8'
                     }`}
                   >
@@ -603,12 +603,12 @@ function HistorySection({
                         {bill.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
                         {bill.isPaid ? <Badge success>Paid</Badge> : <Badge muted>Unpaid</Badge>}
                       </div>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-xs">
                         {bill.category} · Due {bill.dueDate}
                         {bill.source === 'recurring' ? ' · generated from Bill Plan' : ''}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
+                    <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(bill.amount)}</p>
                   </div>
                 ))
               ) : (
@@ -617,14 +617,14 @@ function HistorySection({
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+          <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
             <p className="text-sm font-semibold text-white">Expenses</p>
             <div className="mt-3 grid gap-2">
               {expenseItems.length > 0 ? (
                 visibleExpenses.map((expense) => (
                   <div
                     key={expense.id}
-                    className="flex flex-col gap-2 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:p-3"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -633,12 +633,12 @@ function HistorySection({
                           <Badge muted>{expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned spending' : 'Bill Plan'}</Badge>
                         ) : null}
                       </div>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-xs">
                         {expense.category} · {expense.date}
                         {expense.setAsideForTemplateId ? ' · reserves money before the bill is due' : ''}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-white">{formatCurrency(expense.amount)}</p>
+                    <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(expense.amount)}</p>
                   </div>
                 ))
               ) : (
@@ -657,14 +657,14 @@ function HistorySection({
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+        <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
           <p className="text-sm font-semibold text-white">Top spending categories</p>
           {topExpenseCategories.length > 0 ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {topExpenseCategories.map((summary) => (
-                <div key={summary.category} className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3">
+                <div key={summary.category} className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5">
                   <p className="text-sm font-medium text-white">{summary.category}</p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-xs">
                     {formatCurrency(summary.total)} · {summary.count} item{summary.count === 1 ? '' : 's'}
                   </p>
                 </div>
@@ -748,13 +748,13 @@ function MiniStat({
 }) {
   return (
     <div
-      className={`rounded-2xl border px-3 py-3 ${
+      className={`rounded-2xl border px-3 py-2.5 sm:py-3 ${
         tone === 'highlight' ? 'border-cyan-400/20 bg-cyan-400/8' : 'border-slate-800/70 bg-slate-950/60'
       }`}
     >
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className={`mt-2 text-sm font-semibold ${tone === 'highlight' ? 'text-cyan-100' : 'text-white'}`}>{value}</p>
-      {detail ? <p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p> : null}
+      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 sm:text-xs">{label}</p>
+      <p className={`mt-1.5 text-base font-semibold leading-tight sm:mt-2 sm:text-lg ${tone === 'highlight' ? 'text-cyan-100' : 'text-white'}`}>{value}</p>
+      {detail ? <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-xs">{detail}</p> : null}
     </div>
   )
 }

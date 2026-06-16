@@ -725,7 +725,7 @@ export function RecurringSection({
                             <button
                               type="button"
                               onClick={() => {
-                                if (!window.confirm(`Delete ${template.name}? This cannot be undone.`)) {
+                                if (!window.confirm(`Delete ${template.name} from Bill Plan? You can\'t undo this.`)) {
                                   return
                                 }
                                 if (editingTemplateId === template.id) {

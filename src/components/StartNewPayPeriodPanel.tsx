@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bill, BudgetPeriod, PayCadence, RecurringItemTemplate } from '../types/budget'
 import { buildRecurringPreview } from '../lib/recurring'
@@ -252,7 +252,7 @@ export function StartNewPayPeriodPanel({
                 <SummaryCard label="Expenses" value={formatCurrency(currentReview.totalExpenses)} />
                 <SummaryCard label="Set-asides" value={formatCurrency(currentReview.totalSetAsides)} />
                 <SummaryCard label="Rollover available" value={formatCurrency(currentReview.leftover)} detail="Can be added to the next pay period" />
-                <SummaryCard label="New pay period income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Includes rollover' : 'Starts with base income'} />
+                <SummaryCard label="New income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Includes rollover' : 'Starts with base income'} />
                 <SummaryCard
                   label="Top spending category"
                   value={currentReview.topCategory ? currentReview.topCategory.category : 'None yet'}
@@ -703,3 +703,4 @@ function Badge({ children }: { children: ReactNode }) {
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
+

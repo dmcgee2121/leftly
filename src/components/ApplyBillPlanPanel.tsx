@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import type { Bill, BudgetPeriod, Expense, RecurringItemTemplate } from '../types/budget'
 import { buildRecurringPreview, generateRecurringItems, getRecurringPeriodKey } from '../lib/recurring'
@@ -317,3 +317,4 @@ function Badge({ children, muted = false }: { children: ReactNode; muted?: boole
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
+

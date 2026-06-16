@@ -68,13 +68,13 @@ export function DataSection({
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={onExportCurrentPeriodCsv} className={`${buttonStyles.secondary} w-full`}>
-          Export current period CSV
-        </button>
-        <button type="button" onClick={onExportAllHistoryCsv} className={`${buttonStyles.secondary} w-full`}>
-          Export all history CSV
-        </button>
+            Export current period CSV
+          </button>
+          <button type="button" onClick={onExportAllHistoryCsv} className={`${buttonStyles.secondary} w-full`}>
+            Export all history CSV
+          </button>
+        </div>
       </div>
-    </div>
 
       <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
         <p className="text-sm font-semibold text-white">Demo data</p>

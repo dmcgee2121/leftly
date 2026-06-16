@@ -2125,7 +2125,7 @@ function App() {
   }
 
   function deleteHistorySnapshot(id: string) {
-    if (!window.confirm('Delete this archived pay period? This cannot be undone.')) {
+    if (!window.confirm('Delete this archived pay period from History? You can\'t undo this.')) {
       return
     }
 
@@ -2137,7 +2137,7 @@ function App() {
   }
 
   function handleReset() {
-    if (!window.confirm('Reset all Leftly data in this browser? This cannot be undone.')) {
+    if (!window.confirm('Reset all Leftly data in this browser? This will erase the saved data on this device.')) {
       return
     }
 

@@ -50,6 +50,8 @@ export type Bill = {
   source?: 'manual' | 'recurring'
   templateId?: string
   generatedForPeriodId?: string
+  carriedOverFromPayPeriodId?: string
+  notes?: string
   createdAt?: string
 }
 

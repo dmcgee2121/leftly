@@ -309,6 +309,52 @@ function createPayPeriodSnapshot(period: BudgetPeriod, bills: Bill[], expenses: 
   }
 }
 
+function getBillDedupKey(bill: Bill) {
+  const templateKey = bill.templateId ? `template:${bill.templateId}` : `name:${bill.name.trim().toLowerCase()}`
+  const amountKey = `amount:${bill.amount.toFixed(2)}`
+  const categoryKey = `category:${bill.category}`
+  const dueDateKey = `due:${bill.dueDate || ''}`
+  return [templateKey, amountKey, categoryKey, dueDateKey].join('|')
+}
+
+function cloneBillForCarryover(bill: Bill, sourcePayPeriodId: string): Bill {
+  return {
+    ...bill,
+    id: crypto.randomUUID(),
+    isPaid: false,
+    paidDate: null,
+    carriedOverFromPayPeriodId: sourcePayPeriodId,
+    notes: 'Carried over from previous pay period',
+  }
+}
+
+function mergeBillsForNewPeriod(existingBills: Bill[], carriedBills: Bill[]) {
+  const merged: Bill[] = []
+  const seen = new Set<string>()
+
+  for (const bill of existingBills) {
+    const key = getBillDedupKey(bill)
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    merged.push(bill)
+  }
+
+  for (const bill of carriedBills) {
+    const key = getBillDedupKey(bill)
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    merged.push(bill)
+  }
+
+  return merged
+}
+
 function getExpandedCategoriesFromItems(bills: Bill[], expenses: Expense[]) {
   const seeded = new Set<BudgetCategory>()
   for (const category of DEFAULT_CATEGORIES) {
@@ -979,6 +1025,15 @@ function App() {
       totalBills: totals.totalPlannedBills,
       paidBillsCount: bills.filter((bill) => bill.isPaid).length,
       unpaidBillsCount: bills.filter((bill) => !bill.isPaid).length,
+      unpaidBills: bills
+        .filter((bill) => !bill.isPaid)
+        .slice()
+        .sort(
+          (left, right) =>
+            parseLocalDate(left.dueDate).getTime() - parseLocalDate(right.dueDate).getTime() ||
+            left.category.localeCompare(right.category) ||
+            left.name.localeCompare(right.name),
+        ),
       totalExpenses: totals.totalExpenses,
       totalSetAsides: totals.totalSetAside,
       leftover: totals.leftover,
@@ -1460,14 +1515,20 @@ function App() {
     setIsStartNewPayPeriodOpen(true)
   }
 
-  function handleStartNewPayPeriod(period: BudgetPeriod, options: { generateRecurring: boolean }) {
+  function handleStartNewPayPeriod(
+    period: BudgetPeriod,
+    options: { generateRecurring: boolean; carryoverBills: Bill[] },
+  ) {
     if (!archiveActivePayPeriod()) {
       return
     }
 
+    const sourcePeriodKey = payPeriod ? getRecurringPeriodKey(payPeriod) : ''
     const periodKey = getRecurringPeriodKey(period)
     const manualBills = bills.filter((bill) => bill.source !== 'recurring')
     const nextExpenses: Expense[] = []
+    const carriedBills = options.carryoverBills.map((bill) => cloneBillForCarryover(bill, sourcePeriodKey))
+    let mergedBills: Bill[]
 
     if (options.generateRecurring) {
       const generated = generateRecurringItems({
@@ -1477,24 +1538,32 @@ function App() {
         existingExpenses: nextExpenses,
       })
 
-      setBills(generated.bills)
+      const generatedRecurringBills = generated.bills.slice(manualBills.length)
+      mergedBills = mergeBillsForNewPeriod([...manualBills, ...carriedBills], generatedRecurringBills)
+      setBills(mergedBills)
       setExpenses(generated.expenses)
       setRecurringTemplates(generated.templates)
     } else {
-      setBills(manualBills)
+      mergedBills = mergeBillsForNewPeriod(manualBills, carriedBills)
+      setBills(mergedBills)
       setExpenses(nextExpenses)
     }
+
+    const carriedOverCount = mergedBills.filter((bill) => bill.carriedOverFromPayPeriodId === sourcePeriodKey).length
 
     setPayPeriod(period)
     setIsStartNewPayPeriodOpen(false)
     setSelectedHistoryId(null)
     setEditingItem(null)
     setActiveTab('income')
+    const successParts = ['New pay period started.']
     if (period.rolloverAmount && period.rolloverAmount > 0) {
-      setIncomeSuccess(`New pay period started with ${formatCurrency(period.rolloverAmount)} rolled over.`)
-    } else {
-      setIncomeSuccess('New pay period started.')
+      successParts.push(`${formatCurrency(period.rolloverAmount)} rolled over.`)
     }
+    if (carriedOverCount > 0) {
+      successParts.push(`${carriedOverCount} unpaid bill${carriedOverCount === 1 ? '' : 's'} carried over.`)
+    }
+    setIncomeSuccess(successParts.join(' '))
   }
 
   function handleStartFromHistory(result: {

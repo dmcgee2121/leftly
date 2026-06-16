@@ -66,6 +66,8 @@ function normalizeBill(bill: Bill | Record<string, unknown>): Bill {
     source: bill.source === 'recurring' ? 'recurring' : 'manual',
     templateId: typeof bill.templateId === 'string' ? bill.templateId : undefined,
     generatedForPeriodId: typeof bill.generatedForPeriodId === 'string' ? bill.generatedForPeriodId : undefined,
+    carriedOverFromPayPeriodId: typeof bill.carriedOverFromPayPeriodId === 'string' ? bill.carriedOverFromPayPeriodId : undefined,
+    notes: typeof bill.notes === 'string' ? bill.notes : undefined,
     createdAt: typeof bill.createdAt === 'string' ? bill.createdAt : undefined,
   }
 }

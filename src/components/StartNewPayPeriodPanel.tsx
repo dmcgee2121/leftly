@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import type { BudgetPeriod, PayCadence, RecurringItemTemplate } from '../types/budget'
+import type { Bill, BudgetPeriod, PayCadence, RecurringItemTemplate } from '../types/budget'
 import { buildRecurringPreview } from '../lib/recurring'
 
 const buttonStyles = {
@@ -30,6 +30,7 @@ type CurrentPayPeriodReview = {
   totalBills: number
   paidBillsCount: number
   unpaidBillsCount: number
+  unpaidBills: Bill[]
   totalExpenses: number
   totalSetAsides: number
   leftover: number
@@ -37,6 +38,22 @@ type CurrentPayPeriodReview = {
 }
 
 type PanelMode = 'edit' | 'review'
+type CarryoverMode = 'all' | 'choose' | 'skip'
+
+function getBillDedupKey(bill: {
+  name: string
+  amount: number
+  category: string
+  dueDate?: string
+  dateLabel?: string
+  templateId?: string
+}) {
+  const templateKey = bill.templateId ? `template:${bill.templateId}` : `name:${bill.name.trim().toLowerCase()}`
+  const amountKey = `amount:${bill.amount.toFixed(2)}`
+  const categoryKey = `category:${bill.category}`
+  const dueDateKey = `due:${bill.dueDate || bill.dateLabel || ''}`
+  return [templateKey, amountKey, categoryKey, dueDateKey].join('|')
+}
 
 export function StartNewPayPeriodPanel({
   currentPayPeriod,
@@ -51,7 +68,7 @@ export function StartNewPayPeriodPanel({
   templates: RecurringItemTemplate[]
   isOpen: boolean
   onClose: () => void
-  onSubmit: (period: BudgetPeriod, options: { generateRecurring: boolean }) => void
+  onSubmit: (period: BudgetPeriod, options: { generateRecurring: boolean; carryoverBills: Bill[] }) => void
 }) {
   const [draft, setDraft] = useState<StartNewPeriodDraft>({
     income: currentPayPeriod ? String(currentPayPeriod.income) : '',
@@ -63,6 +80,8 @@ export function StartNewPayPeriodPanel({
   const [mode, setMode] = useState<PanelMode>('edit')
   const [error, setError] = useState('')
   const [applyRollover, setApplyRollover] = useState(false)
+  const [carryoverMode, setCarryoverMode] = useState<CarryoverMode>('skip')
+  const [selectedCarryoverBillIds, setSelectedCarryoverBillIds] = useState<string[]>([])
 
   useEffect(() => {
     if (!isOpen) {
@@ -79,6 +98,8 @@ export function StartNewPayPeriodPanel({
     setMode('edit')
     setError('')
     setApplyRollover(false)
+    setCarryoverMode('skip')
+    setSelectedCarryoverBillIds([])
   }, [currentPayPeriod, isOpen, templates.length])
 
   const preview = useMemo(() => {
@@ -106,6 +127,30 @@ export function StartNewPayPeriodPanel({
   const setAsidesAmount = preview.setAsides.reduce((sum, item) => sum + item.amount, 0)
   const plannedExpensesAmount = preview.plannedExpenses.reduce((sum, item) => sum + item.amount, 0)
   const estimatedSafeToSpendImpact = recurringBillsAmount + setAsidesAmount + plannedExpensesAmount
+  const unpaidBills = currentReview?.unpaidBills ?? []
+  const selectedCarryoverBills = useMemo(() => {
+    if (!currentReview || carryoverMode === 'skip') {
+      return []
+    }
+
+    if (carryoverMode === 'all') {
+      return currentReview.unpaidBills
+    }
+
+    const selectedIds = new Set(selectedCarryoverBillIds)
+    return currentReview.unpaidBills.filter((bill) => selectedIds.has(bill.id))
+  }, [carryoverMode, currentReview, selectedCarryoverBillIds])
+  const selectedCarryoverAmount = selectedCarryoverBills.reduce((sum, bill) => sum + bill.amount, 0)
+  const selectedCarryoverUniqueAmount = useMemo(() => {
+    if (selectedCarryoverBills.length === 0) {
+      return 0
+    }
+
+    const previewKeys = new Set(preview.bills.map((item) => getBillDedupKey(item)))
+    return selectedCarryoverBills
+      .filter((bill) => !previewKeys.has(getBillDedupKey(bill)))
+      .reduce((sum, bill) => sum + bill.amount, 0)
+  }, [preview.bills, selectedCarryoverBills])
 
   function validateDraft() {
     const income = Number(draft.income)
@@ -157,6 +202,7 @@ export function StartNewPayPeriodPanel({
       },
       {
         generateRecurring: draft.generateRecurring,
+        carryoverBills: selectedCarryoverBills,
       },
     )
   }
@@ -244,6 +290,137 @@ export function StartNewPayPeriodPanel({
                   No leftover amount is available to roll over.
                 </p>
               )}
+
+              {unpaidBills.length > 0 ? (
+                <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-100">Unpaid bills from this pay period</p>
+                      <p className="mt-1 text-sm leading-6 text-amber-50/80">Carry unpaid bills into the next pay period?</p>
+                    </div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-amber-100/70">
+                      {unpaidBills.length} item{unpaidBills.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <label
+                      className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
+                        carryoverMode === 'all'
+                          ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50'
+                          : 'border-slate-800 bg-slate-950/50 text-slate-200'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="carryover"
+                        checked={carryoverMode === 'all'}
+                        onChange={() => setCarryoverMode('all')}
+                        className="mt-1 h-4 w-4 border-slate-700 text-cyan-400 focus:ring-cyan-400"
+                      />
+                      <span>
+                        <span className="block font-semibold">Carry all unpaid bills</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Copies every unpaid bill into the next pay period.</span>
+                      </span>
+                    </label>
+
+                    <label
+                      className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
+                        carryoverMode === 'choose'
+                          ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50'
+                          : 'border-slate-800 bg-slate-950/50 text-slate-200'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="carryover"
+                        checked={carryoverMode === 'choose'}
+                        onChange={() => setCarryoverMode('choose')}
+                        className="mt-1 h-4 w-4 border-slate-700 text-cyan-400 focus:ring-cyan-400"
+                      />
+                      <span>
+                        <span className="block font-semibold">Choose bills</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Pick the unpaid bills you want to keep active.</span>
+                      </span>
+                    </label>
+
+                    <label
+                      className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
+                        carryoverMode === 'skip'
+                          ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50'
+                          : 'border-slate-800 bg-slate-950/50 text-slate-200'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="carryover"
+                        checked={carryoverMode === 'skip'}
+                        onChange={() => setCarryoverMode('skip')}
+                        className="mt-1 h-4 w-4 border-slate-700 text-cyan-400 focus:ring-cyan-400"
+                      />
+                      <span>
+                        <span className="block font-semibold">Do not carry over</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Start fresh and leave unpaid bills out.</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  {carryoverMode === 'choose' ? (
+                    <div className="mt-4 rounded-2xl border border-slate-800/80 bg-slate-950/50 p-3">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-semibold text-white">Select bills to carry over</p>
+                        <p className="text-xs text-slate-400">
+                          {selectedCarryoverBills.length} selected
+                          {selectedCarryoverBills.length > 0 ? ` · ${formatCurrency(selectedCarryoverAmount)}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="mt-3 grid gap-2">
+                        {unpaidBills.map((bill) => {
+                          const checked = selectedCarryoverBillIds.includes(bill.id)
+                          return (
+                            <label
+                              key={bill.id}
+                              className={`flex items-start gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
+                                checked ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50' : 'border-slate-800 bg-slate-950/60 text-slate-200'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(event) => {
+                                  const nextChecked = event.target.checked
+                                  setSelectedCarryoverBillIds((current) => {
+                                    if (nextChecked) {
+                                      return current.includes(bill.id) ? current : [...current, bill.id]
+                                    }
+
+                                    return current.filter((id) => id !== bill.id)
+                                  })
+                                }}
+                                className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <span className="font-semibold text-white">{bill.name}</span>
+                                  {bill.source === 'recurring' ? (
+                                    <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100">
+                                      Bill Plan
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span className="mt-1 block text-xs leading-5 text-slate-400">
+                                  {bill.category} · due {bill.dueDate} · {formatCurrency(bill.amount)}
+                                </span>
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -312,10 +489,17 @@ export function StartNewPayPeriodPanel({
           <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 sm:grid-cols-2">
             <SummaryCard label="Pay period" value={`${draft.startDate} to ${draft.endDate}`} />
             <SummaryCard label="Base income" value={formatCurrency(Number(draft.income))} />
-            <SummaryCard label="Rollover" value={applyRollover && currentReview && currentReview.leftover > 0 ? formatCurrency(currentReview.leftover) : formatCurrency(0)} detail={applyRollover && currentReview && currentReview.leftover > 0 ? 'Rollover from previous pay period' : 'Starting fresh'} />
+            <SummaryCard
+              label="Rollover"
+              value={applyRollover && currentReview && currentReview.leftover > 0 ? formatCurrency(currentReview.leftover) : formatCurrency(0)}
+              detail={applyRollover && currentReview && currentReview.leftover > 0 ? 'Rollover from previous pay period' : 'Starting fresh'}
+            />
             <SummaryCard label="New pay period income" value={formatCurrency(Number(draft.income) + (applyRollover && currentReview && currentReview.leftover > 0 ? currentReview.leftover : 0))} />
             <SummaryCard label="Cadence" value={draft.cadence} />
             <SummaryCard label="Bill Plan generation" value={draft.generateRecurring ? 'Enabled' : 'Disabled'} />
+            <SummaryCard label="Carried unpaid bills" value={`${selectedCarryoverBills.length}`} detail={selectedCarryoverBills.length > 0 ? formatCurrency(selectedCarryoverAmount) : 'None selected'} />
+            <SummaryCard label="Estimated bills" value={formatCurrency(recurringBillsAmount + selectedCarryoverUniqueAmount)} detail="Bill Plan + carried unpaid bills" />
+            <SummaryCard label="Estimated expenses" value={formatCurrency(setAsidesAmount + plannedExpensesAmount)} detail="Bill Plan expenses" />
           </div>
 
           <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">

@@ -60,6 +60,7 @@ export function StartNewPayPeriodPanel({
   currentReview,
   templates,
   isOpen,
+  defaultPayCadence,
   onClose,
   onSubmit,
 }: {
@@ -67,12 +68,13 @@ export function StartNewPayPeriodPanel({
   currentReview: CurrentPayPeriodReview | null
   templates: RecurringItemTemplate[]
   isOpen: boolean
+  defaultPayCadence: PayCadence
   onClose: () => void
   onSubmit: (period: BudgetPeriod, options: { generateRecurring: boolean; carryoverBills: Bill[] }) => void
 }) {
   const [draft, setDraft] = useState<StartNewPeriodDraft>({
     income: currentPayPeriod ? String(currentPayPeriod.income) : '',
-    cadence: currentPayPeriod?.cadence ?? 'biweekly',
+    cadence: currentPayPeriod?.cadence ?? defaultPayCadence,
     startDate: currentPayPeriod?.startDate ?? '',
     endDate: currentPayPeriod?.endDate ?? '',
     generateRecurring: templates.length > 0,
@@ -90,7 +92,7 @@ export function StartNewPayPeriodPanel({
 
     setDraft({
       income: currentPayPeriod ? String(currentPayPeriod.income) : '',
-      cadence: currentPayPeriod?.cadence ?? 'biweekly',
+      cadence: currentPayPeriod?.cadence ?? defaultPayCadence,
       startDate: '',
       endDate: '',
       generateRecurring: templates.length > 0,
@@ -100,7 +102,7 @@ export function StartNewPayPeriodPanel({
     setApplyRollover(false)
     setCarryoverMode('skip')
     setSelectedCarryoverBillIds([])
-  }, [currentPayPeriod, isOpen, templates.length])
+  }, [currentPayPeriod, defaultPayCadence, isOpen, templates.length])
 
   useEffect(() => {
     if (carryoverMode !== 'choose' || !currentReview || selectedCarryoverBillIds.length > 0) {

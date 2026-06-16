@@ -1,4 +1,6 @@
 import { useRef } from 'react'
+import { DEFAULT_CATEGORIES } from '../types/budget'
+import type { BudgetCategory, LeftlyPreferences, PayCadence, QuickAddDateBehavior } from '../types/budget'
 
 const buttonStyles = {
   primary:
@@ -7,7 +9,21 @@ const buttonStyles = {
     'inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm font-semibold text-slate-100 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px',
 }
 
+const cadenceOptions: Array<{ value: PayCadence; label: string }> = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Biweekly' },
+  { value: 'monthly', label: 'Monthly' },
+]
+
+const quickAddDateOptions: Array<{ value: QuickAddDateBehavior; label: string }> = [
+  { value: 'today', label: 'Today' },
+  { value: 'pay-period-start', label: 'Pay period start' },
+  { value: 'blank', label: 'Blank / choose each time' },
+]
+
 export function DataSection({
+  preferences,
+  onPreferencesChange,
   onExport,
   onImportFile,
   onExportCurrentPeriodCsv,
@@ -17,6 +33,8 @@ export function DataSection({
   errorMessage,
   isImporting,
 }: {
+  preferences: LeftlyPreferences
+  onPreferencesChange: (preferences: LeftlyPreferences) => void
   onExport: () => void
   onImportFile: (file: File | null) => void
   onExportCurrentPeriodCsv: () => void
@@ -38,6 +56,75 @@ export function DataSection({
         <p className="text-sm leading-6 text-slate-300">
           JSON backups restore your Leftly data. CSV exports are for viewing your budget in a spreadsheet.
         </p>
+      </div>
+
+      <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold text-white">Preferences</p>
+          <p className="text-sm leading-6 text-slate-400">These defaults only affect new entries on this device.</p>
+        </div>
+
+        <div className="grid gap-3">
+          <label className="grid gap-2 text-sm font-medium text-slate-300">
+            <span>Default pay cadence</span>
+            <select
+              value={preferences.defaultPayCadence}
+              className="min-h-11 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-cyan-400/50 focus:ring-4 focus:ring-cyan-400/10"
+              onChange={(event) =>
+                onPreferencesChange({
+                  ...preferences,
+                  defaultPayCadence: event.target.value as PayCadence,
+                })
+              }
+            >
+              {cadenceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="grid gap-2 text-sm font-medium text-slate-300">
+            <span>Default category</span>
+            <select
+              value={preferences.defaultCategory}
+              className="min-h-11 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-cyan-400/50 focus:ring-4 focus:ring-cyan-400/10"
+              onChange={(event) =>
+                onPreferencesChange({
+                  ...preferences,
+                  defaultCategory: event.target.value as BudgetCategory,
+                })
+              }
+            >
+              {DEFAULT_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="grid gap-2 text-sm font-medium text-slate-300">
+            <span>Quick Add date</span>
+            <select
+              value={preferences.quickAddDateBehavior}
+              className="min-h-11 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-cyan-400/50 focus:ring-4 focus:ring-cyan-400/10"
+              onChange={(event) =>
+                onPreferencesChange({
+                  ...preferences,
+                  quickAddDateBehavior: event.target.value as QuickAddDateBehavior,
+                })
+              }
+            >
+              {quickAddDateOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-3">

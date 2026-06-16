@@ -59,19 +59,21 @@ type SetupResult = {
 }
 
 export function SetupFlowPanel({
+  defaultPayCadence,
   onClose,
   onFinish,
 }: {
+  defaultPayCadence: PayCadence
   onClose: () => void
   onFinish: (result: SetupResult) => void
 }) {
-  const [draft, setDraft] = useState<SetupDraft>(() => getInitialDraft())
+  const [draft, setDraft] = useState<SetupDraft>(() => getInitialDraft(defaultPayCadence))
   const [error, setError] = useState('')
 
   useEffect(() => {
-    setDraft(getInitialDraft())
+    setDraft(getInitialDraft(defaultPayCadence))
     setError('')
-  }, [])
+  }, [defaultPayCadence])
 
   const stepTitle = useMemo(() => {
     if (draft.step === 1) {
@@ -498,14 +500,14 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
 
-function getInitialDraft(): SetupDraft {
+function getInitialDraft(defaultPayCadence: PayCadence): SetupDraft {
   const today = new Date()
   const end = new Date(today)
   end.setDate(end.getDate() + 13)
 
   return {
     step: 1,
-    cadence: 'biweekly',
+    cadence: defaultPayCadence,
     income: '',
     startDate: today.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10),

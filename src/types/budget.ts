@@ -14,6 +14,13 @@ export type BudgetCategory = (typeof DEFAULT_CATEGORIES)[number]
 
 export type PayCadence = 'weekly' | 'biweekly' | 'monthly'
 export type RecurringFrequency = 'every-pay-period' | 'weekly' | 'biweekly' | 'monthly' | 'one-time'
+export type QuickAddDateBehavior = 'today' | 'pay-period-start' | 'blank'
+
+export type LeftlyPreferences = {
+  defaultPayCadence: PayCadence
+  defaultCategory: BudgetCategory
+  quickAddDateBehavior: QuickAddDateBehavior
+}
 
 export type SortMode = 'amount-desc' | 'amount-asc' | 'date' | 'name'
 

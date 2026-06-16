@@ -5,6 +5,7 @@ import type {
   BudgetCategory,
   CategoryOrderMode,
   Expense,
+  LeftlyPreferences,
   PayPeriodSnapshot,
   RecurringItemTemplate,
   SortMode,
@@ -17,9 +18,15 @@ const RECURRING_TEMPLATES_KEY = 'leftly.recurringTemplates'
 const PAY_PERIOD_HISTORY_KEY = 'leftly.payPeriodHistory'
 const SORT_MODE_KEY = 'leftly.sortMode'
 const CATEGORY_ORDER_KEY = 'leftly.categoryOrder'
+const PREFERENCES_KEY = 'leftly.preferences'
 
 const DEFAULT_SORT_MODE: SortMode = 'amount-desc'
 const DEFAULT_CATEGORY_ORDER: CategoryOrderMode = 'total-desc'
+export const DEFAULT_PREFERENCES: LeftlyPreferences = {
+  defaultPayCadence: 'biweekly',
+  defaultCategory: 'Other / Misc',
+  quickAddDateBehavior: 'today',
+}
 
 export type LeftlyBackup = {
   version: 1
@@ -33,6 +40,7 @@ export type LeftlyBackup = {
   categoryOrder: BudgetCategory[]
   categoryOrderMode: CategoryOrderMode
   sortMode: SortMode
+  preferences?: LeftlyPreferences
 }
 
 function readJson<T>(key: string, fallback: T): T {
@@ -52,6 +60,26 @@ function normalizeCategory(category: unknown): BudgetCategory {
   return DEFAULT_CATEGORIES.includes(category as BudgetCategory)
     ? (category as BudgetCategory)
     : 'Other / Misc'
+}
+
+function normalizePayCadence(value: unknown) {
+  return value === 'weekly' || value === 'biweekly' || value === 'monthly' ? value : DEFAULT_PREFERENCES.defaultPayCadence
+}
+
+function normalizeQuickAddDateBehavior(value: unknown) {
+  return value === 'today' || value === 'pay-period-start' || value === 'blank'
+    ? value
+    : DEFAULT_PREFERENCES.quickAddDateBehavior
+}
+
+function normalizePreferences(value: unknown): LeftlyPreferences {
+  const prefs = value as Record<string, unknown> | undefined
+
+  return {
+    defaultPayCadence: normalizePayCadence(prefs?.defaultPayCadence),
+    defaultCategory: normalizeCategory(prefs?.defaultCategory),
+    quickAddDateBehavior: normalizeQuickAddDateBehavior(prefs?.quickAddDateBehavior),
+  }
 }
 
 function normalizeBill(bill: Bill | Record<string, unknown>): Bill {
@@ -129,6 +157,19 @@ function normalizePayPeriodSnapshot(snapshot: PayPeriodSnapshot | Record<string,
   }
 }
 
+function isLeftlyPreferences(value: unknown): value is LeftlyPreferences {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const prefs = value as Record<string, unknown>
+  return (
+    (prefs.defaultPayCadence === 'weekly' || prefs.defaultPayCadence === 'biweekly' || prefs.defaultPayCadence === 'monthly') &&
+    DEFAULT_CATEGORIES.includes(prefs.defaultCategory as BudgetCategory) &&
+    (prefs.quickAddDateBehavior === 'today' || prefs.quickAddDateBehavior === 'pay-period-start' || prefs.quickAddDateBehavior === 'blank')
+  )
+}
+
 function writeJson(key: string, value: unknown) {
   try {
     window.localStorage.setItem(key, JSON.stringify(value))
@@ -159,7 +200,8 @@ function isLeftlyBackup(value: unknown): value is LeftlyBackup {
     Array.isArray(backup.payPeriodHistory) &&
     Array.isArray(backup.categoryOrder) &&
     (backup.categoryOrderMode === 'total-desc' || backup.categoryOrderMode === 'custom') &&
-    (backup.sortMode === 'amount-desc' || backup.sortMode === 'amount-asc' || backup.sortMode === 'date' || backup.sortMode === 'name')
+    (backup.sortMode === 'amount-desc' || backup.sortMode === 'amount-asc' || backup.sortMode === 'date' || backup.sortMode === 'name') &&
+    (backup.preferences === undefined || isLeftlyPreferences(backup.preferences))
   )
 }
 
@@ -185,6 +227,7 @@ export function saveLeftlyBackup(backup: LeftlyBackup) {
   saveCategoryOrder(backup.categoryOrder)
   saveCategoryOrderMode(backup.categoryOrderMode)
   saveSortMode(backup.sortMode)
+  savePreferences(backup.preferences ?? DEFAULT_PREFERENCES)
 }
 
 export function loadActiveBudgetPeriod(): BudgetPeriod | null {
@@ -281,6 +324,14 @@ export function saveSortMode(sortMode: SortMode) {
   writeJson(SORT_MODE_KEY, sortMode)
 }
 
+export function loadPreferences(): LeftlyPreferences {
+  return normalizePreferences(readJson<unknown>(PREFERENCES_KEY, DEFAULT_PREFERENCES))
+}
+
+export function savePreferences(preferences: LeftlyPreferences) {
+  writeJson(PREFERENCES_KEY, normalizePreferences(preferences))
+}
+
 function normalizeCategoryOrder(order: unknown): BudgetCategory[] {
   if (!Array.isArray(order)) {
     return [...DEFAULT_CATEGORIES]
@@ -320,6 +371,7 @@ export function clearAllAppData() {
     window.localStorage.removeItem(SORT_MODE_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY + '.mode')
+    window.localStorage.removeItem(PREFERENCES_KEY)
   } catch {
     // Ignore storage failures so the app keeps running.
   }

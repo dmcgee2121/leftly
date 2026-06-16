@@ -10,9 +10,11 @@ import {
   loadCategoryOrder,
   loadCategoryOrderMode,
   loadExpenses,
+  loadPreferences,
   loadPayPeriodHistory,
   loadSortMode,
   loadRecurringTemplates,
+  savePreferences,
   saveActiveBudgetPeriod,
   saveBills,
   saveCategoryOrder,
@@ -22,6 +24,7 @@ import {
   saveLeftlyBackup,
   saveRecurringTemplates,
   saveSortMode,
+  DEFAULT_PREFERENCES,
 } from './lib/storage'
 import { generateRecurringItems, getRecurringPeriodKey } from './lib/recurring'
 import { createAllHistoryCsv, createCurrentPeriodCsv, createHistorySnapshotCsv, downloadCsv } from './lib/export'
@@ -32,6 +35,7 @@ import {
   type BudgetPeriod,
   type CategoryOrderMode,
   type Expense,
+  type LeftlyPreferences,
   type PayPeriodSnapshot,
   type PayPeriodTotals,
   type PayCadence,
@@ -210,14 +214,45 @@ const initialPayPeriodHistory = loadPayPeriodHistory()
 const initialSortMode = loadSortMode()
 const initialCategoryOrder = loadCategoryOrder()
 const initialCategoryOrderMode = loadCategoryOrderMode()
+const initialPreferences = loadPreferences()
 
-function getDraftFromPeriod(period: BudgetPeriod | null): PayPeriodDraft {
+function getDraftFromPeriod(period: BudgetPeriod | null, defaultCadence: PayCadence = DEFAULT_PREFERENCES.defaultPayCadence): PayPeriodDraft {
   return {
-    cadence: period?.cadence ?? 'biweekly',
+    cadence: period?.cadence ?? defaultCadence,
     income: period ? String(period.income) : '',
     startDate: period?.startDate ?? '',
     endDate: period?.endDate ?? '',
   }
+}
+
+function getBlankBillDraft(defaultCategory: BudgetCategory): BillDraft {
+  return {
+    name: '',
+    amount: '',
+    dueDate: '',
+    category: defaultCategory,
+  }
+}
+
+function getBlankExpenseDraft(defaultCategory: BudgetCategory): ExpenseDraft {
+  return {
+    name: '',
+    amount: '',
+    date: '',
+    category: defaultCategory,
+  }
+}
+
+function getQuickAddDateValue(preferences: LeftlyPreferences, payPeriod: BudgetPeriod | null) {
+  if (preferences.quickAddDateBehavior === 'blank') {
+    return ''
+  }
+
+  if (preferences.quickAddDateBehavior === 'pay-period-start') {
+    return payPeriod?.startDate ?? ''
+  }
+
+  return formatIsoDate(new Date())
 }
 
 const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -384,6 +419,7 @@ function buildLeftlyBackup(params: {
   categoryOrder: BudgetCategory[]
   categoryOrderMode: CategoryOrderMode
   sortMode: SortMode
+  preferences: LeftlyPreferences
 }): string {
   const exportedAt = new Date().toISOString()
   const backup = {
@@ -398,6 +434,7 @@ function buildLeftlyBackup(params: {
     categoryOrder: params.categoryOrder,
     categoryOrderMode: params.categoryOrderMode,
     sortMode: params.sortMode,
+    preferences: params.preferences,
   }
 
   return JSON.stringify(backup, null, 2)
@@ -791,6 +828,7 @@ function App() {
   const [payPeriodHistory, setPayPeriodHistory] = useState<PayPeriodSnapshot[]>(initialPayPeriodHistory)
   const [historyStartSnapshot, setHistoryStartSnapshot] = useState<PayPeriodSnapshot | null>(null)
   const [editingItem, setEditingItem] = useState<EditTarget | null>(null)
+  const [preferences, setPreferences] = useState<LeftlyPreferences>(initialPreferences)
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
@@ -808,19 +846,11 @@ function App() {
 
     return seeded
   })
-  const [payPeriodDraft, setPayPeriodDraft] = useState<PayPeriodDraft>(() => getDraftFromPeriod(initialPayPeriod))
-  const [billDraft, setBillDraft] = useState<BillDraft>({
-    name: '',
-    amount: '',
-    dueDate: '',
-    category: 'Other / Misc',
-  })
-  const [expenseDraft, setExpenseDraft] = useState<ExpenseDraft>({
-    name: '',
-    amount: '',
-    date: '',
-    category: 'Other / Misc',
-  })
+  const [payPeriodDraft, setPayPeriodDraft] = useState<PayPeriodDraft>(() =>
+    getDraftFromPeriod(initialPayPeriod, initialPreferences.defaultPayCadence),
+  )
+  const [billDraft, setBillDraft] = useState<BillDraft>(() => getBlankBillDraft(initialPreferences.defaultCategory))
+  const [expenseDraft, setExpenseDraft] = useState<ExpenseDraft>(() => getBlankExpenseDraft(initialPreferences.defaultCategory))
   const [payPeriodError, setPayPeriodError] = useState('')
   const [billError, setBillError] = useState('')
   const [expenseError, setExpenseError] = useState('')
@@ -839,11 +869,14 @@ function App() {
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
-  const todayIsoDate = formatIsoDate(new Date())
 
   useEffect(() => {
     saveActiveBudgetPeriod(payPeriod)
   }, [payPeriod])
+
+  useEffect(() => {
+    savePreferences(preferences)
+  }, [preferences])
 
   useEffect(() => {
     saveBills(bills)
@@ -872,6 +905,29 @@ function App() {
   useEffect(() => {
     saveCategoryOrderMode(categoryOrderMode)
   }, [categoryOrderMode])
+
+  useEffect(() => {
+    if (!payPeriod) {
+      setPayPeriodDraft((current) =>
+        current.cadence === preferences.defaultPayCadence ? current : { ...current, cadence: preferences.defaultPayCadence },
+      )
+    }
+
+    setBillDraft((current) =>
+      current.name || current.amount || current.dueDate
+        ? current
+        : current.category === preferences.defaultCategory
+          ? current
+          : { ...current, category: preferences.defaultCategory },
+    )
+    setExpenseDraft((current) =>
+      current.name || current.amount || current.date
+        ? current
+        : current.category === preferences.defaultCategory
+          ? current
+          : { ...current, category: preferences.defaultCategory },
+    )
+  }, [payPeriod, preferences.defaultCategory, preferences.defaultPayCadence])
 
   useEffect(() => {
     if (!incomeSuccess) {
@@ -1314,6 +1370,7 @@ function App() {
       categoryOrder,
       categoryOrderMode,
       sortMode,
+      preferences,
     })
 
     const blob = new Blob([json], { type: 'application/json' })
@@ -1365,17 +1422,20 @@ function App() {
       const nextCategoryOrder = loadCategoryOrder()
       const nextCategoryOrderMode = loadCategoryOrderMode()
       const nextSortMode = loadSortMode()
+      const nextPreferences = loadPreferences()
 
       setPayPeriod(nextPayPeriod)
       setBills(nextBills)
       setExpenses(nextExpenses)
       setRecurringTemplates(nextRecurringTemplates)
       setPayPeriodHistory(nextHistory)
+      setPreferences(nextPreferences)
       setCategoryOrder(nextCategoryOrder)
       setCategoryOrderMode(nextCategoryOrderMode)
       setSortMode(nextSortMode)
       setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses))
-      setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod))
+      resetDrafts(nextPreferences)
+      setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod, nextPreferences.defaultPayCadence))
       setActiveTab('overview')
       setIsStartNewPayPeriodOpen(false)
       setHistoryStartSnapshot(null)
@@ -1394,20 +1454,10 @@ function App() {
     }
   }
 
-  function resetDrafts() {
-    setPayPeriodDraft(getDraftFromPeriod(null))
-    setBillDraft({
-      name: '',
-      amount: '',
-      dueDate: '',
-      category: 'Other / Misc',
-    })
-    setExpenseDraft({
-      name: '',
-      amount: '',
-      date: '',
-      category: 'Other / Misc',
-    })
+  function resetDrafts(nextPreferences: LeftlyPreferences = preferences) {
+    setPayPeriodDraft(getDraftFromPeriod(null, nextPreferences.defaultPayCadence))
+    setBillDraft(getBlankBillDraft(nextPreferences.defaultCategory))
+    setExpenseDraft(getBlankExpenseDraft(nextPreferences.defaultCategory))
     setPayPeriodError('')
     setBillError('')
     setExpenseError('')
@@ -1556,7 +1606,7 @@ function App() {
     setIsQuickAddExpenseOpen(true)
     setExpenseDraft((current) => ({
       ...current,
-      date: current.date || todayIsoDate,
+      date: getQuickAddDateValue(preferences, payPeriod),
     }))
   }
 
@@ -2072,6 +2122,7 @@ function App() {
     setExpenses(nextExpenses)
     setRecurringTemplates(nextRecurringTemplates)
     setPayPeriodHistory(nextHistory)
+    setPreferences({ ...DEFAULT_PREFERENCES })
     setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses))
     setSortMode('amount-desc')
     setCategoryOrderMode('total-desc')
@@ -2091,6 +2142,8 @@ function App() {
     setDataMessage('Demo data loaded.')
     setDataError('')
     setIsSetupOpen(false)
+    resetDrafts(DEFAULT_PREFERENCES)
+    setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod, DEFAULT_PREFERENCES.defaultPayCadence))
   }
 
   function deleteBill(id: string) {
@@ -2135,6 +2188,7 @@ function App() {
     }
 
     clearAllAppData()
+    setPreferences({ ...DEFAULT_PREFERENCES })
     setPayPeriod(null)
     setBills([])
     setExpenses([])
@@ -2153,7 +2207,7 @@ function App() {
     setDataMessage('')
     setDataError('')
     setSetupSuccess('')
-    resetDrafts()
+    resetDrafts(DEFAULT_PREFERENCES)
   }
 
   function toggleCategory(category: BudgetCategory) {
@@ -2269,7 +2323,11 @@ function App() {
 
               {isFirstRun ? (
                 isSetupOpen ? (
-                  <SetupFlowPanel onClose={() => setIsSetupOpen(false)} onFinish={handleFinishSetup} />
+                  <SetupFlowPanel
+                    defaultPayCadence={preferences.defaultPayCadence}
+                    onClose={() => setIsSetupOpen(false)}
+                    onFinish={handleFinishSetup}
+                  />
                 ) : (
                   <FirstRunPanel onStartSetup={openSetup} onLoadDemoData={loadDemoData} />
                 )
@@ -2421,7 +2479,7 @@ function App() {
                             <Field label="Date">
                               <input
                                 type="date"
-                                value={expenseDraft.date || todayIsoDate}
+                                value={expenseDraft.date}
                                 onChange={(event) =>
                                   setExpenseDraft((current) => ({
                                     ...current,
@@ -2761,6 +2819,7 @@ function App() {
                 currentReview={currentPayPeriodReview}
                 templates={recurringTemplates}
                 isOpen={isStartNewPayPeriodOpen}
+                defaultPayCadence={preferences.defaultPayCadence}
                 onClose={() => setIsStartNewPayPeriodOpen(false)}
                 onSubmit={handleStartNewPayPeriod}
               />
@@ -3139,6 +3198,8 @@ function App() {
           {activeTab === 'data' ? (
             <SectionShell title="Data" description="Back up or restore the Leftly data stored on this device.">
               <DataSection
+                preferences={preferences}
+                onPreferencesChange={setPreferences}
                 onExport={exportBackup}
                 onImportFile={importBackupFile}
                 onExportCurrentPeriodCsv={exportCurrentPeriodCsv}

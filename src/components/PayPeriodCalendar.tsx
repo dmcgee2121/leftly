@@ -12,6 +12,7 @@ type CalendarItem = {
   amount: number
   category?: string
   paidStatus?: 'Paid' | 'Unpaid'
+  carriedOverFromPayPeriodId?: string
   detail: string
   onClick?: () => void
 }
@@ -128,6 +129,7 @@ function buildDays(
       amount: bill.amount,
       category: bill.category,
       paidStatus: bill.isPaid ? 'Paid' : 'Unpaid',
+      carriedOverFromPayPeriodId: bill.carriedOverFromPayPeriodId,
       detail: bill.isPaid ? 'Paid bill' : 'Bill',
       onClick: onEditBill ? () => onEditBill(bill) : undefined,
     })
@@ -208,6 +210,13 @@ function DayChip({ item }: { item: CalendarItem }) {
           <span className="truncate font-medium">{item.label}</span>
           <span className="shrink-0 font-semibold">{formatCurrency(item.amount)}</span>
         </div>
+        {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? (
+          <div className="mt-1">
+            <span className="inline-flex rounded-full border border-slate-700 bg-slate-900/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-200">
+              Carried over
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -296,6 +305,11 @@ function DetailItem({
             <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
               {item.detail}
             </span>
+            {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? (
+              <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
+                Carried over
+              </span>
+            ) : null}
           </div>
           <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}
@@ -338,6 +352,11 @@ function AgendaItemRow({ item }: { item: CalendarItem }) {
             <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
               {itemTypeLabel(item)}
             </span>
+            {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? (
+              <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
+                Carried over
+              </span>
+            ) : null}
           </div>
           <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}

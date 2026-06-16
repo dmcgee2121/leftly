@@ -87,6 +87,7 @@ type BudgetItem = {
   generatedForPeriodId?: string
   isPlanned?: boolean
   setAsideForTemplateId?: string
+  carriedOverFromPayPeriodId?: string
 }
 
 type CategorySummary = {
@@ -326,6 +327,10 @@ function cloneBillForCarryover(bill: Bill, sourcePayPeriodId: string): Bill {
     carriedOverFromPayPeriodId: sourcePayPeriodId,
     notes: 'Carried over from previous pay period',
   }
+}
+
+function isCarriedOverBill(bill: Bill) {
+  return Boolean(bill.carriedOverFromPayPeriodId)
 }
 
 function mergeBillsForNewPeriod(existingBills: Bill[], carriedBills: Bill[]) {
@@ -2351,6 +2356,7 @@ function App() {
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <p className="truncate font-medium text-white">{bill.name}</p>
+                                      {bill.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
                                       <span
                                         className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${
                                           statusTone === 'rose'
@@ -2495,6 +2501,7 @@ function App() {
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="truncate font-medium text-white">{bill.name}</p>
                                   {bill.source === 'recurring' ? <Badge muted>Bill Plan</Badge> : null}
+                                  {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
                                 </div>
                                 <p className="mt-1 text-[11px] text-slate-400">
                                   {bill.category} · due {bill.dueDate}
@@ -3268,6 +3275,7 @@ function CategoryCard({
                         {item.setAsideForTemplateId ? 'Set-aside' : item.isPlanned ? 'Planned spending' : 'Bill Plan'}
                       </Badge>
                     ) : null}
+                    {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
                     <Badge muted>{item.kind}</Badge>
                     <Badge>{formatCurrency(item.amount)}</Badge>
                   </div>

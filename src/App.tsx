@@ -680,13 +680,6 @@ function HistorySection({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 sm:p-5">
-        <p className="text-sm font-semibold text-white">No pay periods archived yet</p>
-        <p className="mt-1 text-sm leading-6 text-slate-400">
-          Start a new pay period to save a snapshot here. You can review older paychecks from this same screen later.
-        </p>
-      </div>
-
       {snapshots.length > 0 ? (
         <div className="grid gap-2.5 sm:gap-3">
           {snapshots.map((snapshot) => (

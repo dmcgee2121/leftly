@@ -40,6 +40,13 @@ export function DataSection({
         </p>
       </div>
 
+      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-3">
+        <p className="text-sm font-semibold text-amber-100">Backup first</p>
+        <p className="mt-1 text-sm leading-6 text-amber-50/80">
+          Before resetting data or making major changes, export a backup so you can restore your budget later.
+        </p>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <button type="button" onClick={onExport} className={`${buttonStyles.primary} w-full`} disabled={isImporting}>
           Export JSON backup

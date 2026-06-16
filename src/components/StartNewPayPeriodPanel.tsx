@@ -102,6 +102,14 @@ export function StartNewPayPeriodPanel({
     setSelectedCarryoverBillIds([])
   }, [currentPayPeriod, isOpen, templates.length])
 
+  useEffect(() => {
+    if (carryoverMode !== 'choose' || !currentReview || selectedCarryoverBillIds.length > 0) {
+      return
+    }
+
+    setSelectedCarryoverBillIds(currentReview.unpaidBills.map((bill) => bill.id))
+  }, [carryoverMode, currentReview, selectedCarryoverBillIds.length])
+
   const preview = useMemo(() => {
     if (!draft.generateRecurring || !draft.startDate || !draft.endDate) {
       return { bills: [], setAsides: [], plannedExpenses: [], total: 0 }
@@ -151,6 +159,8 @@ export function StartNewPayPeriodPanel({
       .filter((bill) => !previewKeys.has(getBillDedupKey(bill)))
       .reduce((sum, bill) => sum + bill.amount, 0)
   }, [preview.bills, selectedCarryoverBills])
+  const rolloverAmount = applyRollover && currentReview?.leftover && currentReview.leftover > 0 ? currentReview.leftover : 0
+  const nextIncome = Number(draft.income) + rolloverAmount
 
   function validateDraft() {
     const income = Number(draft.income)
@@ -187,8 +197,6 @@ export function StartNewPayPeriodPanel({
     }
 
     const baseIncome = Number(draft.income)
-    const rolloverAmount = applyRollover && currentReview?.leftover && currentReview.leftover > 0 ? currentReview.leftover : 0
-    const nextIncome = baseIncome + rolloverAmount
 
     onSubmit(
       {
@@ -217,7 +225,7 @@ export function StartNewPayPeriodPanel({
         <div>
           <h3 className="text-lg font-semibold text-white">Start new pay period</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">
-            Replace the active period, clear old generated recurring items, and clear manual expenses unless you choose not to generate recurring items.
+            Review the current pay period, choose rollover and unpaid bill carryover, then start the next pay period.
           </p>
         </div>
         <button type="button" onClick={onClose} className={buttonStyles.secondary}>
@@ -235,7 +243,7 @@ export function StartNewPayPeriodPanel({
               </div>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <SummaryCard label="Income" value={formatCurrency(currentReview.income)} />
+                <SummaryCard label="Current income" value={formatCurrency(currentReview.income)} />
                 <SummaryCard
                   label="Bills"
                   value={formatCurrency(currentReview.totalBills)}
@@ -243,7 +251,8 @@ export function StartNewPayPeriodPanel({
                 />
                 <SummaryCard label="Expenses" value={formatCurrency(currentReview.totalExpenses)} />
                 <SummaryCard label="Set-asides" value={formatCurrency(currentReview.totalSetAsides)} />
-                <SummaryCard label="Leftover" value={formatCurrency(currentReview.leftover)} />
+                <SummaryCard label="Rollover available" value={formatCurrency(currentReview.leftover)} detail="Can be added to the next pay period" />
+                <SummaryCard label="New pay period income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Includes rollover' : 'Starts with base income'} />
                 <SummaryCard
                   label="Top spending category"
                   value={currentReview.topCategory ? currentReview.topCategory.category : 'None yet'}
@@ -253,8 +262,8 @@ export function StartNewPayPeriodPanel({
 
               {currentReview.leftover > 0 ? (
                 <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                  <p className="text-sm font-semibold text-emerald-100">You have {formatCurrency(currentReview.leftover)} left over from this pay period.</p>
-                  <p className="mt-1 text-sm leading-6 text-emerald-50/80">Apply this to the next pay period?</p>
+                  <p className="text-sm font-semibold text-emerald-100">Leftover rollover amount: {formatCurrency(currentReview.leftover)}</p>
+                  <p className="mt-1 text-sm leading-6 text-emerald-50/80">Add it to the new pay period income total?</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${!applyRollover ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50' : 'border-slate-800 bg-slate-950/50 text-slate-200'}`}>
                       <input
@@ -266,7 +275,7 @@ export function StartNewPayPeriodPanel({
                       />
                       <span>
                         <span className="block font-semibold">No, start fresh</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">Keep the next pay period separate.</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">New pay period starts at the base income amount.</span>
                       </span>
                     </label>
 
@@ -280,14 +289,14 @@ export function StartNewPayPeriodPanel({
                       />
                       <span>
                         <span className="block font-semibold">Yes, add as rollover income</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">Adds {formatCurrency(currentReview.leftover)} to the new pay period.</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Adds {formatCurrency(currentReview.leftover)} to the new pay period income total.</span>
                       </span>
                     </label>
                   </div>
                 </div>
               ) : (
                 <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
-                  No leftover amount is available to roll over.
+                  No leftover amount is available to roll over into the next pay period.
                 </p>
               )}
 
@@ -295,7 +304,7 @@ export function StartNewPayPeriodPanel({
                 <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-amber-100">Unpaid bills from this pay period</p>
+                      <p className="text-sm font-semibold text-amber-100">Unpaid bills available to carry over</p>
                       <p className="mt-1 text-sm leading-6 text-amber-50/80">Carry unpaid bills into the next pay period?</p>
                     </div>
                     <p className="text-xs uppercase tracking-[0.2em] text-amber-100/70">
@@ -340,7 +349,7 @@ export function StartNewPayPeriodPanel({
                       />
                       <span>
                         <span className="block font-semibold">Choose bills</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">Pick the unpaid bills you want to keep active.</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Pick which unpaid bills should stay active.</span>
                       </span>
                     </label>
 
@@ -487,19 +496,26 @@ export function StartNewPayPeriodPanel({
   ) : (
         <div className="mt-4 grid gap-4">
           <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 sm:grid-cols-2">
-            <SummaryCard label="Pay period" value={`${draft.startDate} to ${draft.endDate}`} />
-            <SummaryCard label="Base income" value={formatCurrency(Number(draft.income))} />
+            <SummaryCard label="Pay period dates" value={`${draft.startDate} to ${draft.endDate}`} />
+            <SummaryCard label="Base income" value={formatCurrency(Number(draft.income))} detail="Before rollover" />
             <SummaryCard
               label="Rollover"
-              value={applyRollover && currentReview && currentReview.leftover > 0 ? formatCurrency(currentReview.leftover) : formatCurrency(0)}
-              detail={applyRollover && currentReview && currentReview.leftover > 0 ? 'Rollover from previous pay period' : 'Starting fresh'}
+              value={formatCurrency(rolloverAmount)}
+              detail={rolloverAmount > 0 ? 'Added to the new pay period income total' : 'Starting fresh'}
             />
-            <SummaryCard label="New pay period income" value={formatCurrency(Number(draft.income) + (applyRollover && currentReview && currentReview.leftover > 0 ? currentReview.leftover : 0))} />
-            <SummaryCard label="Cadence" value={draft.cadence} />
-            <SummaryCard label="Bill Plan generation" value={draft.generateRecurring ? 'Enabled' : 'Disabled'} />
-            <SummaryCard label="Carried unpaid bills" value={`${selectedCarryoverBills.length}`} detail={selectedCarryoverBills.length > 0 ? formatCurrency(selectedCarryoverAmount) : 'None selected'} />
+            <SummaryCard label="New income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Base income + rollover' : 'Base income only'} />
+            <SummaryCard label="Carry over bills" value={`${selectedCarryoverBills.length}`} detail={selectedCarryoverBills.length > 0 ? formatCurrency(selectedCarryoverAmount) : 'None selected'} />
             <SummaryCard label="Estimated bills" value={formatCurrency(recurringBillsAmount + selectedCarryoverUniqueAmount)} detail="Bill Plan + carried unpaid bills" />
             <SummaryCard label="Estimated expenses" value={formatCurrency(setAsidesAmount + plannedExpensesAmount)} detail="Bill Plan expenses" />
+          </div>
+
+          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+            <p className="text-sm font-semibold text-white">After you confirm</p>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-300">
+              <li>Leftly archives the current pay period in History.</li>
+              <li>The new pay period starts with the base income, plus rollover if you chose it.</li>
+              <li>Selected unpaid bills are copied forward and stay unpaid.</li>
+            </ul>
           </div>
 
           <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
@@ -556,7 +572,7 @@ export function StartNewPayPeriodPanel({
               Back to edit
             </button>
             <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-              Start pay period
+              Start new pay period
             </button>
           </div>
         </div>

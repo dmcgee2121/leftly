@@ -1693,10 +1693,10 @@ function App() {
     setActiveTab('income')
     const successParts = ['New pay period started.']
     if (period.rolloverAmount && period.rolloverAmount > 0) {
-      successParts.push(`${formatCurrency(period.rolloverAmount)} rolled over.`)
+      successParts.push(`${formatCurrency(period.rolloverAmount)} rolled over into the new pay period.`)
     }
     if (carriedOverCount > 0) {
-      successParts.push(`${carriedOverCount} unpaid bill${carriedOverCount === 1 ? '' : 's'} carried over.`)
+      successParts.push(`${carriedOverCount} unpaid bill${carriedOverCount === 1 ? '' : 's'} carried into the new pay period.`)
     }
     setIncomeSuccess(successParts.join(' '))
   }

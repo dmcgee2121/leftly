@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   clearAllAppData,
@@ -408,6 +408,54 @@ function formatArchivedDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : historyDateFormatter.format(date)
 }
 
+type SnapshotCategorySummary = {
+  category: BudgetCategory
+  total: number
+  count: number
+}
+
+function getSnapshotStartingIncome(snapshot: PayPeriodSnapshot) {
+  if (typeof snapshot.baseIncome === 'number' && Number.isFinite(snapshot.baseIncome)) {
+    return snapshot.baseIncome
+  }
+
+  if (snapshot.rolloverApplied && typeof snapshot.rolloverAmount === 'number' && Number.isFinite(snapshot.rolloverAmount)) {
+    return Math.max(0, snapshot.income - snapshot.rolloverAmount)
+  }
+
+  return snapshot.income
+}
+
+function getSnapshotCarriedOverSummary(bills: Bill[]) {
+  const carriedBills = bills.filter((bill) => bill.carriedOverFromPayPeriodId)
+  return {
+    count: carriedBills.length,
+    amount: carriedBills.reduce((sum, bill) => sum + bill.amount, 0),
+  }
+}
+
+function getSnapshotTopExpenseCategories(expenses: Expense[]) {
+  const byCategory = new Map<BudgetCategory, SnapshotCategorySummary>()
+
+  for (const expense of expenses) {
+    const current = byCategory.get(expense.category)
+    if (current) {
+      current.total += expense.amount
+      current.count += 1
+    } else {
+      byCategory.set(expense.category, {
+        category: expense.category,
+        total: expense.amount,
+        count: 1,
+      })
+    }
+  }
+
+  return [...byCategory.values()]
+    .sort((left, right) => right.total - left.total || right.count - left.count || left.category.localeCompare(right.category))
+    .slice(0, 3)
+}
+
 function HistorySection({
   snapshots,
   selectedSnapshot,
@@ -427,18 +475,22 @@ function HistorySection({
   onDeleteSnapshot: (id: string) => void
   formatCurrency: (value: number) => string
 }) {
+  const [showAllExpenses, setShowAllExpenses] = useState(false)
+
+  useEffect(() => {
+    setShowAllExpenses(false)
+  }, [selectedSnapshot?.id])
+
   if (selectedSnapshot) {
     const billItems = selectedSnapshot.bills
     const expenseItems = selectedSnapshot.expenses
-    const categoryTotals = DEFAULT_CATEGORIES.map((category) => {
-      const categoryTotal = [...billItems, ...expenseItems]
-        .filter((item) => item.category === category)
-        .reduce((sum, item) => sum + item.amount, 0)
-      return {
-        category,
-        total: categoryTotal,
-      }
-    }).filter((summary) => summary.total > 0)
+    const carriedOverSummary = getSnapshotCarriedOverSummary(billItems)
+    const topExpenseCategories = getSnapshotTopExpenseCategories(expenseItems)
+    const rolloverAmount = typeof selectedSnapshot.rolloverAmount === 'number' && selectedSnapshot.rolloverAmount > 0 ? selectedSnapshot.rolloverAmount : 0
+    const rolloverApplied = typeof selectedSnapshot.rolloverApplied === 'boolean' ? selectedSnapshot.rolloverApplied : null
+    const startingIncome = getSnapshotStartingIncome(selectedSnapshot)
+    const finalLeftly = selectedSnapshot.totals.leftover
+    const visibleExpenses = showAllExpenses || expenseItems.length <= 5 ? expenseItems : expenseItems.slice(0, 5)
 
     return (
       <div className="grid gap-4">
@@ -449,6 +501,12 @@ function HistorySection({
             <p className="mt-1 text-sm text-slate-400">
               Archived {formatArchivedDate(selectedSnapshot.archivedAt)} · {selectedSnapshot.cadence}
             </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <Badge muted>{selectedSnapshot.cadence}</Badge>
+              {rolloverAmount > 0 ? <Badge success>Rollover {formatCurrency(rolloverAmount)}</Badge> : null}
+              {rolloverApplied !== null ? <Badge muted>{rolloverApplied ? 'Rollover applied' : 'Rollover not applied'}</Badge> : null}
+              {carriedOverSummary.count > 0 ? <Badge muted>{carriedOverSummary.count} carried over</Badge> : null}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => onUseAsStartingPoint(selectedSnapshot)} className="button-primary">
@@ -470,21 +528,59 @@ function HistorySection({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Income" value={formatCurrency(selectedSnapshot.income)} />
-          <MetricCard label="Total bills" value={formatCurrency(selectedSnapshot.totals.totalBills)} />
-          <MetricCard label="Expenses" value={formatCurrency(selectedSnapshot.totals.totalExpenses)} />
-          <MetricCard label="Set-asides" value={formatCurrency(selectedSnapshot.totals.totalSetAsides)} />
-          <MetricCard label="Paid bills" value={formatCurrency(selectedSnapshot.totals.paidBills)} />
-          <MetricCard label="Unpaid bills" value={formatCurrency(selectedSnapshot.totals.unpaidBills)} />
-          <MetricCard label="Safe to spend" value={formatCurrency(selectedSnapshot.totals.safeToSpend)} tone="highlight" />
-          <MetricCard label="Leftover" value={formatCurrency(selectedSnapshot.totals.leftover)} />
+        <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">Pay period review</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">What happened in this paycheck</p>
+            </div>
+            <p className="text-xs text-slate-400">Final Leftly {formatCurrency(finalLeftly)}</p>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <MiniStat label="Starting income" value={formatCurrency(startingIncome)} />
+            <MiniStat label="Total bills" value={formatCurrency(selectedSnapshot.totals.totalBills)} />
+            <MiniStat label="Paid bills" value={`${selectedSnapshot.totals.paidBills}`} />
+            <MiniStat label="Unpaid bills" value={`${selectedSnapshot.totals.unpaidBills}`} />
+            <MiniStat label="Total expenses" value={formatCurrency(selectedSnapshot.totals.totalExpenses)} />
+            {selectedSnapshot.totals.totalSetAsides > 0 ? <MiniStat label="Set-asides" value={formatCurrency(selectedSnapshot.totals.totalSetAsides)} /> : null}
+            {rolloverAmount > 0 ? (
+              <MiniStat
+                label="Rollover"
+                value={formatCurrency(rolloverAmount)}
+                detail={rolloverApplied !== null ? (rolloverApplied ? 'Applied to next pay period' : 'Not applied to next pay period') : undefined}
+              />
+            ) : null}
+            {carriedOverSummary.count > 0 ? <MiniStat label="Carried over" value={`${carriedOverSummary.count}`} detail={formatCurrency(carriedOverSummary.amount)} /> : null}
+            <MiniStat label="Final Leftly" value={formatCurrency(finalLeftly)} tone="highlight" />
+            <MiniStat
+              label="Top spending category"
+              value={topExpenseCategories[0] ? topExpenseCategories[0].category : 'None'}
+              detail={topExpenseCategories[0] ? formatCurrency(topExpenseCategories[0].total) : 'No expenses logged'}
+            />
+          </div>
         </div>
 
-        {selectedSnapshot.rolloverAmount && selectedSnapshot.rolloverAmount > 0 ? (
+        {rolloverAmount > 0 || carriedOverSummary.count > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            <MetricCard label="Base income" value={formatCurrency(selectedSnapshot.baseIncome ?? selectedSnapshot.income - selectedSnapshot.rolloverAmount)} />
-            <MetricCard label="Rollover" value={formatCurrency(selectedSnapshot.rolloverAmount)} />
+            {rolloverAmount > 0 ? (
+              <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+                <p className="text-sm font-semibold text-white">Rollover</p>
+                <p className="mt-2 text-sm text-slate-300">{formatCurrency(rolloverAmount)}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {rolloverApplied !== null ? (rolloverApplied ? 'Applied to the next pay period.' : 'Not applied to the next pay period.') : 'Rollover metadata available.'}
+                </p>
+              </div>
+            ) : null}
+            {carriedOverSummary.count > 0 ? (
+              <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
+                <p className="text-sm font-semibold text-white">Carried over bills</p>
+                <p className="mt-2 text-sm text-slate-300">
+                  {carriedOverSummary.count} unpaid bill{carriedOverSummary.count === 1 ? '' : 's'} · {formatCurrency(carriedOverSummary.amount)}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">These were moved forward from the previous pay period.</p>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -496,13 +592,16 @@ function HistorySection({
                 billItems.map((bill) => (
                   <div
                     key={bill.id}
-                    className="flex flex-col gap-2 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    className={`flex flex-col gap-2 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between ${
+                      bill.isPaid ? 'border-slate-800/70 bg-slate-950/60' : 'border-rose-500/25 bg-rose-500/8'
+                    }`}
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-medium text-white">{bill.name}</p>
                         {bill.source === 'recurring' ? <Badge muted>Bill Plan</Badge> : null}
-                        <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                        {bill.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
+                        {bill.isPaid ? <Badge success>Paid</Badge> : <Badge muted>Unpaid</Badge>}
                       </div>
                       <p className="mt-1 text-xs text-slate-400">
                         {bill.category} · Due {bill.dueDate}
@@ -522,7 +621,7 @@ function HistorySection({
             <p className="text-sm font-semibold text-white">Expenses</p>
             <div className="mt-3 grid gap-2">
               {expenseItems.length > 0 ? (
-                expenseItems.map((expense) => (
+                visibleExpenses.map((expense) => (
                   <div
                     key={expense.id}
                     className="flex flex-col gap-2 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between"
@@ -546,22 +645,33 @@ function HistorySection({
                 <EmptyState title="No expenses in this period" text="This archived pay period did not include any expenses." compact />
               )}
             </div>
+            {expenseItems.length > 5 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllExpenses((current) => !current)}
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-700 hover:bg-slate-900"
+              >
+                {showAllExpenses ? 'Show less expenses' : `Show more expenses (+${expenseItems.length - 5})`}
+              </button>
+            ) : null}
           </div>
         </div>
 
         <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4">
-          <p className="text-sm font-semibold text-white">Category totals</p>
-          {categoryTotals.length > 0 ? (
+          <p className="text-sm font-semibold text-white">Top spending categories</p>
+          {topExpenseCategories.length > 0 ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {categoryTotals.map((summary) => (
+              {topExpenseCategories.map((summary) => (
                 <div key={summary.category} className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3">
                   <p className="text-sm font-medium text-white">{summary.category}</p>
-                  <p className="mt-1 text-xs text-slate-400">{formatCurrency(summary.total)}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {formatCurrency(summary.total)} · {summary.count} item{summary.count === 1 ? '' : 's'}
+                  </p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm leading-6 text-slate-400">No category totals for this archived pay period.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-400">No spending categories for this archived pay period.</p>
           )}
         </div>
       </div>
@@ -585,9 +695,17 @@ function HistorySection({
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-base font-semibold text-white">{snapshot.label}</h3>
                     <Badge muted>{snapshot.cadence}</Badge>
-                    {snapshot.rolloverAmount && snapshot.rolloverAmount > 0 ? <Badge success>Rollover</Badge> : null}
+                    {snapshot.rolloverAmount && snapshot.rolloverAmount > 0 ? (
+                      <Badge success>
+                        Rollover {formatCurrency(snapshot.rolloverAmount)}
+                        {snapshot.rolloverApplied === false ? ' not applied' : ''}
+                      </Badge>
+                    ) : null}
+                    {getSnapshotCarriedOverSummary(snapshot.bills).count > 0 ? <Badge muted>{getSnapshotCarriedOverSummary(snapshot.bills).count} carried over</Badge> : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-400">Archived {formatArchivedDate(snapshot.archivedAt)}</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Archived {formatArchivedDate(snapshot.archivedAt)} · Final Leftly {formatCurrency(snapshot.totals.leftover)}
+                  </p>
                 </button>
 
                 <button
@@ -600,31 +718,43 @@ function HistorySection({
               </div>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <MiniStat label="Income" value={formatCurrency(snapshot.income)} />
+                <MiniStat label="Income" value={formatCurrency(getSnapshotStartingIncome(snapshot))} />
+                <MiniStat label="Final Leftly" value={formatCurrency(snapshot.totals.leftover)} tone="highlight" />
                 <MiniStat label="Total bills" value={formatCurrency(snapshot.totals.totalBills)} />
-                <MiniStat label="Expenses" value={formatCurrency(snapshot.totals.totalExpenses)} />
-                <MiniStat label="Set-asides" value={formatCurrency(snapshot.totals.totalSetAsides)} />
-                <MiniStat label="Leftover" value={formatCurrency(snapshot.totals.leftover)} />
-                <MiniStat label="Safe to spend" value={formatCurrency(snapshot.totals.safeToSpend)} />
+                <MiniStat label="Paid bills" value={`${snapshot.totals.paidBills}`} />
+                <MiniStat label="Unpaid bills" value={`${snapshot.totals.unpaidBills}`} />
+                <MiniStat label="Total expenses" value={formatCurrency(snapshot.totals.totalExpenses)} />
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <EmptyState
-          title="No archived pay periods yet"
-          text="Start a new pay period to archive the current one here for later review."
-        />
+        <EmptyState title="No pay periods archived yet" text="Start a new pay period to archive your current one." />
       )}
     </div>
   )
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function MiniStat({
+  label,
+  value,
+  detail,
+  tone = 'default',
+}: {
+  label: string
+  value: string
+  detail?: string
+  tone?: 'default' | 'highlight'
+}) {
   return (
-    <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3">
+    <div
+      className={`rounded-2xl border px-3 py-3 ${
+        tone === 'highlight' ? 'border-cyan-400/20 bg-cyan-400/8' : 'border-slate-800/70 bg-slate-950/60'
+      }`}
+    >
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+      <p className={`mt-2 text-sm font-semibold ${tone === 'highlight' ? 'text-cyan-100' : 'text-white'}`}>{value}</p>
+      {detail ? <p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p> : null}
     </div>
   )
 }

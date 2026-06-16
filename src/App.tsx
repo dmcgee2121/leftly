@@ -687,13 +687,13 @@ function HistorySection({
       </div>
 
       {snapshots.length > 0 ? (
-        <div className="grid gap-3">
+        <div className="grid gap-2.5 sm:gap-3">
           {snapshots.map((snapshot) => (
-            <article key={snapshot.id} className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 shadow-lg shadow-slate-950/20">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <button type="button" onClick={() => onSelectSnapshot(snapshot.id)} className="flex-1 text-left">
+            <article key={snapshot.id} className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 shadow-lg shadow-slate-950/20 sm:p-4">
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
+                <button type="button" onClick={() => onSelectSnapshot(snapshot.id)} className="min-w-0 flex-1 text-left">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-semibold text-white">{snapshot.label}</h3>
+                    <h3 className="text-sm font-semibold text-white sm:text-base">{snapshot.label}</h3>
                     <Badge muted>{snapshot.cadence}</Badge>
                     {snapshot.rolloverAmount && snapshot.rolloverAmount > 0 ? (
                       <Badge success>
@@ -703,7 +703,7 @@ function HistorySection({
                     ) : null}
                     {getSnapshotCarriedOverSummary(snapshot.bills).count > 0 ? <Badge muted>{getSnapshotCarriedOverSummary(snapshot.bills).count} carried over</Badge> : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-sm">
                     Archived {formatArchivedDate(snapshot.archivedAt)} · Final Leftly {formatCurrency(snapshot.totals.leftover)}
                   </p>
                 </button>
@@ -711,19 +711,19 @@ function HistorySection({
                 <button
                   type="button"
                   onClick={() => onDeleteSnapshot(snapshot.id)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px sm:self-start"
                 >
                   Delete
                 </button>
               </div>
 
-              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <MiniStat label="Income" value={formatCurrency(getSnapshotStartingIncome(snapshot))} />
-                <MiniStat label="Final Leftly" value={formatCurrency(snapshot.totals.leftover)} tone="highlight" />
-                <MiniStat label="Total bills" value={formatCurrency(snapshot.totals.totalBills)} />
-                <MiniStat label="Paid bills" value={`${snapshot.totals.paidBills}`} />
-                <MiniStat label="Unpaid bills" value={`${snapshot.totals.unpaidBills}`} />
-                <MiniStat label="Total expenses" value={formatCurrency(snapshot.totals.totalExpenses)} />
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-2 xl:grid-cols-3">
+                <MiniStat label="Income" value={formatCurrency(getSnapshotStartingIncome(snapshot))} dense />
+                <MiniStat label="Final Leftly" value={formatCurrency(snapshot.totals.leftover)} tone="highlight" dense />
+                <MiniStat label="Total bills" value={formatCurrency(snapshot.totals.totalBills)} dense />
+                <MiniStat label="Paid bills" value={`${snapshot.totals.paidBills}`} dense />
+                <MiniStat label="Unpaid bills" value={`${snapshot.totals.unpaidBills}`} dense />
+                <MiniStat label="Total expenses" value={formatCurrency(snapshot.totals.totalExpenses)} dense />
               </div>
             </article>
           ))}
@@ -740,21 +740,23 @@ function MiniStat({
   value,
   detail,
   tone = 'default',
+  dense = false,
 }: {
   label: string
   value: string
   detail?: string
   tone?: 'default' | 'highlight'
+  dense?: boolean
 }) {
   return (
     <div
-      className={`rounded-2xl border px-3 py-2.5 sm:py-3 ${
+      className={`rounded-2xl border px-3 ${dense ? 'py-2' : 'py-2.5 sm:py-3'} ${
         tone === 'highlight' ? 'border-cyan-400/20 bg-cyan-400/8' : 'border-slate-800/70 bg-slate-950/60'
       }`}
     >
       <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 sm:text-xs">{label}</p>
-      <p className={`mt-1.5 text-base font-semibold leading-tight sm:mt-2 sm:text-lg ${tone === 'highlight' ? 'text-cyan-100' : 'text-white'}`}>{value}</p>
-      {detail ? <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-xs">{detail}</p> : null}
+      <p className={`mt-1.5 ${dense ? 'text-sm' : 'text-base sm:text-lg'} font-semibold leading-tight ${tone === 'highlight' ? 'text-cyan-100' : 'text-white'}`}>{value}</p>
+      {detail ? <p className={`mt-1 text-[11px] leading-5 text-slate-400 ${dense ? 'sm:text-[11px]' : 'sm:text-xs'}`}>{detail}</p> : null}
     </div>
   )
 }

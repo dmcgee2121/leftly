@@ -540,8 +540,8 @@ function HistorySection({
           <div className="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-2 xl:grid-cols-4">
             <MiniStat label="Starting income" value={formatCurrency(startingIncome)} />
             <MiniStat label="Total bills" value={formatCurrency(selectedSnapshot.totals.totalBills)} />
-            <MiniStat label="Paid bills" value={`${selectedSnapshot.totals.paidBills}`} />
-            <MiniStat label="Unpaid bills" value={`${selectedSnapshot.totals.unpaidBills}`} />
+            <MiniStat label="Paid bills" value={formatCurrency(selectedSnapshot.totals.paidBills)} />
+            <MiniStat label="Unpaid bills" value={formatCurrency(selectedSnapshot.totals.unpaidBills)} />
             <MiniStat label="Total expenses" value={formatCurrency(selectedSnapshot.totals.totalExpenses)} />
             {selectedSnapshot.totals.totalSetAsides > 0 ? <MiniStat label="Set-asides" value={formatCurrency(selectedSnapshot.totals.totalSetAsides)} /> : null}
             {rolloverAmount > 0 ? (
@@ -715,8 +715,8 @@ function HistorySection({
                 <MiniStat label="Income" value={formatCurrency(getSnapshotStartingIncome(snapshot))} dense />
                 <MiniStat label="Final Leftly" value={formatCurrency(snapshot.totals.leftover)} tone="highlight" dense />
                 <MiniStat label="Total bills" value={formatCurrency(snapshot.totals.totalBills)} dense />
-                <MiniStat label="Paid bills" value={`${snapshot.totals.paidBills}`} dense />
-                <MiniStat label="Unpaid bills" value={`${snapshot.totals.unpaidBills}`} dense />
+                <MiniStat label="Paid bills" value={formatCurrency(snapshot.totals.paidBills)} dense />
+                <MiniStat label="Unpaid bills" value={formatCurrency(snapshot.totals.unpaidBills)} dense />
                 <MiniStat label="Total expenses" value={formatCurrency(snapshot.totals.totalExpenses)} dense />
               </div>
             </article>

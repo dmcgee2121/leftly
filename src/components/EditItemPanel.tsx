@@ -151,6 +151,9 @@ export function EditItemPanel({
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Edit {target.kind}</p>
             <h3 className="mt-1 text-lg font-semibold text-white">{target.item.name}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-400">
+              Update the details below, then save to keep this pay period accurate.
+            </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <Badge>{target.kind === 'bill' ? 'Bill' : 'Expense'}</Badge>
               {target.kind === 'bill' && target.item.source === 'recurring' ? <Badge muted>Bill Plan</Badge> : null}
@@ -208,7 +211,7 @@ export function EditItemPanel({
           </div>
 
           {target.kind === 'bill' ? (
-            <label className="leftly-shell-soft flex items-start gap-3 px-4 py-3 text-sm text-slate-200">
+            <label className="leftly-selection-card">
               <input
                 type="checkbox"
                 checked={draft.isPaid}
@@ -230,13 +233,15 @@ export function EditItemPanel({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap gap-3">
-            <button type="submit" className={buttonStyles.primary}>
-              Save changes
-            </button>
-            <button type="button" onClick={onClose} className={buttonStyles.secondary}>
-              Cancel
-            </button>
+          <div className="leftly-sheet-footer">
+            <div className="leftly-action-grid">
+              <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+                Close
+              </button>
+              <button type="submit" className={`${buttonStyles.primary} w-full sm:w-auto`}>
+                {target.kind === 'bill' ? 'Save bill' : 'Save expense'}
+              </button>
+            </div>
           </div>
         </form>
       </section>

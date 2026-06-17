@@ -176,33 +176,43 @@ export function SetupFlowPanel({
       'Welcome to Leftly',
       "Set up your first pay period to see what's left before you spend.",
       <>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Pay cadence">
-            <select
-              value={draft.cadence}
-              onChange={(event) => setDraft((current) => ({ ...current, cadence: event.target.value as PayCadence }))}
-            >
-              {cadenceOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="leftly-panel-section">
+          <div className="grid gap-1">
+            <p className="leftly-panel-label">How you get paid</p>
+            <p className="leftly-panel-copy">Pick the cadence Leftly should use when it plans this pay period and future ones.</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Pay cadence">
+              <select
+                value={draft.cadence}
+                onChange={(event) => setDraft((current) => ({ ...current, cadence: event.target.value as PayCadence }))}
+              >
+                {cadenceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
         </div>
 
         {error ? <ErrorBanner message={error} /> : null}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={onClose} className={buttonStyles.secondary}>
-            Cancel
-          </button>
-          <button type="button" onClick={goNext} className={buttonStyles.primary}>
-            Continue
-          </button>
+        <div className="leftly-sheet-footer">
+          <div className="leftly-action-grid">
+            <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+              Close
+            </button>
+            <button type="button" onClick={goNext} className={`${buttonStyles.primary} w-full sm:w-auto`}>
+              Continue
+            </button>
+          </div>
         </div>
       </>,
       stepTitle,
+      onClose,
     )
   }
 
@@ -211,48 +221,55 @@ export function SetupFlowPanel({
       'Set up your first pay period',
       'Add the income and date range for the pay period you want Leftly to track.',
       <>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Income amount">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={draft.income}
-              onChange={(event) => setDraft((current) => ({ ...current, income: event.target.value }))}
-              placeholder="3200"
-            />
-          </Field>
-          <Field label="Start date">
-            <input
-              type="date"
-              value={draft.startDate}
-              onChange={(event) => setDraft((current) => ({ ...current, startDate: event.target.value }))}
-            />
-          </Field>
-          <Field label="End date">
-            <input
-              type="date"
-              value={draft.endDate}
-              onChange={(event) => setDraft((current) => ({ ...current, endDate: event.target.value }))}
-            />
-          </Field>
+        <div className="leftly-panel-section">
+          <div className="grid gap-1">
+            <p className="leftly-panel-label">Pay period details</p>
+            <p className="leftly-panel-copy">This becomes your first active paycheck view, so keep it current and easy to recognize.</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Income amount">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={draft.income}
+                onChange={(event) => setDraft((current) => ({ ...current, income: event.target.value }))}
+                placeholder="3200"
+              />
+            </Field>
+            <Field label="Start date">
+              <input
+                type="date"
+                value={draft.startDate}
+                onChange={(event) => setDraft((current) => ({ ...current, startDate: event.target.value }))}
+              />
+            </Field>
+            <Field label="End date">
+              <input
+                type="date"
+                value={draft.endDate}
+                onChange={(event) => setDraft((current) => ({ ...current, endDate: event.target.value }))}
+              />
+            </Field>
+          </div>
         </div>
 
         {error ? <ErrorBanner message={error} /> : null}
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <button type="button" onClick={goBack} className={buttonStyles.secondary}>
-            Back
-          </button>
-          <button type="button" onClick={onClose} className={buttonStyles.secondary}>
-            Cancel
-          </button>
-          <button type="button" onClick={goNext} className={buttonStyles.primary} disabled={!canContinue}>
-            Next
-          </button>
+        <div className="leftly-sheet-footer">
+          <div className="leftly-action-grid">
+            <button type="button" onClick={goBack} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+              Back
+            </button>
+            <button type="button" onClick={goNext} className={`${buttonStyles.primary} w-full sm:w-auto`} disabled={!canContinue}>
+              Continue
+            </button>
+          </div>
         </div>
       </>,
       stepTitle,
+      onClose,
     )
   }
 
@@ -260,7 +277,7 @@ export function SetupFlowPanel({
     'Add your first Bill Plan item',
     'Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your pay period plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
-      <div className="leftly-shell-soft grid gap-3 p-4">
+      <div className="leftly-panel-section">
         <p className="text-sm font-semibold text-white">Setup review</p>
         <div className="grid gap-2 text-sm leading-6 text-slate-300 sm:grid-cols-2">
           <p>
@@ -284,7 +301,7 @@ export function SetupFlowPanel({
         <p className="text-sm leading-6 text-slate-400">{setupReview?.status ?? 'Complete the steps below to see your setup review.'}</p>
       </div>
 
-      <label className="leftly-shell-soft flex items-start gap-3 px-4 py-3 text-sm text-slate-200">
+      <label className="leftly-selection-card">
         <input
           type="checkbox"
           checked={draft.addRecurringBill}
@@ -300,7 +317,12 @@ export function SetupFlowPanel({
       </label>
 
       {draft.addRecurringBill ? (
-        <div className="leftly-shell-soft grid gap-3 p-4">
+        <div className="leftly-panel-section">
+          <div className="grid gap-1">
+            <p className="leftly-panel-label">Bill Plan item</p>
+            <p className="leftly-panel-copy">Add one repeating bill now. You can always add more later in Bill Plan.</p>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Name">
               <input
@@ -372,36 +394,39 @@ export function SetupFlowPanel({
 
       {error ? <ErrorBanner message={error} /> : null}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <button type="button" onClick={goBack} className={buttonStyles.secondary}>
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            const validation = validatePayPeriodDraft(draft, true)
-            if (!validation.ok) {
-              setError(validation.error)
-              setDraft((current) => ({ ...current, step: 2 }))
-              return
-            }
+      <div className="leftly-sheet-footer">
+        <div className="leftly-action-grid">
+          <button type="button" onClick={goBack} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const validation = validatePayPeriodDraft(draft, true)
+              if (!validation.ok) {
+                setError(validation.error)
+                setDraft((current) => ({ ...current, step: 2 }))
+                return
+              }
 
-            onFinish({ period: validation.period })
-          }}
-          className={buttonStyles.secondary}
-        >
-          Skip for now
-        </button>
-        <button type="submit" className={buttonStyles.primary}>
-          Finish setup
-        </button>
+              onFinish({ period: validation.period })
+            }}
+            className={`${buttonStyles.secondary} w-full sm:w-auto`}
+          >
+            Skip for now
+          </button>
+          <button type="submit" className={`${buttonStyles.primary} w-full sm:w-auto`}>
+            Finish setup
+          </button>
+        </div>
       </div>
     </form>,
     stepTitle,
+    onClose,
   )
 }
 
-function renderPanel(title: string, description: string, content: ReactNode, stepTitle: string) {
+function renderPanel(title: string, description: string, content: ReactNode, stepTitle: string, onClose: () => void) {
   return (
     <section className="leftly-shell leftly-shell-accent overflow-hidden p-4 sm:p-5">
       <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -410,6 +435,9 @@ function renderPanel(title: string, description: string, content: ReactNode, ste
           <h3 className="mt-1 text-lg font-semibold text-white">{title}</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
         </div>
+        <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+          Close
+        </button>
       </div>
       <div className="mt-4">{content}</div>
     </section>

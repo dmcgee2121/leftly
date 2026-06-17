@@ -183,11 +183,11 @@ export function ApplyBillPlanPanel({
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Bill Plan</p>
             <h3 className="mt-1 text-lg font-semibold text-white">Apply Bill Plan to this pay period</h3>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              Review what will be added before Leftly updates your active budget.
+              Review what Leftly will add before updating your active budget.
             </p>
           </div>
           <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-            Cancel
+            Close
           </button>
         </div>
 
@@ -198,7 +198,7 @@ export function ApplyBillPlanPanel({
 
         {!hasAnythingToAdd && !hasAnythingAlreadyAdded ? (
           <div className="leftly-shell-faint mt-4 grid gap-3 p-4">
-            <p className="text-sm font-semibold text-white">No Bill Plan items apply to this pay period.</p>
+            <p className="text-sm font-semibold text-white">Nothing from Bill Plan lands in this pay period.</p>
             <p className="text-sm leading-6 text-slate-400">
               Items saved in Bill Plan will appear when their due date falls inside a pay period, or when set-aside is enabled.
             </p>
@@ -211,13 +211,15 @@ export function ApplyBillPlanPanel({
           <PreviewGroup title="Planned spending" toAdd={preview.plannedToAdd} alreadyAdded={preview.plannedAlreadyAdded} />
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-            Cancel
-          </button>
-          <button type="button" onClick={handleApply} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-            Apply to this pay period
-          </button>
+        <div className="leftly-sheet-footer">
+          <div className="leftly-action-grid">
+            <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+              Back
+            </button>
+            <button type="button" onClick={handleApply} className={`${buttonStyles.primary} w-full sm:w-auto`}>
+              Apply Bill Plan
+            </button>
+          </div>
         </div>
       </section>
     </div>
@@ -244,6 +246,8 @@ function PreviewGroup({
   toAdd: PreviewEntry[]
   alreadyAdded: PreviewEntry[]
 }) {
+  const totalRows = toAdd.length + alreadyAdded.length
+
   return (
     <div className="leftly-shell-soft p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -270,6 +274,11 @@ function PreviewGroup({
           ) : null}
         </div>
       )}
+      {totalRows > 0 ? (
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          {toAdd.length > 0 ? 'New items will affect this pay period after you apply.' : 'Everything here is already active in this pay period.'}
+        </p>
+      ) : null}
     </div>
   )
 }

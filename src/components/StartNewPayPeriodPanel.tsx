@@ -236,7 +236,7 @@ export function StartNewPayPeriodPanel({
       {mode === 'edit' ? (
         <form className="mt-4 grid gap-4" onSubmit={(event) => event.preventDefault()}>
           {currentReview ? (
-            <div className="leftly-shell-soft p-4">
+            <div className="leftly-panel-section">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-semibold text-white">Current pay period review</p>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{currentReview.periodLabel}</p>
@@ -265,7 +265,7 @@ export function StartNewPayPeriodPanel({
                   <p className="text-sm font-semibold text-emerald-100">Leftover rollover amount: {formatCurrency(currentReview.leftover)}</p>
                   <p className="mt-1 text-sm leading-6 text-emerald-50/80">Add it to the new pay period income total?</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${!applyRollover ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50' : 'border-slate-800 bg-slate-950/50 text-slate-200'}`}>
+                    <label className={`leftly-selection-card ${!applyRollover ? 'leftly-selection-card-active' : ''}`}>
                       <input
                         type="radio"
                         name="rollover"
@@ -279,7 +279,7 @@ export function StartNewPayPeriodPanel({
                       </span>
                     </label>
 
-                    <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${applyRollover ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-50' : 'border-slate-800 bg-slate-950/50 text-slate-200'}`}>
+                    <label className={`leftly-selection-card ${applyRollover ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-50' : ''}`}>
                       <input
                         type="radio"
                         name="rollover"
@@ -295,9 +295,7 @@ export function StartNewPayPeriodPanel({
                   </div>
                 </div>
               ) : (
-                <p className="leftly-empty">
-                  No leftover amount is available to roll over into the next pay period.
-                </p>
+                <EmptyNotice message="No leftover amount is available to roll into the next pay period." />
               )}
 
               {unpaidBills.length > 0 ? (
@@ -314,11 +312,7 @@ export function StartNewPayPeriodPanel({
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <label
-                      className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
-                        carryoverMode === 'all'
-                          ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50'
-                          : 'border-slate-800 bg-slate-950/50 text-slate-200'
-                      }`}
+                      className={`leftly-selection-card ${carryoverMode === 'all' ? 'leftly-selection-card-active' : ''}`}
                     >
                       <input
                         type="radio"
@@ -334,11 +328,7 @@ export function StartNewPayPeriodPanel({
                     </label>
 
                     <label
-                      className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
-                        carryoverMode === 'choose'
-                          ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50'
-                          : 'border-slate-800 bg-slate-950/50 text-slate-200'
-                      }`}
+                      className={`leftly-selection-card ${carryoverMode === 'choose' ? 'leftly-selection-card-active' : ''}`}
                     >
                       <input
                         type="radio"
@@ -354,11 +344,7 @@ export function StartNewPayPeriodPanel({
                     </label>
 
                     <label
-                      className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
-                        carryoverMode === 'skip'
-                          ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50'
-                          : 'border-slate-800 bg-slate-950/50 text-slate-200'
-                      }`}
+                      className={`leftly-selection-card ${carryoverMode === 'skip' ? 'leftly-selection-card-active' : ''}`}
                     >
                       <input
                         type="radio"
@@ -390,9 +376,7 @@ export function StartNewPayPeriodPanel({
                           return (
                             <label
                               key={bill.id}
-                              className={`flex items-start gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
-                                checked ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-50' : 'border-slate-800 bg-slate-950/60 text-slate-200'
-                              }`}
+                              className={`leftly-selection-card ${checked ? 'leftly-selection-card-active' : ''}`}
                             >
                               <input
                                 type="checkbox"
@@ -433,38 +417,45 @@ export function StartNewPayPeriodPanel({
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Income amount">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.income}
-                onChange={(event) => setDraft({ ...draft, income: event.target.value })}
-                placeholder="3200"
-              />
-            </Field>
+          <div className="leftly-panel-section">
+            <div className="grid gap-1">
+              <p className="leftly-panel-label">New pay period</p>
+              <p className="leftly-panel-copy">Set the income and date range for the next pay period.</p>
+            </div>
 
-            <Field label="Cadence">
-              <select value={draft.cadence} onChange={(event) => setDraft({ ...draft, cadence: event.target.value as PayCadence })}>
-                {cadenceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Income amount">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={draft.income}
+                  onChange={(event) => setDraft({ ...draft, income: event.target.value })}
+                  placeholder="3200"
+                />
+              </Field>
 
-            <Field label="Start date">
-              <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
-            </Field>
+              <Field label="Cadence">
+                <select value={draft.cadence} onChange={(event) => setDraft({ ...draft, cadence: event.target.value as PayCadence })}>
+                  {cadenceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-            <Field label="End date">
-              <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
-            </Field>
+              <Field label="Start date">
+                <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
+              </Field>
+
+              <Field label="End date">
+                <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
+              </Field>
+            </div>
           </div>
 
-          <label className="leftly-shell-soft flex items-start gap-3 px-4 py-3 text-sm text-slate-200">
+          <label className="leftly-selection-card">
             <input
               type="checkbox"
               checked={draft.generateRecurring}
@@ -487,10 +478,15 @@ export function StartNewPayPeriodPanel({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={handleReview} className={buttonStyles.primary}>
-              Review pay period
-            </button>
+          <div className="leftly-sheet-footer">
+            <div className="leftly-action-grid">
+              <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+                Close
+              </button>
+              <button type="button" onClick={handleReview} className={`${buttonStyles.primary} w-full sm:w-auto`}>
+                Review pay period
+              </button>
+            </div>
           </div>
         </form>
   ) : (
@@ -556,28 +552,38 @@ export function StartNewPayPeriodPanel({
                   </>
                 ) : (
                   <div className="leftly-empty">
-                    <p className="text-sm font-medium text-white">No Bill Plan items fall inside this pay period.</p>
+                    <p className="text-sm font-medium text-white">No Bill Plan items land in this pay period.</p>
                   </div>
                 )}
               </div>
             ) : (
               <div className="mt-4 leftly-empty">
-                <p className="text-sm font-medium text-white">No Bill Plan items fall inside this pay period.</p>
+                <p className="text-sm font-medium text-white">Bill Plan preview is off for this pay period.</p>
               </div>
             )}
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-              Back to edit
-            </button>
-            <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-              Start new pay period
-            </button>
+          <div className="leftly-sheet-footer">
+            <div className="leftly-action-grid">
+              <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+                Back to edit
+              </button>
+              <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
+                Start new pay period
+              </button>
+            </div>
           </div>
         </div>
       )}
     </section>
+  )
+}
+
+function EmptyNotice({ message }: { message: string }) {
+  return (
+    <div className="leftly-empty">
+      <p className="text-sm font-medium text-white">{message}</p>
+    </div>
   )
 }
 

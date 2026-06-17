@@ -193,53 +193,65 @@ export function StartFromHistoryPanel({
   }
 
   return (
-    <section className="rounded-[1.5rem] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className="leftly-shell leftly-shell-accent overflow-hidden p-4 sm:p-5">
+      <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-white">Use as starting point</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">
-            Copy this archived pay period into a new active period, then adjust the dates and income before starting it.
+            Copy this archived pay period into a new one, then confirm the dates, income, and what should carry forward.
           </p>
         </div>
-        <button type="button" onClick={onClose} className={buttonStyles.secondary}>
-          Cancel
+        <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+          Close
         </button>
       </div>
 
       {mode === 'edit' ? (
         <form className="mt-4 grid gap-4" onSubmit={handleReview}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Income amount">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.income}
-                onChange={(event) => setDraft({ ...draft, income: event.target.value })}
-                placeholder="3200"
-              />
-            </Field>
+          <div className="leftly-panel-section">
+            <div className="grid gap-1">
+              <p className="leftly-panel-label">New pay period</p>
+              <p className="leftly-panel-copy">Choose the new dates and income before copying items from this archived period.</p>
+            </div>
 
-            <Field label="Cadence">
-              <select value={draft.cadence} onChange={(event) => setDraft({ ...draft, cadence: event.target.value as PayCadence })}>
-                {cadenceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Income amount">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={draft.income}
+                  onChange={(event) => setDraft({ ...draft, income: event.target.value })}
+                  placeholder="3200"
+                />
+              </Field>
 
-            <Field label="Start date">
-              <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
-            </Field>
+              <Field label="Cadence">
+                <select value={draft.cadence} onChange={(event) => setDraft({ ...draft, cadence: event.target.value as PayCadence })}>
+                  {cadenceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-            <Field label="End date">
-              <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
-            </Field>
+              <Field label="Start date">
+                <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
+              </Field>
+
+              <Field label="End date">
+                <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
+              </Field>
+            </div>
           </div>
 
-          <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/55 p-4">
+          <div className="leftly-panel-section">
+            <div className="grid gap-1">
+              <p className="leftly-panel-label">What to copy</p>
+              <p className="leftly-panel-copy">Keep the new pay period focused by bringing forward only the items that still matter.</p>
+            </div>
+
             <Checkbox
               checked={draft.copyBills}
               onChange={(checked) =>
@@ -254,7 +266,7 @@ export function StartFromHistoryPanel({
               description="Default on. Keeps the bills from the archived period in the new one."
             />
 
-            <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+            <div className="grid gap-3 rounded-[1.1rem] border border-slate-800/70 bg-slate-950/50 p-3">
               <Checkbox
                 checked={draft.resetCopiedBillsToUnpaid}
                 onChange={(checked) => setDraft({ ...draft, resetCopiedBillsToUnpaid: checked })}
@@ -284,28 +296,29 @@ export function StartFromHistoryPanel({
             />
           </div>
 
-          <p className="text-sm leading-6 text-slate-400">
-            Most people should leave manual expenses unchecked so each pay period starts fresh.
-          </p>
-
           {error ? (
             <p className="leftly-banner-danger" role="alert">
               {error}
             </p>
           ) : null}
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (validateDraft()) {
-                  setMode('review')
-                }
-              }}
-              className={buttonStyles.primary}
-            >
-              Review copied pay period
-            </button>
+          <div className="leftly-sheet-footer">
+            <div className="leftly-action-grid">
+              <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (validateDraft()) {
+                    setMode('review')
+                  }
+                }}
+                className={`${buttonStyles.primary} w-full sm:w-auto`}
+              >
+                Review copied pay period
+              </button>
+            </div>
           </div>
         </form>
       ) : (
@@ -350,13 +363,15 @@ export function StartFromHistoryPanel({
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-              Back to edit
-            </button>
-            <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-              Start pay period
-            </button>
+          <div className="leftly-sheet-footer">
+            <div className="leftly-action-grid">
+              <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+                Back to edit
+              </button>
+              <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
+                Start pay period
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -440,8 +455,8 @@ function PreviewGroup({
                   <Badge muted>{item.setAsideForTemplateId ? 'Set-aside' : item.isPlanned ? 'Planned spending' : 'Bill Plan'}</Badge>
                 </div>
                 <p className="text-xs text-slate-400">
-                  {item.category} ? {item.dueDate ?? item.date ?? 'copied from archive'}
-                  {item.source === 'recurring' ? ' ? recurring' : ' ? manual'}
+                  {item.category} · {item.dueDate ?? item.date ?? 'copied from archive'}
+                  {item.source === 'recurring' ? ' · recurring' : ' · manual'}
                 </p>
               </div>
               <p className="text-sm font-semibold text-white">{formatCurrency(item.amount)}</p>
@@ -478,7 +493,7 @@ function Checkbox({
   description: string
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
+    <label className="leftly-selection-card">
       <input
         type="checkbox"
         checked={checked}

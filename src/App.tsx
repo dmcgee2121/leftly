@@ -2482,7 +2482,7 @@ function App() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-sm font-medium text-white">Quick Add</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">Log a manual expense fast or jump to the bill tabs.</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">Log spending fast or jump into the fuller bill and planning screens.</p>
                         </div>
                         {!payPeriod ? (
                           <p className="text-xs leading-5 text-slate-500">Start a pay period before logging bills or expenses.</p>
@@ -2507,7 +2507,12 @@ function App() {
                       </div>
 
                       {isQuickAddExpenseOpen && payPeriod ? (
-                        <form className="mt-3 grid gap-3 leftly-shell-soft p-3 sm:p-4" onSubmit={handleQuickAddExpense}>
+                        <form className="mt-3 grid gap-3 leftly-panel-section" onSubmit={handleQuickAddExpense}>
+                          <div className="grid gap-1">
+                            <p className="leftly-panel-label">Quick expense</p>
+                            <p className="leftly-panel-copy">Keep it light: name, amount, category, and date.</p>
+                          </div>
+
                           <div className="grid gap-3 sm:grid-cols-2">
                             <Field label="Name">
                               <input
@@ -2570,12 +2575,12 @@ function App() {
                           {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
                           {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
 
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <button type="submit" className="button-primary w-full sm:w-auto">
-                              Save expense
-                            </button>
+                          <div className="leftly-action-grid">
                             <button type="button" onClick={closeQuickAddExpense} className="button-secondary w-full sm:w-auto">
                               Cancel
+                            </button>
+                            <button type="submit" className="button-primary w-full sm:w-auto">
+                              Add expense
                             </button>
                           </div>
                         </form>
@@ -2928,74 +2933,81 @@ function App() {
                 </div>
 
                 <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Cadence">
-                      <select
-                        value={payPeriodDraft.cadence}
-                        onChange={(event) =>
-                          setPayPeriodDraft((current) => ({
-                            ...current,
-                            cadence: event.target.value as PayCadence,
-                          }))
-                        }
-                      >
-                        {cadenceOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Income">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={payPeriodDraft.income}
-                        onChange={(event) =>
-                          setPayPeriodDraft((current) => ({
-                            ...current,
-                            income: event.target.value,
-                          }))
-                        }
-                        placeholder="3200"
-                      />
-                    </Field>
-                    <Field label="Start date">
-                      <input
-                        type="date"
-                        value={payPeriodDraft.startDate}
-                        onChange={(event) =>
-                          setPayPeriodDraft((current) => ({
-                            ...current,
-                            startDate: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field label="End date">
-                      <input
-                        type="date"
-                        value={payPeriodDraft.endDate}
-                        onChange={(event) =>
-                          setPayPeriodDraft((current) => ({
-                            ...current,
-                            endDate: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
+                  <div className="leftly-panel-section">
+                    <div className="grid gap-1">
+                      <p className="leftly-panel-label">Active pay period</p>
+                      <p className="leftly-panel-copy">Update the income and dates for the paycheck you are tracking right now.</p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Cadence">
+                        <select
+                          value={payPeriodDraft.cadence}
+                          onChange={(event) =>
+                            setPayPeriodDraft((current) => ({
+                              ...current,
+                              cadence: event.target.value as PayCadence,
+                            }))
+                          }
+                        >
+                          {cadenceOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Income">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={payPeriodDraft.income}
+                          onChange={(event) =>
+                            setPayPeriodDraft((current) => ({
+                              ...current,
+                              income: event.target.value,
+                            }))
+                          }
+                          placeholder="3200"
+                        />
+                      </Field>
+                      <Field label="Start date">
+                        <input
+                          type="date"
+                          value={payPeriodDraft.startDate}
+                          onChange={(event) =>
+                            setPayPeriodDraft((current) => ({
+                              ...current,
+                              startDate: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                      <Field label="End date">
+                        <input
+                          type="date"
+                          value={payPeriodDraft.endDate}
+                          onChange={(event) =>
+                            setPayPeriodDraft((current) => ({
+                              ...current,
+                              endDate: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    </div>
                   </div>
 
                   {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
-                {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
+                  {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
 
-                <div className="flex items-stretch gap-3">
-                  <button type="submit" className="button-primary w-full sm:w-auto">
-                    Save pay period
-                  </button>
-                </div>
-              </form>
+                  <div className="leftly-action-grid">
+                    <button type="submit" className="button-primary w-full sm:w-auto">
+                      Save pay period
+                    </button>
+                  </div>
+                </form>
               </div>
             </SectionShell>
           ) : null}
@@ -3004,60 +3016,67 @@ function App() {
             <SectionShell title="One-time Bill" description="Add a one-time bill and keep working in the same tab.">
               {bills.length === 0 ? (
                 <div className="mb-4">
-                  <EmptyState title="No bills yet" text="Add your first bill below or load demo data to test the flow." compact />
+                  <EmptyState title="No bills yet" text="Add the next bill here when it comes up." compact />
                 </div>
               ) : null}
               <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddBill}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Name">
-                    <input
-                      value={billDraft.name}
-                      onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
-                      placeholder="Rent"
-                    />
-                  </Field>
-                  <Field label="Amount">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={billDraft.amount}
-                      onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))}
-                      placeholder="1200"
-                    />
-                  </Field>
-                  <Field label="Due date">
-                    <input
-                      type="date"
-                      value={billDraft.dueDate}
-                      onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))}
-                    />
-                  </Field>
-                  <Field label="Category">
-                    <select
-                      value={billDraft.category}
-                      onChange={(event) =>
-                        setBillDraft((current) => ({
-                          ...current,
-                          category: event.target.value as BudgetCategory,
-                        }))
-                      }
-                    >
-                      {DEFAULT_CATEGORIES.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                <div className="leftly-panel-section">
+                  <div className="grid gap-1">
+                    <p className="leftly-panel-label">Bill details</p>
+                    <p className="leftly-panel-copy">Use this for one-off bills that belong only to the current pay period.</p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Name">
+                      <input
+                        value={billDraft.name}
+                        onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
+                        placeholder="Rent"
+                      />
+                    </Field>
+                    <Field label="Amount">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={billDraft.amount}
+                        onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))}
+                        placeholder="1200"
+                      />
+                    </Field>
+                    <Field label="Due date">
+                      <input
+                        type="date"
+                        value={billDraft.dueDate}
+                        onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))}
+                      />
+                    </Field>
+                    <Field label="Category">
+                      <select
+                        value={billDraft.category}
+                        onChange={(event) =>
+                          setBillDraft((current) => ({
+                            ...current,
+                            category: event.target.value as BudgetCategory,
+                          }))
+                        }
+                      >
+                        {DEFAULT_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
                 </div>
 
                 {billError ? <FormMessage>{billError}</FormMessage> : null}
                 {billSuccess ? <SuccessMessage>{billSuccess}</SuccessMessage> : null}
 
-                <div className="flex items-stretch gap-3">
+                <div className="leftly-action-grid">
                   <button type="submit" className="button-primary w-full sm:w-auto">
-                    Save bill
+                    Add bill
                   </button>
                 </div>
               </form>
@@ -3068,75 +3087,82 @@ function App() {
             <SectionShell title="Manual Expense" description="Add a manual expense and keep working in the same tab.">
               {expenses.length === 0 ? (
                 <div className="mb-4">
-                  <EmptyState title="No expenses yet" text="Add your first expense below or load demo data to test the flow." compact />
+                  <EmptyState title="No expenses yet" text="Add spending here as it happens." compact />
                 </div>
               ) : null}
               <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddExpense}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Name">
-                    <input
-                      value={expenseDraft.name}
-                      onChange={(event) =>
-                        setExpenseDraft((current) => ({
-                          ...current,
-                          name: event.target.value,
-                        }))
-                      }
-                      placeholder="Groceries"
-                    />
-                  </Field>
-                  <Field label="Amount">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={expenseDraft.amount}
-                      onChange={(event) =>
-                        setExpenseDraft((current) => ({
-                          ...current,
-                          amount: event.target.value,
-                        }))
-                      }
-                      placeholder="48.25"
-                    />
-                  </Field>
-                  <Field label="Date">
-                    <input
-                      type="date"
-                      value={expenseDraft.date}
-                      onChange={(event) =>
-                        setExpenseDraft((current) => ({
-                          ...current,
-                          date: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field label="Category">
-                    <select
-                      value={expenseDraft.category}
-                      onChange={(event) =>
-                        setExpenseDraft((current) => ({
-                          ...current,
-                          category: event.target.value as BudgetCategory,
-                        }))
-                      }
-                    >
-                      {DEFAULT_CATEGORIES.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                <div className="leftly-panel-section">
+                  <div className="grid gap-1">
+                    <p className="leftly-panel-label">Expense details</p>
+                    <p className="leftly-panel-copy">Keep the active pay period current with spending that already happened.</p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Name">
+                      <input
+                        value={expenseDraft.name}
+                        onChange={(event) =>
+                          setExpenseDraft((current) => ({
+                            ...current,
+                            name: event.target.value,
+                          }))
+                        }
+                        placeholder="Groceries"
+                      />
+                    </Field>
+                    <Field label="Amount">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={expenseDraft.amount}
+                        onChange={(event) =>
+                          setExpenseDraft((current) => ({
+                            ...current,
+                            amount: event.target.value,
+                          }))
+                        }
+                        placeholder="48.25"
+                      />
+                    </Field>
+                    <Field label="Date">
+                      <input
+                        type="date"
+                        value={expenseDraft.date}
+                        onChange={(event) =>
+                          setExpenseDraft((current) => ({
+                            ...current,
+                            date: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label="Category">
+                      <select
+                        value={expenseDraft.category}
+                        onChange={(event) =>
+                          setExpenseDraft((current) => ({
+                            ...current,
+                            category: event.target.value as BudgetCategory,
+                          }))
+                        }
+                      >
+                        {DEFAULT_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
                 </div>
 
                 {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
                 {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
 
-                <div className="flex items-stretch gap-3">
+                <div className="leftly-action-grid">
                   <button type="submit" className="button-primary w-full sm:w-auto">
-                    Save expense
+                    Add expense
                   </button>
                 </div>
               </form>

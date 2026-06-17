@@ -413,7 +413,7 @@ export function StartNewPayPeriodPanel({
                                 <span className="flex flex-wrap items-center gap-2">
                                   <span className="font-semibold text-white">{bill.name}</span>
                                   {bill.source === 'recurring' ? (
-                                    <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100">
+                                    <span className="leftly-chip border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-100">
                                       Bill Plan
                                     </span>
                                   ) : null}
@@ -464,7 +464,7 @@ export function StartNewPayPeriodPanel({
             </Field>
           </div>
 
-          <label className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
+          <label className="leftly-shell-soft flex items-start gap-3 px-4 py-3 text-sm text-slate-200">
             <input
               type="checkbox"
               checked={draft.generateRecurring}
@@ -694,7 +694,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function Badge({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100">
+    <span className="leftly-chip border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-cyan-100">
       {children}
     </span>
   )

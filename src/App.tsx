@@ -2252,7 +2252,7 @@ function App() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 pb-32 sm:px-6 sm:py-5 sm:pb-6 lg:px-8 lg:py-6">
         <header className="leftly-page-header">
           <div className="flex flex-col items-center gap-2.5 text-center sm:gap-4">
-            <p className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
+            <p className="leftly-chip leftly-chip-default px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
               Manual budget tracker
             </p>
             <div className="space-y-0.5 sm:space-y-2">
@@ -2548,13 +2548,13 @@ function App() {
                         </div>
                         {payPeriod && dueSoonBills.length > 0 ? (
                           <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
-                            <span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-100">
+                            <span className="leftly-chip border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-100">
                               {dueSoonBills.filter((item) => item.status === 'Overdue').length} overdue
                             </span>
-                            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-100">
+                            <span className="leftly-chip border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-100">
                               {dueSoonBills.filter((item) => item.status === 'Due today').length} today
                             </span>
-                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-amber-100">
+                            <span className="leftly-chip border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-amber-100">
                               {dueSoonBills.filter((item) => item.status === 'Due in next 7 days').length} soon
                             </span>
                           </div>
@@ -2575,7 +2575,7 @@ function App() {
                                       <p className="truncate font-medium text-white">{bill.name}</p>
                                       {bill.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
                                       <span
-                                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                                        className={`leftly-chip px-2 py-0.5 text-[10px] ${
                                           statusTone === 'rose'
                                             ? 'border-rose-500/20 bg-rose-500/10 text-rose-100'
                                             : statusTone === 'cyan'
@@ -3421,13 +3421,13 @@ function CategoryCard({
 }) {
   const highlightClass =
     rank === 1
-      ? 'border-emerald-400/30 bg-emerald-400/8'
+      ? 'border-emerald-400/30 bg-emerald-400/10'
       : rank <= 3
         ? 'border-cyan-400/25 bg-cyan-400/10'
         : 'border-slate-800/80 bg-slate-950/70'
 
   return (
-    <article className={`rounded-[1.5rem] border p-4 shadow-lg shadow-slate-950/20 ${highlightClass}`}>
+    <article className={`leftly-shell-soft p-4 shadow-lg shadow-slate-950/20 ${highlightClass}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <button type="button" onClick={onToggle} className="flex-1 text-left">
           <div className="flex flex-wrap items-center gap-2">

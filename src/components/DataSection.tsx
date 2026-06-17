@@ -45,8 +45,8 @@ export function DataSection({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   return (
-    <div className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5">
-      <div className="grid gap-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/5 p-4">
+    <div className="leftly-shell grid gap-4 p-4 sm:p-5">
+      <div className="leftly-shell-soft grid gap-3 border-cyan-400/15 bg-cyan-400/5 p-4">
         <p className="text-sm font-semibold text-white">Privacy note</p>
         <p className="text-sm leading-6 text-slate-300">
           Leftly stores your data on this device. Export a backup if you want to save or move your data.
@@ -56,18 +56,18 @@ export function DataSection({
         </p>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
+      <div className="leftly-shell-soft grid gap-3 p-4">
         <div className="grid gap-1">
           <p className="text-sm font-semibold text-white">Preferences</p>
           <p className="text-sm leading-6 text-slate-400">These defaults only affect new entries on this device.</p>
         </div>
 
         <div className="grid gap-3">
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="leftly-field">
             <span>Default pay cadence</span>
             <select
               value={preferences.defaultPayCadence}
-              className="min-h-11 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-cyan-400/50 focus:ring-4 focus:ring-cyan-400/10"
+              className="leftly-input-shell"
               onChange={(event) =>
                 onPreferencesChange({
                   ...preferences,
@@ -83,11 +83,11 @@ export function DataSection({
             </select>
           </label>
 
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="leftly-field">
             <span>Default category</span>
             <select
               value={preferences.defaultCategory}
-              className="min-h-11 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-cyan-400/50 focus:ring-4 focus:ring-cyan-400/10"
+              className="leftly-input-shell"
               onChange={(event) =>
                 onPreferencesChange({
                   ...preferences,
@@ -103,11 +103,11 @@ export function DataSection({
             </select>
           </label>
 
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="leftly-field">
             <span>Quick Add date</span>
             <select
               value={preferences.quickAddDateBehavior}
-              className="min-h-11 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-cyan-400/50 focus:ring-4 focus:ring-cyan-400/10"
+              className="leftly-input-shell"
               onChange={(event) =>
                 onPreferencesChange({
                   ...preferences,
@@ -125,7 +125,7 @@ export function DataSection({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-3">
+      <div className="leftly-shell-faint border-amber-500/20 bg-amber-500/10 px-4 py-3">
         <p className="text-sm font-semibold text-amber-100">Backup first</p>
         <p className="mt-1 text-sm leading-6 text-amber-50/80">
           Before resetting data or making major changes, export a backup so you can restore your budget later.
@@ -146,7 +146,7 @@ export function DataSection({
         </button>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
+      <div className="leftly-shell-soft grid gap-3 p-4">
         <p className="text-sm font-semibold text-white">CSV exports</p>
         <p className="text-sm leading-6 text-slate-400">
           These files open cleanly in Google Sheets, Excel, and Apple Numbers.
@@ -161,7 +161,7 @@ export function DataSection({
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
+      <div className="leftly-shell-soft grid gap-3 p-4">
         <p className="text-sm font-semibold text-white">Demo data</p>
         <p className="text-sm leading-6 text-slate-400">
           Demo data is only for testing. It replaces the current local data on this device.
@@ -171,7 +171,7 @@ export function DataSection({
         </button>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4">
+      <div className="leftly-shell-soft grid gap-3 p-4">
         <p className="text-sm font-semibold text-white">Add Leftly to your phone</p>
         <p className="text-sm leading-6 text-slate-400">
           Open Leftly in your mobile browser, then use the browser menu to add it to your home screen or install it as an app.
@@ -189,7 +189,7 @@ export function DataSection({
         }}
       />
 
-      <div className="grid gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/8 p-4">
+      <div className="leftly-shell-faint border-amber-500/20 bg-amber-500/10 p-4">
         <p className="text-sm font-semibold text-amber-100">Import warning</p>
         <p className="text-sm leading-6 text-amber-50/80">
           Importing this JSON backup will replace the current Leftly data on this device.
@@ -200,13 +200,13 @@ export function DataSection({
       </div>
 
       {errorMessage ? (
-        <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-3 text-sm font-medium text-rose-200" role="alert">
+        <p className="leftly-shell-faint border-rose-500/30 bg-rose-500/10 px-3 py-3 text-sm font-medium text-rose-200" role="alert">
           {errorMessage}
         </p>
       ) : null}
 
       {statusMessage ? (
-        <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-sm font-medium text-emerald-100" role="status">
+        <p className="leftly-shell-faint border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-sm font-medium text-emerald-100" role="status">
           {statusMessage}
         </p>
       ) : null}

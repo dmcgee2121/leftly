@@ -241,7 +241,7 @@ function DayCard({
       aria-pressed={selected}
       className={`min-h-[4.5rem] rounded-[1.1rem] border p-2.5 text-left shadow-sm shadow-slate-950/20 transition active:translate-y-px sm:min-h-[5.5rem] sm:p-3.5 ${
         selected
-          ? 'border-cyan-400/30 bg-cyan-400/8 ring-1 ring-cyan-400/20'
+          ? 'border-cyan-400/30 bg-cyan-400/10 ring-1 ring-cyan-400/20'
           : day.isToday
             ? 'border-cyan-400/20 bg-cyan-400/5'
             : 'border-slate-800/70 bg-slate-950/55 hover:border-slate-700 hover:bg-slate-950/70'

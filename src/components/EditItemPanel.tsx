@@ -208,7 +208,7 @@ export function EditItemPanel({
           </div>
 
           {target.kind === 'bill' ? (
-            <label className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
+            <label className="leftly-shell-soft flex items-start gap-3 px-4 py-3 text-sm text-slate-200">
               <input
                 type="checkbox"
                 checked={draft.isPaid}

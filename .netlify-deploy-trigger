@@ -1,4 +1,5 @@
 Leftly production deploy trigger
 
-Triggered from ChatGPT on 2026-06-15 after local-only polish commits.
-Latest included app fix: 23461c7 Fix history bill totals formatting [skip netlify]
+Triggered from ChatGPT on 2026-06-16 after mobile visual system polish.
+Latest included app polish: 1178066 Polish mobile visual system [skip netlify]
+Release purpose: mobile visual QA on Netlify.

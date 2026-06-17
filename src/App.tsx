@@ -958,6 +958,7 @@ function App() {
 
   useEffect(() => {
     setIsMoreMenuOpen(false)
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [activeTab])
 
   useEffect(() => {
@@ -2251,22 +2252,59 @@ function App() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-slate-950/80 to-transparent" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 pb-32 sm:px-6 sm:py-5 sm:pb-6 lg:px-8 lg:py-6">
-        <header className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/82 px-4 py-4 shadow-2xl shadow-slate-950/40 backdrop-blur sm:rounded-[2rem] sm:px-5 sm:py-6 xl:px-8">
-          <div className="flex flex-col items-center gap-3 text-center sm:gap-4">
+        <header className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/82 px-4 py-3 shadow-2xl shadow-slate-950/40 backdrop-blur sm:rounded-[2rem] sm:px-5 sm:py-6 xl:px-8">
+          <div className="flex flex-col items-center gap-2.5 text-center sm:gap-4">
             <p className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
               Manual budget tracker
             </p>
-            <div className="space-y-1 sm:space-y-2">
-              <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-6xl">Leftly</h1>
-              <p className="text-lg text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
+            <div className="space-y-0.5 sm:space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-6xl">Leftly</h1>
+              <p className="text-base text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
             </div>
-            <p className="max-w-2xl text-center text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
+            <p className="max-w-2xl text-center text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
               Track a single pay period, your bills, and your spending without connecting a bank.
             </p>
           </div>
         </header>
 
-        <section className="mt-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 sm:mt-5 sm:rounded-[2rem] sm:p-5">
+        <section className="mt-4 md:hidden">
+          {activeTab === 'overview' ? (
+            <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30">
+              <div className="flex flex-col items-center gap-2 text-center">
+                <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400">Leftover</p>
+                <p className="text-5xl font-semibold tracking-tight text-white">{formatCurrency(totals.leftover)}</p>
+                <p className="max-w-2xl text-xs leading-5 text-slate-400">Income minus bills, set-asides, and expenses in the current pay period.</p>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <MetricCard label="Income" value={formatCurrency(totals.income)} />
+                <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/78 px-4 py-3 shadow-lg shadow-slate-950/25">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-500">Leftly</p>
+                  <p className="mt-1 text-3xl font-semibold tracking-tight text-white">{formatCurrency(totals.leftover)}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">Leftly amount</p>
+                </div>
+                <div className="min-w-0 text-right">
+                  <p className="text-sm font-medium text-white">
+                    {payPeriod ? `${payPeriod.startDate} to ${payPeriod.endDate}` : 'No active pay period'}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    {payPeriod
+                      ? `${formatCurrency(totals.safeToSpend)} safe to spend · ${formatCurrency(totals.income)} income`
+                      : 'Add a pay period to begin tracking.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mt-4 hidden rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 md:block sm:mt-5 sm:rounded-[2rem] sm:p-5">
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400 sm:text-sm sm:tracking-[0.24em]">Leftover</p>
             <p className="text-5xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">

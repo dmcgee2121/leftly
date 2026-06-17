@@ -220,8 +220,8 @@ export function StartNewPayPeriodPanel({
   }
 
   return (
-    <section className="leftly-shell leftly-shell-accent p-4 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className="leftly-shell leftly-shell-accent overflow-hidden p-4 sm:p-5">
+      <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-white">Start new pay period</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">
@@ -482,7 +482,7 @@ export function StartNewPayPeriodPanel({
           </label>
 
           {error ? (
-            <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
+            <p className="leftly-banner-danger" role="alert">
               {error}
             </p>
           ) : null}
@@ -583,10 +583,10 @@ export function StartNewPayPeriodPanel({
 
 function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <div className="leftly-shell-soft px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+    <div className="leftly-shell-soft px-4 py-3.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-sm font-semibold text-white">{value}</p>
+        <p className="text-sm font-semibold tracking-[-0.02em] text-white sm:text-[0.96rem]">{value}</p>
         {detail ? <p className="text-xs text-slate-400">{detail}</p> : null}
       </div>
     </div>
@@ -623,10 +623,10 @@ function SummaryStats({
 
 function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="leftly-shell-soft px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+    <div className="leftly-shell-soft px-4 py-3.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-lg font-semibold text-white">{value}</p>
+        <p className="text-lg font-semibold tracking-[-0.03em] text-white">{value}</p>
         <p className="text-xs text-slate-400">{detail}</p>
       </div>
     </div>
@@ -683,9 +683,9 @@ function PreviewGroup({
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-slate-300">
+    <label className="leftly-field">
       <span>{label}</span>
-      <span className="[&_input]:min-h-11 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-800 [&_input]:bg-slate-950 [&_input]:px-3 [&_input]:text-sm [&_input]:text-white [&_input]:outline-none [&_input]:transition [&_input]:placeholder:text-slate-500 [&_input]:focus:border-cyan-400/50 [&_input]:focus:ring-4 [&_input]:focus:ring-cyan-400/10 [&_select]:min-h-11 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-800 [&_select]:bg-slate-950 [&_select]:px-3 [&_select]:text-sm [&_select]:text-white [&_select]:outline-none [&_select]:transition [&_select]:focus:border-cyan-400/50 [&_select]:focus:ring-4 [&_select]:focus:ring-cyan-400/10">
+      <span className="leftly-input-shell">
         {children}
       </span>
     </label>

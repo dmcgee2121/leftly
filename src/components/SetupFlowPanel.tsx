@@ -272,7 +272,7 @@ export function SetupFlowPanel({
           <p className="sm:col-span-2">
             <span className="text-slate-500">Bill Plan item:</span>{' '}
             {setupReview?.recurringItem
-              ? `${setupReview.recurringItem.name} · ${formatCurrency(setupReview.recurringItem.amount)} · ${setupReview.recurringItem.frequency}`
+              ? `${setupReview.recurringItem.name} | ${formatCurrency(setupReview.recurringItem.amount)} | ${setupReview.recurringItem.frequency}`
               : draft.addRecurringBill
                 ? 'Fill in the bill details below'
                 : 'No Bill Plan item selected'}
@@ -403,8 +403,8 @@ export function SetupFlowPanel({
 
 function renderPanel(title: string, description: string, content: ReactNode, stepTitle: string) {
   return (
-    <section className="leftly-shell leftly-shell-accent p-4 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className="leftly-shell leftly-shell-accent overflow-hidden p-4 sm:p-5">
+      <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-cyan-200/70">{stepTitle}</p>
           <h3 className="mt-1 text-lg font-semibold text-white">{title}</h3>
@@ -516,7 +516,7 @@ function getInitialDraft(defaultPayCadence: PayCadence): SetupDraft {
 
 function ErrorBanner({ message }: { message: string }) {
   return (
-    <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-3 text-sm font-medium text-rose-200" role="alert">
+    <p className="leftly-banner-danger" role="alert">
       {message}
     </p>
   )
@@ -524,9 +524,9 @@ function ErrorBanner({ message }: { message: string }) {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-slate-300">
+    <label className="leftly-field">
       <span>{label}</span>
-      <span className="[&_input]:min-h-11 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-800 [&_input]:bg-slate-950 [&_input]:px-3 [&_input]:text-sm [&_input]:text-white [&_input]:outline-none [&_input]:transition [&_input]:placeholder:text-slate-500 [&_input]:focus:border-cyan-400/50 [&_input]:focus:ring-4 [&_input]:focus:ring-cyan-400/10 [&_select]:min-h-11 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-800 [&_select]:bg-slate-950 [&_select]:px-3 [&_select]:text-sm [&_select]:text-white [&_select]:outline-none [&_select]:transition [&_select]:focus:border-cyan-400/50 [&_select]:focus:ring-4 [&_select]:focus:ring-cyan-400/10">
+      <span className="leftly-input-shell">
         {children}
       </span>
     </label>

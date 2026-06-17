@@ -558,7 +558,7 @@ function HistorySection({
             <button
               type="button"
               onClick={() => onDeleteSnapshot(selectedSnapshot.id)}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px sm:w-auto"
+              className="button-danger sm:w-auto"
             >
               Delete snapshot
             </button>
@@ -742,7 +742,7 @@ function HistorySection({
                 <button
                   type="button"
                   onClick={() => onDeleteSnapshot(snapshot.id)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px sm:self-start"
+                  className="button-danger sm:self-start"
                 >
                   Delete
                 </button>
@@ -781,10 +781,10 @@ function MiniStat({
 }) {
   return (
     <div
-      className={`leftly-shell-soft px-3 ${dense ? 'py-2' : 'py-2.5 sm:py-3'} ${tone === 'highlight' ? 'leftly-shell-accent' : ''}`}
+      className={`leftly-shell-soft px-3 ${dense ? 'py-2.5' : 'py-3 sm:py-3.5'} ${tone === 'highlight' ? 'leftly-shell-accent' : ''}`}
     >
-      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 sm:text-xs">{label}</p>
-      <p className={`mt-1.5 ${dense ? 'text-sm' : 'text-base sm:text-lg'} font-semibold leading-tight ${tone === 'highlight' ? 'text-cyan-100' : 'text-white'}`}>{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-xs">{label}</p>
+      <p className={`mt-2 ${dense ? 'text-sm sm:text-[0.96rem]' : 'text-base sm:text-lg'} font-semibold tracking-[-0.02em] leading-tight ${tone === 'highlight' ? 'text-cyan-50' : 'text-white'}`}>{value}</p>
       {detail ? <p className={`mt-1 text-[11px] leading-5 text-slate-400 ${dense ? 'sm:text-[11px]' : 'sm:text-xs'}`}>{detail}</p> : null}
     </div>
   )
@@ -800,7 +800,7 @@ function FirstRunPanel({
   return (
     <div className="leftly-shell leftly-shell-accent grid gap-4 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 sm:p-5">
       <div className="grid gap-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Welcome to Leftly</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Welcome to Leftly</p>
         <p className="text-sm leading-6 text-slate-300">
           Set up your first pay period to see what’s left before you spend.
         </p>
@@ -809,7 +809,7 @@ function FirstRunPanel({
         <button type="button" onClick={onStartSetup} className="button-primary w-full">
           Start setup
         </button>
-        <button type="button" onClick={onLoadDemoData} className="button-primary w-full">
+        <button type="button" onClick={onLoadDemoData} className="button-secondary w-full">
           Load demo data
         </button>
       </div>
@@ -2243,23 +2243,40 @@ function App() {
 
   const hasAnyData = payPeriod || bills.length > 0 || expenses.length > 0
   const isFirstRun = !payPeriod && bills.length === 0 && expenses.length === 0 && recurringTemplates.length === 0 && payPeriodHistory.length === 0
+  const activeTabLabel = tabLabels.find((tab) => tab.key === activeTab)?.label ?? 'Leftly'
 
   return (
     <main className="leftly-page">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.08),_transparent_32%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-slate-950/80 to-transparent" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 pb-32 sm:px-6 sm:py-5 sm:pb-6 lg:px-8 lg:py-6">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-3 pb-32 sm:px-6 sm:py-5 sm:pb-6 lg:px-8 lg:py-6">
         <header className="leftly-page-header">
-          <div className="flex flex-col items-center gap-2.5 text-center sm:gap-4">
-            <p className="leftly-chip leftly-chip-default px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
-              Manual budget tracker
-            </p>
-            <div className="space-y-0.5 sm:space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-6xl">Leftly</h1>
-              <p className="text-base text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
+          <div className="flex flex-col gap-4 sm:items-center sm:text-center">
+            <div className="flex flex-col gap-4 sm:items-center">
+              <div className="flex flex-col gap-3 sm:items-center">
+                <p className="leftly-chip leftly-chip-default w-fit px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
+                  Manual budget tracker
+                </p>
+                <div className="space-y-1 sm:space-y-2">
+                  <h1 className="text-[2.15rem] font-semibold tracking-[-0.04em] text-white sm:text-6xl">Leftly</h1>
+                  <p className="text-[0.98rem] text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
+                </div>
+              </div>
+
+              <div className="leftly-shell-soft grid gap-2 px-3 py-3 text-left sm:max-w-md sm:grid-cols-2 sm:gap-3 sm:px-4 sm:text-center">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Active screen</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{activeTabLabel}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Storage</p>
+                  <p className="mt-1 text-sm font-semibold text-white">Local only</p>
+                </div>
+              </div>
             </div>
-            <p className="max-w-2xl text-center text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
+
+            <p className="max-w-2xl text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
               Track a single pay period, your bills, and your spending without connecting a bank.
             </p>
           </div>
@@ -2267,42 +2284,69 @@ function App() {
 
         <section className="mt-4 md:hidden">
           {activeTab === 'overview' ? (
-            <div className="leftly-shell p-4">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400">Leftover</p>
-                <p className="text-5xl font-semibold tracking-tight text-white">{formatCurrency(totals.leftover)}</p>
-                <p className="max-w-2xl text-xs leading-5 text-slate-400">Income minus bills, set-asides, and expenses in the current pay period.</p>
+            <div className="leftly-shell leftly-shell-accent overflow-hidden p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/75">Current Leftover</p>
+                  <p className="mt-3 text-[3rem] font-semibold tracking-[-0.06em] text-white">{formatCurrency(totals.leftover)}</p>
+                  <p className="mt-2 max-w-xs text-sm leading-6 text-slate-300">
+                    Income minus bills, set-asides, and expenses in the current pay period.
+                  </p>
+                </div>
+                {payPeriod ? <Badge muted>{payPeriod.cadence}</Badge> : null}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
+                {payPeriod ? (
+                  <>
+                    <Badge muted>{payPeriod.startDate}</Badge>
+                    <Badge muted>{payPeriod.endDate}</Badge>
+                    {payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? <Badge success>Rollover active</Badge> : null}
+                  </>
+                ) : (
+                  <Badge muted>No active pay period</Badge>
+                )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
                 <MetricCard label="Income" value={formatCurrency(totals.income)} />
                 <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
+                <MetricCard label="Planned bills" value={formatCurrency(totals.totalPlannedBills)} />
+                <MetricCard label="Expenses" value={formatCurrency(totals.totalExpenses)} />
               </div>
             </div>
           ) : (
-            <div className="leftly-shell-soft px-4 py-3 shadow-lg shadow-slate-950/25">
+            <div className="leftly-shell-soft px-4 py-3.5 shadow-lg shadow-slate-950/25">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-500">Leftly</p>
-                  <p className="mt-1 text-3xl font-semibold tracking-tight text-white">{formatCurrency(totals.leftover)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{activeTabLabel}</p>
+                  <p className="mt-1 text-[1.9rem] font-semibold tracking-[-0.05em] text-white">{formatCurrency(totals.leftover)}</p>
                   <p className="mt-1 text-xs leading-5 text-slate-400">Leftly amount</p>
                 </div>
-                <div className="min-w-0 text-right">
-                  <p className="text-sm font-medium text-white">
+                <div className="min-w-0 max-w-[10rem] text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Safe to spend</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{formatCurrency(totals.safeToSpend)}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
                     {payPeriod ? `${payPeriod.startDate} to ${payPeriod.endDate}` : 'No active pay period'}
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">
-                    {payPeriod
-                      ? `${formatCurrency(totals.safeToSpend)} safe to spend · ${formatCurrency(totals.income)} income`
-                      : 'Add a pay period to begin tracking.'}
-                  </p>
                 </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {payPeriod ? (
+                  <>
+                    <Badge>{payPeriod.cadence}</Badge>
+                    <Badge muted>{formatCurrency(totals.income)} income</Badge>
+                  </>
+                ) : (
+                  <Badge muted>Add a pay period to begin tracking</Badge>
+                )}
               </div>
             </div>
           )}
         </section>
 
-        <section className="leftly-shell mt-4 hidden p-4 md:block sm:mt-5 sm:p-5">
+        <section className="leftly-shell leftly-shell-accent mt-4 hidden overflow-hidden p-4 md:block sm:mt-5 sm:p-5">
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400 sm:text-sm sm:tracking-[0.24em]">Leftover</p>
             <p className="text-5xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">
@@ -2348,11 +2392,11 @@ function App() {
           </div>
         </div>
 
-        <section className="mx-auto mt-5 w-full max-w-5xl">
+        <section className="mx-auto mt-4 w-full max-w-5xl sm:mt-5">
           {activeTab === 'overview' ? (
             <SectionShell title="Overview" description="A snapshot of the current pay period and recent activity.">
               {setupSuccess ? (
-                <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100">
+                <div className="leftly-banner-success mb-4">
                   {setupSuccess}
                 </div>
               ) : null}
@@ -3184,7 +3228,7 @@ function App() {
                 </div>
               ) : null}
               {billPlanMessage ? (
-                <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100">
+                <div className="leftly-banner-success mb-4">
                   {billPlanMessage}
                 </div>
               ) : null}
@@ -3257,14 +3301,14 @@ function App() {
           />
         </section>
 
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800/80 bg-slate-950/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-20px_40px_rgba(2,6,23,0.35)] backdrop-blur md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800/80 bg-slate-950/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-2 shadow-[0_-20px_40px_rgba(2,6,23,0.35)] backdrop-blur md:hidden">
           <div className="mx-auto grid max-w-7xl grid-cols-5 gap-2">
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
               aria-label="Go to Overview"
               aria-pressed={activeTab === 'overview'}
-              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
+              className={`leftly-mobile-nav-button ${
                 activeTab === 'overview'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
@@ -3278,7 +3322,7 @@ function App() {
               disabled={!payPeriod}
               aria-label="Open Quick Add"
               aria-pressed={isQuickAddExpenseOpen && activeTab === 'overview'}
-              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`leftly-mobile-nav-button disabled:cursor-not-allowed disabled:opacity-50 ${
                 isQuickAddExpenseOpen && activeTab === 'overview'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
@@ -3291,7 +3335,7 @@ function App() {
               onClick={() => setActiveTab('recurring')}
               aria-label="Go to Bill Plan"
               aria-pressed={activeTab === 'recurring'}
-              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
+              className={`leftly-mobile-nav-button ${
                 activeTab === 'recurring'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
@@ -3304,7 +3348,7 @@ function App() {
               onClick={() => setActiveTab('history')}
               aria-label="Go to History"
               aria-pressed={activeTab === 'history'}
-              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
+              className={`leftly-mobile-nav-button ${
                 activeTab === 'history'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
@@ -3317,7 +3361,7 @@ function App() {
               onClick={() => setIsMoreMenuOpen((current) => !current)}
               aria-label="Open More menu"
               aria-pressed={isMoreMenuOpen || mobileMoreTabKeys.includes(activeTab)}
-              className={`flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
+              className={`leftly-mobile-nav-button ${
                 isMoreMenuOpen || mobileMoreTabKeys.includes(activeTab)
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
@@ -3336,7 +3380,7 @@ function App() {
               className="absolute inset-0 bg-slate-950/60"
               onClick={() => setIsMoreMenuOpen(false)}
             />
-            <div className="absolute inset-x-3 bottom-24 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/95 p-3 shadow-2xl shadow-slate-950/60">
+            <div className="absolute inset-x-3 bottom-24 rounded-[1.6rem] border border-slate-800/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(5,9,20,0.95))] p-3 shadow-2xl shadow-slate-950/60">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-white">More</p>
                 <button type="button" onClick={() => setIsMoreMenuOpen(false)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
@@ -3547,12 +3591,12 @@ function SectionShell({
   children: ReactNode
 }) {
   return (
-    <div className="leftly-shell p-4 sm:p-5">
-      <div className="mb-4">
+    <div className="leftly-shell overflow-hidden">
+      <div className="border-b border-slate-800/70 px-4 py-4 sm:px-5 sm:py-5">
         <h2 className="leftly-section-title">{title}</h2>
         <p className="leftly-section-helper">{description}</p>
       </div>
-      {children}
+      <div className="p-4 sm:p-5">{children}</div>
     </div>
   )
 }
@@ -3571,8 +3615,10 @@ function TabButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`leftly-chip shrink-0 px-4 py-2 text-sm font-medium normal-case tracking-normal ${
-        active ? 'leftly-chip-default shadow-[0_0_0_1px_rgba(34,211,238,0.15)]' : 'leftly-chip-muted hover:text-white'
+      className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-semibold tracking-[0.01em] transition ${
+        active
+          ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.15)]'
+          : 'border-slate-700/80 bg-slate-900/70 text-slate-300 hover:border-slate-600 hover:text-white'
       }`}
     >
       {label}
@@ -3600,19 +3646,19 @@ function MetricCard({
   value: string
   tone?: 'default' | 'highlight'
 }) {
-  const valueClass = tone === 'highlight' ? 'text-emerald-200' : 'text-white'
+  const valueClass = tone === 'highlight' ? 'text-emerald-100' : 'text-white'
 
   return (
-    <div className={`leftly-shell-soft p-3 sm:p-4 ${tone === 'highlight' ? 'leftly-shell-accent' : ''}`}>
-      <p className="text-[11px] leading-4 text-slate-400 sm:text-sm">{label}</p>
-      <p className={`mt-2 text-lg font-semibold tracking-tight sm:mt-3 sm:text-2xl sm:leading-none ${valueClass}`}>{value}</p>
+    <div className={`leftly-shell-soft p-3.5 sm:p-4 ${tone === 'highlight' ? 'leftly-shell-accent' : ''}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-[11px]">{label}</p>
+      <p className={`mt-2 text-[1.08rem] font-semibold tracking-[-0.03em] sm:mt-3 sm:text-[1.55rem] sm:leading-none ${valueClass}`}>{value}</p>
     </div>
   )
 }
 
 function FormMessage({ children }: { children: string }) {
   return (
-    <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200" role="alert">
+    <p className="leftly-banner-warning" role="alert">
       {children}
     </p>
   )
@@ -3620,7 +3666,7 @@ function FormMessage({ children }: { children: string }) {
 
 function SuccessMessage({ children }: { children: string }) {
   return (
-    <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200" role="status">
+    <p className="leftly-banner-success" role="status">
       {children}
     </p>
   )

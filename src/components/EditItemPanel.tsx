@@ -146,8 +146,8 @@ export function EditItemPanel({
         className="absolute inset-0 cursor-default"
         onClick={onClose}
       />
-      <section className="leftly-shell relative z-10 w-full max-w-2xl p-4 shadow-2xl shadow-slate-950/60 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <section className="leftly-sheet max-w-2xl">
+        <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Edit {target.kind}</p>
             <h3 className="mt-1 text-lg font-semibold text-white">{target.item.name}</h3>
@@ -225,7 +225,7 @@ export function EditItemPanel({
           ) : null}
 
           {error ? (
-            <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
+            <p className="leftly-banner-danger" role="alert">
               {error}
             </p>
           ) : null}

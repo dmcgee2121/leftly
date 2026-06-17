@@ -177,8 +177,8 @@ export function ApplyBillPlanPanel({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-3 sm:items-center sm:p-4">
       <button type="button" aria-label="Close bill plan review" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <section className="leftly-shell relative z-10 w-full max-w-3xl p-4 shadow-2xl shadow-slate-950/60 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <section className="leftly-sheet max-w-3xl">
+        <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Bill Plan</p>
             <h3 className="mt-1 text-lg font-semibold text-white">Apply Bill Plan to this pay period</h3>
@@ -293,9 +293,9 @@ function PreviewRow({ item }: { item: PreviewEntry }) {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="leftly-shell-soft px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+    <div className="leftly-shell-soft px-4 py-3.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-semibold tracking-[-0.02em] text-white">{value}</p>
     </div>
   )
 }

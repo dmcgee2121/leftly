@@ -371,7 +371,7 @@ export function RecurringSection({
                 className={`min-h-11 rounded-full border px-3 py-2 text-xs font-semibold transition ${
                   statusFilter === chip.key
                     ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
-                    : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-white'
+                    : 'border-slate-700/90 bg-slate-900/75 text-slate-400 hover:border-slate-600 hover:text-white'
                 }`}
               >
                 {chip.label}
@@ -382,13 +382,13 @@ export function RecurringSection({
       </div>
 
       {bulkSuccess ? (
-        <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100" role="status">
+        <p className="leftly-banner-success" role="status">
           {bulkSuccess}
         </p>
       ) : null}
 
       {bulkReminder ? (
-        <p className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm text-cyan-100">
+        <p className="rounded-[1.1rem] border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
           Want these included in your current pay period? Use Apply Bill Plan to this pay period.
         </p>
       ) : null}
@@ -481,7 +481,7 @@ export function RecurringSection({
             </div>
 
             {bulkError ? (
-              <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
+              <p className="leftly-banner-danger" role="alert">
                 {bulkError}
               </p>
             ) : null}
@@ -637,7 +637,7 @@ export function RecurringSection({
           ) : null}
 
           {error ? (
-            <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
+            <p className="leftly-banner-danger" role="alert">
               {error}
             </p>
           ) : null}
@@ -701,8 +701,8 @@ export function RecurringSection({
                                 <Badge muted>{template.isActive ? 'Active' : 'Inactive'}</Badge>
                               </div>
                               <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-sm">
-                                {formatCurrency(template.amount)} · {template.category} · {scheduleLabel}
-                                {template.anchorDate ? ` · anchor ${template.anchorDate}` : ''}
+                                {formatCurrency(template.amount)} | {template.category} | {scheduleLabel}
+                                {template.anchorDate ? ` | anchor ${template.anchorDate}` : ''}
                               </p>
                             </div>
                             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{template.createdAt.slice(0, 10)}</p>
@@ -753,7 +753,7 @@ export function RecurringSection({
 function Panel({ title, action, helper, children }: { title: string; action: string; helper?: string; children: ReactNode }) {
   return (
     <section className="leftly-shell p-4 sm:p-5">
-      <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-800/70 pb-4">
         <div>
           <h3 className="text-lg font-semibold text-white">{title}</h3>
           {helper ? <p className="mt-1 text-sm leading-6 text-slate-400">{helper}</p> : null}
@@ -767,9 +767,9 @@ function Panel({ title, action, helper, children }: { title: string; action: str
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-slate-300">
+    <label className="leftly-field">
       <span>{label}</span>
-      <span className="[&_input]:min-h-11 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-800 [&_input]:bg-slate-950 [&_input]:px-3 [&_input]:text-sm [&_input]:text-white [&_input]:outline-none [&_input]:transition [&_input]:placeholder:text-slate-500 [&_input]:focus:border-cyan-400/50 [&_input]:focus:ring-4 [&_input]:focus:ring-cyan-400/10 [&_select]:min-h-11 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-800 [&_select]:bg-slate-950 [&_select]:px-3 [&_select]:text-sm [&_select]:text-white [&_select]:outline-none [&_select]:transition [&_select]:focus:border-cyan-400/50 [&_select]:focus:ring-4 [&_select]:focus:ring-cyan-400/10">
+      <span className="leftly-input-shell">
         {children}
       </span>
     </label>
@@ -792,15 +792,7 @@ function Badge({
   children: ReactNode
   muted?: boolean
 }) {
-  return (
-    <span
-      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
-        muted ? 'border-slate-700 bg-slate-900/70 text-slate-300' : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
-      }`}
-    >
-      {children}
-    </span>
-  )
+  return <span className={`leftly-chip ${muted ? 'leftly-chip-muted' : 'leftly-chip-default'}`}>{children}</span>
 }
 
 function formatCurrency(amount: number) {

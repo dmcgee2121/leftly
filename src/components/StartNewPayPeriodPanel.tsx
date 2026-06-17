@@ -4,10 +4,8 @@ import type { Bill, BudgetPeriod, PayCadence, RecurringItemTemplate } from '../t
 import { buildRecurringPreview } from '../lib/recurring'
 
 const buttonStyles = {
-  primary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px',
-  secondary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm font-semibold text-slate-100 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px',
+  primary: 'button-primary',
+  secondary: 'button-secondary',
 }
 
 const cadenceOptions: Array<{ value: PayCadence; label: string }> = [
@@ -222,7 +220,7 @@ export function StartNewPayPeriodPanel({
   }
 
   return (
-    <section className="rounded-[1.5rem] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
+    <section className="leftly-shell leftly-shell-accent p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-white">Start new pay period</h3>
@@ -238,7 +236,7 @@ export function StartNewPayPeriodPanel({
       {mode === 'edit' ? (
         <form className="mt-4 grid gap-4" onSubmit={(event) => event.preventDefault()}>
           {currentReview ? (
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+            <div className="leftly-shell-soft p-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-semibold text-white">Current pay period review</p>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{currentReview.periodLabel}</p>
@@ -263,7 +261,7 @@ export function StartNewPayPeriodPanel({
               </div>
 
               {currentReview.leftover > 0 ? (
-                <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                <div className="mt-4 leftly-shell-soft border-emerald-500/20 bg-emerald-500/10 p-4">
                   <p className="text-sm font-semibold text-emerald-100">Leftover rollover amount: {formatCurrency(currentReview.leftover)}</p>
                   <p className="mt-1 text-sm leading-6 text-emerald-50/80">Add it to the new pay period income total?</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -297,7 +295,7 @@ export function StartNewPayPeriodPanel({
                   </div>
                 </div>
               ) : (
-                <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
+                <p className="leftly-empty">
                   No leftover amount is available to roll over into the next pay period.
                 </p>
               )}
@@ -377,7 +375,7 @@ export function StartNewPayPeriodPanel({
                   </div>
 
                   {carryoverMode === 'choose' ? (
-                    <div className="mt-4 rounded-2xl border border-slate-800/80 bg-slate-950/50 p-3">
+                    <div className="mt-4 leftly-shell-soft p-3">
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm font-semibold text-white">Select bills to carry over</p>
                         <p className="text-xs text-slate-400">
@@ -496,8 +494,8 @@ export function StartNewPayPeriodPanel({
           </div>
         </form>
   ) : (
-        <div className="mt-4 grid gap-4">
-          <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-4">
+          <div className="leftly-shell-soft grid gap-3 p-4 sm:grid-cols-2">
             <SummaryCard label="Pay period dates" value={`${draft.startDate} to ${draft.endDate}`} />
             <SummaryCard label="Base income" value={formatCurrency(Number(draft.income))} detail="Before rollover" />
             <SummaryCard
@@ -511,7 +509,7 @@ export function StartNewPayPeriodPanel({
             <SummaryCard label="Estimated expenses" value={formatCurrency(setAsidesAmount + plannedExpensesAmount)} detail="Bill Plan expenses" />
           </div>
 
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+          <div className="leftly-shell-soft p-4">
             <p className="text-sm font-semibold text-white">After you confirm</p>
             <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-300">
               <li>Leftly archives the current pay period in History.</li>
@@ -520,7 +518,7 @@ export function StartNewPayPeriodPanel({
             </ul>
           </div>
 
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+          <div className="leftly-shell-soft p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold text-white">Bill Plan preview</p>
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{preview.total} item{preview.total === 1 ? '' : 's'}</p>
@@ -557,13 +555,13 @@ export function StartNewPayPeriodPanel({
                     />
                   </>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
+                  <div className="leftly-empty">
                     <p className="text-sm font-medium text-white">No Bill Plan items fall inside this pay period.</p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="mt-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
+              <div className="mt-4 leftly-empty">
                 <p className="text-sm font-medium text-white">No Bill Plan items fall inside this pay period.</p>
               </div>
             )}
@@ -585,7 +583,7 @@ export function StartNewPayPeriodPanel({
 
 function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
+    <div className="leftly-shell-soft px-4 py-3">
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <div className="mt-2 flex items-end justify-between gap-3">
         <p className="text-sm font-semibold text-white">{value}</p>
@@ -625,7 +623,7 @@ function SummaryStats({
 
 function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
+    <div className="leftly-shell-soft px-4 py-3">
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <div className="mt-2 flex items-end justify-between gap-3">
         <p className="text-lg font-semibold text-white">{value}</p>
@@ -661,7 +659,7 @@ function PreviewGroup({
           {items.map((item) => (
             <div
               key={`${item.templateId}:${item.dateLabel}:${item.kind}`}
-              className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-1 leftly-shell-soft px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">

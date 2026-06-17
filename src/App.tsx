@@ -565,7 +565,7 @@ function HistorySection({
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
+        <div className="leftly-shell p-3 sm:p-4">
           <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-white sm:text-base">Pay period review</p>
@@ -601,7 +601,7 @@ function HistorySection({
         {rolloverAmount > 0 || carriedOverSummary.count > 0 ? (
           <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
             {rolloverAmount > 0 ? (
-              <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
+              <div className="leftly-shell p-3 sm:p-4">
                 <p className="text-sm font-semibold text-white">Rollover</p>
                 <p className="mt-2 text-base font-semibold text-slate-100 sm:text-lg">{formatCurrency(rolloverAmount)}</p>
                 <p className="mt-1 text-xs leading-5 text-slate-400">
@@ -610,7 +610,7 @@ function HistorySection({
               </div>
             ) : null}
             {carriedOverSummary.count > 0 ? (
-              <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
+              <div className="leftly-shell p-3 sm:p-4">
                 <p className="text-sm font-semibold text-white">Carried over bills</p>
                 <p className="mt-2 text-base font-semibold text-slate-100 sm:text-lg">
                   {carriedOverSummary.count} unpaid bill{carriedOverSummary.count === 1 ? '' : 's'} · {formatCurrency(carriedOverSummary.amount)}
@@ -622,7 +622,7 @@ function HistorySection({
         ) : null}
 
         <div className="grid gap-3 xl:grid-cols-2">
-          <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
+          <div className="leftly-shell p-3 sm:p-4">
             <p className="text-sm font-semibold text-white">Bills</p>
             <div className="mt-3 grid gap-2">
               {billItems.length > 0 ? (
@@ -654,14 +654,14 @@ function HistorySection({
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
+          <div className="leftly-shell p-3 sm:p-4">
             <p className="text-sm font-semibold text-white">Expenses</p>
             <div className="mt-3 grid gap-2">
               {expenseItems.length > 0 ? (
                 visibleExpenses.map((expense) => (
                   <div
                     key={expense.id}
-                    className="flex flex-col gap-2 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:p-3"
+                    className="flex flex-col gap-2 leftly-shell-soft p-2.5 sm:flex-row sm:items-center sm:justify-between sm:p-3"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -694,12 +694,12 @@ function HistorySection({
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:p-4">
+        <div className="leftly-shell p-3 sm:p-4">
           <p className="text-sm font-semibold text-white">Top spending categories</p>
           {topExpenseCategories.length > 0 ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {topExpenseCategories.map((summary) => (
-                <div key={summary.category} className="rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5">
+                <div key={summary.category} className="leftly-shell-soft px-3 py-2.5">
                   <p className="text-sm font-medium text-white">{summary.category}</p>
                   <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-xs">
                     {formatCurrency(summary.total)} · {summary.count} item{summary.count === 1 ? '' : 's'}
@@ -720,7 +720,7 @@ function HistorySection({
       {snapshots.length > 0 ? (
         <div className="grid gap-2.5 sm:gap-3">
           {snapshots.map((snapshot) => (
-            <article key={snapshot.id} className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-3 shadow-lg shadow-slate-950/20 sm:p-4">
+            <article key={snapshot.id} className="leftly-shell p-3 sm:p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <button type="button" onClick={() => onSelectSnapshot(snapshot.id)} className="min-w-0 flex-1 text-left">
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -781,9 +781,7 @@ function MiniStat({
 }) {
   return (
     <div
-      className={`rounded-2xl border px-3 ${dense ? 'py-2' : 'py-2.5 sm:py-3'} ${
-        tone === 'highlight' ? 'border-cyan-400/20 bg-cyan-400/8' : 'border-slate-800/70 bg-slate-950/60'
-      }`}
+      className={`leftly-shell-soft px-3 ${dense ? 'py-2' : 'py-2.5 sm:py-3'} ${tone === 'highlight' ? 'leftly-shell-accent' : ''}`}
     >
       <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 sm:text-xs">{label}</p>
       <p className={`mt-1.5 ${dense ? 'text-sm' : 'text-base sm:text-lg'} font-semibold leading-tight ${tone === 'highlight' ? 'text-cyan-100' : 'text-white'}`}>{value}</p>
@@ -800,7 +798,7 @@ function FirstRunPanel({
   onLoadDemoData: () => void
 }) {
   return (
-    <div className="grid gap-4 rounded-[1.5rem] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 sm:p-5">
+    <div className="leftly-shell leftly-shell-accent grid gap-4 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 sm:p-5">
       <div className="grid gap-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Welcome to Leftly</p>
         <p className="text-sm leading-6 text-slate-300">
@@ -2247,12 +2245,12 @@ function App() {
   const isFirstRun = !payPeriod && bills.length === 0 && expenses.length === 0 && recurringTemplates.length === 0 && payPeriodHistory.length === 0
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#050914] text-slate-100">
+    <main className="leftly-page">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.08),_transparent_32%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-slate-950/80 to-transparent" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 pb-32 sm:px-6 sm:py-5 sm:pb-6 lg:px-8 lg:py-6">
-        <header className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/82 px-4 py-3 shadow-2xl shadow-slate-950/40 backdrop-blur sm:rounded-[2rem] sm:px-5 sm:py-6 xl:px-8">
+        <header className="leftly-page-header">
           <div className="flex flex-col items-center gap-2.5 text-center sm:gap-4">
             <p className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
               Manual budget tracker
@@ -2269,7 +2267,7 @@ function App() {
 
         <section className="mt-4 md:hidden">
           {activeTab === 'overview' ? (
-            <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30">
+            <div className="leftly-shell p-4">
               <div className="flex flex-col items-center gap-2 text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400">Leftover</p>
                 <p className="text-5xl font-semibold tracking-tight text-white">{formatCurrency(totals.leftover)}</p>
@@ -2282,7 +2280,7 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/78 px-4 py-3 shadow-lg shadow-slate-950/25">
+            <div className="leftly-shell-soft px-4 py-3 shadow-lg shadow-slate-950/25">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-500">Leftly</p>
@@ -2304,7 +2302,7 @@ function App() {
           )}
         </section>
 
-        <section className="mt-4 hidden rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 md:block sm:mt-5 sm:rounded-[2rem] sm:p-5">
+        <section className="leftly-shell mt-4 hidden p-4 md:block sm:mt-5 sm:p-5">
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400 sm:text-sm sm:tracking-[0.24em]">Leftover</p>
             <p className="text-5xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">
@@ -2372,7 +2370,7 @@ function App() {
               ) : hasAnyData ? (
                 <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
                   <div className="grid gap-4">
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-5">
+                    <div className="leftly-shell p-3 sm:p-5">
                       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 sm:text-sm sm:tracking-[0.2em]">Current pay period</p>
                       {payPeriod ? (
                         <>
@@ -2406,15 +2404,12 @@ function App() {
                       )}
                     </div>
 
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
+                    <div className="leftly-shell p-4 sm:p-5">
                       <p className="text-sm font-medium text-white">Top categories</p>
                       <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {topCategories.length > 0 ? (
                           topCategories.map((summary, index) => (
-                            <div
-                              key={summary.category}
-                              className="flex items-start justify-between gap-3 rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5 sm:items-center sm:px-4"
-                            >
+                            <div key={summary.category} className="flex items-start justify-between gap-3 leftly-shell-soft px-3 py-2.5 sm:items-center sm:px-4">
                               <div>
                                 <div className="flex items-center gap-2">
                                   <p className="font-medium text-white">{summary.category}</p>
@@ -2439,7 +2434,7 @@ function App() {
                   </div>
 
                   <div className="lg:col-span-2">
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-4">
+                    <div className="leftly-shell p-3 sm:p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-sm font-medium text-white">Quick Add</p>
@@ -2468,7 +2463,7 @@ function App() {
                       </div>
 
                       {isQuickAddExpenseOpen && payPeriod ? (
-                        <form className="mt-3 grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:p-4" onSubmit={handleQuickAddExpense}>
+                        <form className="mt-3 grid gap-3 leftly-shell-soft p-3 sm:p-4" onSubmit={handleQuickAddExpense}>
                           <div className="grid gap-3 sm:grid-cols-2">
                             <Field label="Name">
                               <input
@@ -2545,7 +2540,7 @@ function App() {
                   </div>
 
                   <div className="lg:col-span-2">
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-4">
+                    <div className="leftly-shell p-3 sm:p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-sm font-medium text-white">Due Soon</p>
@@ -2573,7 +2568,7 @@ function App() {
                               {dueSoonBills.slice(0, 3).map(({ bill, status, statusTone, dueDateLabel }) => (
                                 <div
                                   key={bill.id}
-                                  className="flex flex-col gap-3 rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                                className="flex flex-col gap-3 leftly-shell-soft px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
                                 >
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -2620,12 +2615,12 @@ function App() {
                             ) : null}
                           </>
                         ) : (
-                          <p className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-sm text-slate-400">
+                          <p className="mt-3 leftly-empty-compact">
                             No unpaid bills due soon.
                           </p>
                         )
                       ) : (
-                        <p className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-sm text-slate-400">
+                        <p className="mt-3 leftly-empty-compact">
                           Start a pay period to see bills due soon.
                         </p>
                       )}
@@ -2633,7 +2628,7 @@ function App() {
                   </div>
 
                   <div className="lg:col-span-2">
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-4">
+                    <div className="leftly-shell p-3 sm:p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-sm font-medium text-white">Spending Snapshot</p>
@@ -2656,7 +2651,7 @@ function App() {
                                 return (
                                   <div
                                     key={row.category}
-                                    className="rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5"
+                                    className="leftly-shell-soft px-3 py-2.5"
                                   >
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="min-w-0">
@@ -2684,13 +2679,13 @@ function App() {
                             ) : null}
                           </>
                         ) : (
-                          <div className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-3">
+                          <div className="mt-3 leftly-empty-compact">
                             <p className="text-sm text-slate-300">No spending logged yet.</p>
                             <p className="mt-1 text-xs leading-5 text-slate-500">Use Quick Add to log spending as it happens.</p>
                           </div>
                         )
                       ) : (
-                        <p className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-sm text-slate-400">
+                        <p className="mt-3 leftly-empty-compact">
                           Start a pay period to see your spending snapshot.
                         </p>
                       )}
@@ -2710,14 +2705,14 @@ function App() {
                   ) : null}
 
                   <div className="grid gap-4">
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:rounded-[1.5rem] sm:p-5">
+                    <div className="leftly-shell p-4 sm:p-5">
                       <p className="text-sm font-medium text-white">Recent bills</p>
                       <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {recentBills.length > 0 ? (
                           recentBills.map((bill) => (
                             <div
                               key={bill.id}
-                              className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-3 py-3 sm:items-center sm:px-4"
+                              className="flex items-start justify-between gap-3 leftly-shell-soft px-3 py-3 sm:items-center sm:px-4"
                             >
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -2750,15 +2745,12 @@ function App() {
                       ) : null}
                     </div>
 
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-5">
+                    <div className="leftly-shell p-3 sm:p-5">
                       <p className="text-sm font-medium text-white">Recent expenses</p>
                       <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {recentExpenses.length > 0 ? (
                           recentExpenses.map((expense) => (
-                            <div
-                              key={expense.id}
-                              className="flex items-start justify-between gap-3 rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5 sm:items-center sm:px-4"
-                            >
+                            <div key={expense.id} className="flex items-start justify-between gap-3 leftly-shell-soft px-3 py-2.5 sm:items-center sm:px-4">
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="truncate font-medium text-white">{expense.name}</p>
@@ -2786,7 +2778,7 @@ function App() {
                       </div>
                     </div>
 
-                    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/70 p-3 sm:rounded-[1.5rem] sm:p-5">
+                    <div className="leftly-shell p-3 sm:p-5">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-sm font-medium text-white">Upcoming from your Bill Plan</p>
@@ -2803,10 +2795,7 @@ function App() {
                       <div className="mt-3 space-y-2">
                         {upcomingRecurringBills.length > 0 ? (
                           upcomingRecurringBills.slice(0, 2).map((template) => (
-                            <div
-                              key={template.id}
-                              className="rounded-xl border border-slate-800/70 bg-slate-950/60 px-3 py-2.5"
-                            >
+                            <div key={template.id} className="leftly-shell-soft px-3 py-2.5">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
@@ -2894,7 +2883,7 @@ function App() {
                   )}
                 </div>
 
-                <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
+                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Cadence">
                       <select
@@ -2974,7 +2963,7 @@ function App() {
                   <EmptyState title="No bills yet" text="Add your first bill below or load demo data to test the flow." compact />
                 </div>
               ) : null}
-              <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5" onSubmit={handleAddBill}>
+              <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddBill}>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Name">
                     <input
@@ -3038,7 +3027,7 @@ function App() {
                   <EmptyState title="No expenses yet" text="Add your first expense below or load demo data to test the flow." compact />
                 </div>
               ) : null}
-              <form className="grid gap-4 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/70 p-4 sm:p-5" onSubmit={handleAddExpense}>
+              <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddExpense}>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Name">
                     <input
@@ -3347,7 +3336,7 @@ function App() {
               className="absolute inset-0 bg-slate-950/60"
               onClick={() => setIsMoreMenuOpen(false)}
             />
-            <div className="absolute inset-x-3 bottom-24 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/98 p-3 shadow-2xl shadow-slate-950/60">
+            <div className="absolute inset-x-3 bottom-24 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/95 p-3 shadow-2xl shadow-slate-950/60">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-white">More</p>
                 <button type="button" onClick={() => setIsMoreMenuOpen(false)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
@@ -3434,7 +3423,7 @@ function CategoryCard({
     rank === 1
       ? 'border-emerald-400/30 bg-emerald-400/8'
       : rank <= 3
-        ? 'border-cyan-400/25 bg-cyan-400/8'
+        ? 'border-cyan-400/25 bg-cyan-400/10'
         : 'border-slate-800/80 bg-slate-950/70'
 
   return (
@@ -3490,7 +3479,7 @@ function CategoryCard({
             summary.items.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 leftly-shell-soft p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -3558,10 +3547,10 @@ function SectionShell({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 sm:rounded-[2rem] sm:p-5">
+    <div className="leftly-shell p-4 sm:p-5">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">{title}</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-5 text-slate-400 sm:leading-6">{description}</p>
+        <h2 className="leftly-section-title">{title}</h2>
+        <p className="leftly-section-helper">{description}</p>
       </div>
       {children}
     </div>
@@ -3582,10 +3571,8 @@ function TabButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-4 py-2 text-sm font-medium whitespace-nowrap transition ${
-        active
-          ? 'border-cyan-400/30 bg-cyan-400/15 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.15)]'
-          : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:bg-slate-900 hover:text-white'
+      className={`leftly-chip shrink-0 px-4 py-2 text-sm font-medium normal-case tracking-normal ${
+        active ? 'leftly-chip-default shadow-[0_0_0_1px_rgba(34,211,238,0.15)]' : 'leftly-chip-muted hover:text-white'
       }`}
     >
       {label}
@@ -3595,9 +3582,9 @@ function TabButton({
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-slate-300">
+    <label className="leftly-field">
       <span>{label}</span>
-      <span className="[&_input]:min-h-11 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-800 [&_input]:bg-slate-950 [&_input]:px-3 [&_input]:text-sm [&_input]:text-white [&_input]:outline-none [&_input]:transition [&_input]:placeholder:text-slate-500 [&_input]:focus:border-cyan-400/50 [&_input]:focus:ring-4 [&_input]:focus:ring-cyan-400/10 [&_select]:min-h-11 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-800 [&_select]:bg-slate-950 [&_select]:px-3 [&_select]:text-sm [&_select]:text-white [&_select]:outline-none [&_select]:transition [&_select]:focus:border-cyan-400/50 [&_select]:focus:ring-4 [&_select]:focus:ring-cyan-400/10">
+      <span className="leftly-input-shell">
         {children}
       </span>
     </label>
@@ -3616,7 +3603,7 @@ function MetricCard({
   const valueClass = tone === 'highlight' ? 'text-emerald-200' : 'text-white'
 
   return (
-    <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/65 p-3 sm:rounded-[1.5rem] sm:p-4">
+    <div className={`leftly-shell-soft p-3 sm:p-4 ${tone === 'highlight' ? 'leftly-shell-accent' : ''}`}>
       <p className="text-[11px] leading-4 text-slate-400 sm:text-sm">{label}</p>
       <p className={`mt-2 text-lg font-semibold tracking-tight sm:mt-3 sm:text-2xl sm:leading-none ${valueClass}`}>{value}</p>
     </div>
@@ -3649,7 +3636,7 @@ function EmptyState({
   compact?: boolean
 }) {
   return (
-    <div className={`rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 ${compact ? 'p-3' : 'p-4'}`}>
+    <div className={`leftly-empty ${compact ? 'leftly-empty-compact' : ''}`}>
       <p className="text-sm font-medium text-white">{title}</p>
       <p className={`mt-1 text-sm leading-6 text-slate-400 ${compact ? 'max-w-md' : ''}`}>{text}</p>
     </div>
@@ -3665,13 +3652,9 @@ function Badge({
   muted?: boolean
   success?: boolean
 }) {
-  const className = success
-    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200'
-    : muted
-      ? 'border-slate-700 bg-slate-900/70 text-slate-300'
-      : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
+  const className = success ? 'leftly-chip-success' : muted ? 'leftly-chip-muted' : 'leftly-chip-default'
 
-  return <span className={`rounded-full border px-3 py-1 text-xs font-medium ${className}`}>{children}</span>
+  return <span className={`leftly-chip px-3 py-1 text-xs font-medium ${className}`}>{children}</span>
 }
 
 export default App

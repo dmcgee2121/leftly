@@ -3,10 +3,8 @@ import { DEFAULT_CATEGORIES } from '../types/budget'
 import type { BudgetCategory, LeftlyPreferences, PayCadence, QuickAddDateBehavior } from '../types/budget'
 
 const buttonStyles = {
-  primary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px',
-  secondary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm font-semibold text-slate-100 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px',
+  primary: 'button-primary',
+  secondary: 'button-secondary',
 }
 
 const cadenceOptions: Array<{ value: PayCadence; label: string }> = [

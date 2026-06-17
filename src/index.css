@@ -3,12 +3,116 @@
 @tailwind utilities;
 
 @layer components {
+  .leftly-page {
+    @apply relative min-h-screen overflow-x-hidden bg-[#050914] text-slate-100;
+  }
+
+  .leftly-shell {
+    @apply rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 shadow-2xl shadow-slate-950/30;
+  }
+
+  .leftly-shell-soft {
+    @apply rounded-2xl border border-slate-800/70 bg-slate-950/60;
+  }
+
+  .leftly-shell-faint {
+    @apply rounded-2xl border border-slate-800/70 bg-slate-950/45;
+  }
+
+  .leftly-shell-accent {
+    @apply border-cyan-400/20 bg-cyan-400/10;
+  }
+
+  .leftly-page-header {
+    @apply rounded-[1.5rem] border border-slate-800/80 bg-slate-950/80 px-4 py-3 shadow-2xl shadow-slate-950/40 backdrop-blur sm:rounded-[2rem] sm:px-5 sm:py-6 xl:px-8;
+  }
+
+  .leftly-section-title {
+    @apply text-xl font-semibold tracking-tight text-white sm:text-2xl;
+  }
+
+  .leftly-section-helper {
+    @apply mt-2 max-w-2xl text-sm leading-5 text-slate-400 sm:leading-6;
+  }
+
+  .leftly-btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_10px_30px_rgba(34,211,238,0.10)] transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px;
+  }
+
+  .leftly-btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-200 shadow-sm transition hover:border-slate-600 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px;
+  }
+
+  .leftly-btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px;
+  }
+
+  .leftly-chip {
+    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em];
+  }
+
+  .leftly-chip-default {
+    @apply border-cyan-400/20 bg-cyan-400/10 text-cyan-100;
+  }
+
+  .leftly-chip-muted {
+    @apply border-slate-700 bg-slate-900/70 text-slate-300;
+  }
+
+  .leftly-chip-success {
+    @apply border-emerald-500/20 bg-emerald-500/10 text-emerald-200;
+  }
+
+  .leftly-chip-warning {
+    @apply border-amber-500/20 bg-amber-500/10 text-amber-100;
+  }
+
+  .leftly-field {
+    @apply grid gap-2 text-sm font-medium text-slate-300;
+  }
+
+  .leftly-input-shell input,
+  .leftly-input-shell select {
+    min-height: 2.75rem;
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(30 41 59 / 1);
+    background: rgb(2 6 23 / 1);
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+    color: rgb(255 255 255 / 1);
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  }
+
+  .leftly-input-shell input::placeholder {
+    color: rgb(100 116 139 / 1);
+  }
+
+  .leftly-input-shell input:focus,
+  .leftly-input-shell select:focus {
+    border-color: rgb(34 211 238 / 0.5);
+    box-shadow: 0 0 0 4px rgb(34 211 238 / 0.1);
+  }
+
+  .leftly-empty {
+    @apply rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4;
+  }
+
+  .leftly-empty-compact {
+    @apply rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-3;
+  }
+
   .button-primary {
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20;
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_10px_30px_rgba(34,211,238,0.10)] transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px;
   }
 
   .button-secondary {
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-rose-500/40 hover:text-rose-200;
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm font-medium text-slate-200 shadow-sm transition hover:border-slate-600 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px;
+  }
+
+  .button-danger {
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px;
   }
 }
 

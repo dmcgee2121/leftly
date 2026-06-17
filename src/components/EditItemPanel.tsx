@@ -3,10 +3,8 @@ import type { FormEvent, ReactNode } from 'react'
 import type { Bill, BudgetCategory, Expense } from '../types/budget'
 
 const buttonStyles = {
-  primary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px',
-  secondary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm font-semibold text-slate-100 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px',
+  primary: 'button-primary',
+  secondary: 'button-secondary',
 }
 
 export type EditTarget =
@@ -148,7 +146,7 @@ export function EditItemPanel({
         className="absolute inset-0 cursor-default"
         onClick={onClose}
       />
-      <section className="relative z-10 w-full max-w-2xl rounded-[1.5rem] border border-slate-800/80 bg-slate-950 p-4 shadow-2xl shadow-slate-950/60 sm:p-5">
+      <section className="leftly-shell relative z-10 w-full max-w-2xl p-4 shadow-2xl shadow-slate-950/60 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Edit {target.kind}</p>
@@ -248,9 +246,9 @@ export function EditItemPanel({
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-slate-300">
+    <label className="leftly-field">
       <span>{label}</span>
-      <span className="[&_input]:min-h-11 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-800 [&_input]:bg-slate-950 [&_input]:px-3 [&_input]:text-sm [&_input]:text-white [&_input]:outline-none [&_input]:transition [&_input]:placeholder:text-slate-500 [&_input]:focus:border-cyan-400/50 [&_input]:focus:ring-4 [&_input]:focus:ring-cyan-400/10 [&_select]:min-h-11 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-800 [&_select]:bg-slate-950 [&_select]:px-3 [&_select]:text-sm [&_select]:text-white [&_select]:outline-none [&_select]:transition [&_select]:focus:border-cyan-400/50 [&_select]:focus:ring-4 [&_select]:focus:ring-cyan-400/10">
+      <span className="leftly-input-shell">
         {children}
       </span>
     </label>
@@ -258,13 +256,5 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Badge({ children, muted = false }: { children: ReactNode; muted?: boolean }) {
-  return (
-    <span
-      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
-        muted ? 'border-slate-700 bg-slate-900/70 text-slate-300' : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
-      }`}
-    >
-      {children}
-    </span>
-  )
+  return <span className={`leftly-chip ${muted ? 'leftly-chip-muted' : 'leftly-chip-default'}`}>{children}</span>
 }

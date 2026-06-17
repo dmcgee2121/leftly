@@ -3,12 +3,9 @@ import type { FormEvent, ReactNode } from 'react'
 import { DEFAULT_CATEGORIES, type RecurringFrequency, type RecurringItemTemplate } from '../types/budget'
 
 const buttonStyles = {
-  primary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px',
-  secondary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm font-semibold text-slate-100 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px',
-  danger:
-    'inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-rose-500/15 focus:outline-none focus:ring-4 focus:ring-rose-400/10 active:translate-y-px',
+  primary: 'button-primary',
+  secondary: 'button-secondary',
+  danger: 'button-danger',
 }
 
 type RecurringDraft = {
@@ -320,25 +317,25 @@ export function RecurringSection({
   return (
     <div className="grid gap-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+        <div className="leftly-shell-soft p-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Active monthly estimate</p>
           <p className="mt-2 text-xl font-semibold text-white">{formatCurrency(recurringSummary.activeMonthlyEstimate)}</p>
         </div>
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+        <div className="leftly-shell-soft p-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Active items</p>
           <p className="mt-2 text-xl font-semibold text-white">{recurringSummary.activeCount}</p>
         </div>
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+        <div className="leftly-shell-soft p-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Inactive items</p>
           <p className="mt-2 text-xl font-semibold text-white">{recurringSummary.inactiveCount}</p>
         </div>
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3">
+        <div className="leftly-shell-soft p-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Set-asides</p>
           <p className="mt-2 text-xl font-semibold text-white">{recurringSummary.setAsideCount}</p>
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-3 sm:p-4">
+      <div className="leftly-shell grid gap-3 p-3 sm:p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-medium text-white">Bill Plan management</p>
@@ -397,7 +394,7 @@ export function RecurringSection({
       ) : null}
 
       {isBulkOpen ? (
-        <section className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
+        <section className="leftly-shell p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-white">Add multiple bills</h3>
@@ -405,7 +402,7 @@ export function RecurringSection({
                 Add several monthly bills at once. Blank rows are ignored.
               </p>
             </div>
-            <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-medium text-slate-300">
+            <span className="leftly-chip leftly-chip-muted px-3 py-1 text-xs font-medium">
               Saved locally
             </span>
           </div>
@@ -413,7 +410,7 @@ export function RecurringSection({
           <form className="grid gap-4" onSubmit={handleBulkSave}>
             <div className="grid gap-3">
               {bulkRows.map((row, index) => (
-                <div key={index} className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-3 sm:p-4">
+                <div key={index} className="leftly-shell-soft p-3 sm:p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <p className="text-sm font-medium text-white">Row {index + 1}</p>
                     <button
@@ -676,7 +673,7 @@ export function RecurringSection({
               <section key={group.category} className="grid gap-2">
                 <div className="flex items-center justify-between gap-3">
                   <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">{group.category}</h4>
-                  <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
+                  <span className="leftly-chip leftly-chip-muted px-2.5 py-1 text-[11px] font-semibold">
                     {group.items.length}
                   </span>
                 </div>
@@ -693,7 +690,7 @@ export function RecurringSection({
                         : frequencyLabels[template.frequency]
 
                     return (
-                      <article key={template.id} className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-3 sm:p-4">
+                      <article key={template.id} className="leftly-shell-soft p-3 sm:p-4">
                         <div className="flex flex-col gap-3">
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0">
@@ -755,13 +752,13 @@ export function RecurringSection({
 
 function Panel({ title, action, helper, children }: { title: string; action: string; helper?: string; children: ReactNode }) {
   return (
-    <section className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/75 p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
+    <section className="leftly-shell p-4 sm:p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-white">{title}</h3>
           {helper ? <p className="mt-1 text-sm leading-6 text-slate-400">{helper}</p> : null}
         </div>
-        <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-medium text-slate-300">{action}</span>
+        <span className="leftly-chip leftly-chip-muted px-3 py-1 text-xs font-medium">{action}</span>
       </div>
       {children}
     </section>
@@ -781,7 +778,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function EmptyState({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-4">
+    <div className="leftly-empty">
       <p className="text-sm font-medium text-white">{title}</p>
       <p className="mt-1 text-sm leading-6 text-slate-400">{text}</p>
     </div>

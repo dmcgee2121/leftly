@@ -4,10 +4,8 @@ import type { BudgetCategory, BudgetPeriod, PayCadence, RecurringFrequency, Recu
 import { buildRecurringPreview } from '../lib/recurring'
 
 const buttonStyles = {
-  primary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px',
-  secondary:
-    'inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm font-semibold text-slate-100 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-cyan-400/10 active:translate-y-px',
+  primary: 'button-primary',
+  secondary: 'button-secondary',
 }
 
 const cadenceOptions: Array<{ value: PayCadence; label: string }> = [
@@ -262,7 +260,7 @@ export function SetupFlowPanel({
     'Add your first Bill Plan item',
     'Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your pay period plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
-      <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+      <div className="leftly-shell-soft grid gap-3 p-4">
         <p className="text-sm font-semibold text-white">Setup review</p>
         <div className="grid gap-2 text-sm leading-6 text-slate-300 sm:grid-cols-2">
           <p>
@@ -286,7 +284,7 @@ export function SetupFlowPanel({
         <p className="text-sm leading-6 text-slate-400">{setupReview?.status ?? 'Complete the steps below to see your setup review.'}</p>
       </div>
 
-      <label className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
+      <label className="leftly-shell-soft flex items-start gap-3 px-4 py-3 text-sm text-slate-200">
         <input
           type="checkbox"
           checked={draft.addRecurringBill}
@@ -302,7 +300,7 @@ export function SetupFlowPanel({
       </label>
 
       {draft.addRecurringBill ? (
-        <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+        <div className="leftly-shell-soft grid gap-3 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Name">
               <input
@@ -405,7 +403,7 @@ export function SetupFlowPanel({
 
 function renderPanel(title: string, description: string, content: ReactNode, stepTitle: string) {
   return (
-    <section className="rounded-[1.5rem] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
+    <section className="leftly-shell leftly-shell-accent p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-cyan-200/70">{stepTitle}</p>

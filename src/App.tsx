@@ -206,6 +206,11 @@ const tabLabels: Array<{ key: TabKey; label: string }> = [
 ]
 
 const mobileMoreTabKeys: TabKey[] = ['income', 'bill', 'expense', 'categories', 'data']
+const quickAddDateBehaviorLabels: Record<LeftlyPreferences['quickAddDateBehavior'], string> = {
+  today: 'Today',
+  'pay-period-start': 'Pay period start',
+  blank: 'Choose date',
+}
 
 const initialPayPeriod = loadActiveBudgetPeriod()
 const initialBills = loadBills()
@@ -1187,6 +1192,33 @@ function App() {
     return new Set(expenses.map((expense) => expense.category)).size
   }, [expenses, payPeriod])
 
+  const recentManualExpenses = useMemo(
+    () => expenses.filter((expense) => expense.source !== 'recurring').slice(0, 4),
+    [expenses],
+  )
+
+  const quickAddCategorySuggestions = useMemo(() => {
+    const suggestions = new Set<BudgetCategory>([preferences.defaultCategory])
+
+    for (const expense of recentManualExpenses) {
+      suggestions.add(expense.category)
+      if (suggestions.size >= 5) {
+        break
+      }
+    }
+
+    if (suggestions.size < 5) {
+      for (const expense of expenses) {
+        suggestions.add(expense.category)
+        if (suggestions.size >= 5) {
+          break
+        }
+      }
+    }
+
+    return [...suggestions]
+  }, [expenses, preferences.defaultCategory, recentManualExpenses])
+
   const currentPayPeriodReview = useMemo(() => {
     if (!payPeriod) {
       return null
@@ -1614,6 +1646,24 @@ function App() {
     setActiveTab('overview')
   }
 
+  function applyQuickAddRecentExpense(expense: Expense) {
+    setExpenseError('')
+    setExpenseSuccess('')
+    setExpenseDraft({
+      name: expense.name,
+      amount: String(expense.amount),
+      category: expense.category,
+      date: getQuickAddDateValue(preferences, payPeriod),
+    })
+  }
+
+  function applyQuickAddCategory(category: BudgetCategory) {
+    setExpenseDraft((current) => ({
+      ...current,
+      category,
+    }))
+  }
+
   function handleAddExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setExpenseError('')
@@ -1637,8 +1687,13 @@ function App() {
       return
     }
 
-    resetExpenseDraft(expenseDraft.category)
-    setExpenseSuccess('Expense added.')
+    setExpenseDraft({
+      name: '',
+      amount: '',
+      category: expenseDraft.category,
+      date: getQuickAddDateValue(preferences, payPeriod),
+    })
+    setExpenseSuccess('Added to this pay period.')
   }
 
   function toggleBillPaid(id: string) {
@@ -2804,85 +2859,164 @@ function App() {
           {activeTab === 'quick-add' ? (
             <SectionShell title="Quick Add" description="Log a manual expense fast without leaving your current pay period.">
               {payPeriod ? (
-                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleQuickAddExpense}>
-                  <div className="leftly-panel-section">
-                    <div className="grid gap-1">
-                      <p className="leftly-panel-label">Quick expense</p>
-                      <p className="leftly-panel-copy">Keep it light: name, amount, category, and date.</p>
+                <div className="grid gap-4">
+                  <div className="leftly-shell leftly-shell-accent p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/75">Quick Add</p>
+                        <p className="mt-2 text-lg font-semibold text-white">Add spending in a few taps.</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-300">
+                          New manual expenses go straight into this pay period.
+                        </p>
+                      </div>
+                      <Badge muted>{quickAddDateBehaviorLabels[preferences.quickAddDateBehavior]}</Badge>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Name">
-                        <input
-                          value={expenseDraft.name}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({
-                              ...current,
-                              name: event.target.value,
-                            }))
-                          }
-                          placeholder="Groceries"
-                        />
-                      </Field>
-                      <Field label="Amount">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={expenseDraft.amount}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({
-                              ...current,
-                              amount: event.target.value,
-                            }))
-                          }
-                          placeholder="48.25"
-                        />
-                      </Field>
-                      <Field label="Category">
-                        <select
-                          value={expenseDraft.category}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({
-                              ...current,
-                              category: event.target.value as BudgetCategory,
-                            }))
-                          }
-                        >
-                          {DEFAULT_CATEGORIES.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Date">
-                        <input
-                          type="date"
-                          value={expenseDraft.date}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({
-                              ...current,
-                              date: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      <div className="leftly-shell-soft px-3 py-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Pay period</p>
+                        <p className="mt-1 text-sm font-semibold text-white">
+                          {payPeriod.startDate} to {payPeriod.endDate}
+                        </p>
+                      </div>
+                      <div className="leftly-shell-soft px-3 py-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Default category</p>
+                        <p className="mt-1 text-sm font-semibold text-white">{preferences.defaultCategory}</p>
+                      </div>
                     </div>
                   </div>
 
-                  {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
-                  {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
+                  {recentManualExpenses.length > 0 ? (
+                    <div className="leftly-panel-section">
+                      <div className="grid gap-1">
+                        <p className="leftly-panel-label">Repeat recent</p>
+                        <p className="leftly-panel-copy">Tap a recent manual expense to prefill the form.</p>
+                      </div>
 
-                  <div className="leftly-action-grid">
-                    <button type="button" onClick={closeQuickAddExpense} className="button-secondary w-full sm:w-auto">
-                      Back to Overview
-                    </button>
-                    <button type="submit" className="button-primary w-full sm:w-auto">
-                      Add expense
-                    </button>
-                  </div>
-                </form>
+                      <div className="grid gap-2">
+                        {recentManualExpenses.slice(0, 3).map((expense) => (
+                          <button
+                            key={expense.id}
+                            type="button"
+                            onClick={() => applyQuickAddRecentExpense(expense)}
+                            className="leftly-quick-action"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-semibold text-white">{expense.name}</span>
+                              <span className="mt-1 block text-xs leading-5 text-slate-400">
+                                {expense.category} · {expense.date}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-sm font-semibold text-white">{formatCurrency(expense.amount)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleQuickAddExpense}>
+                    <div className="leftly-panel-section">
+                      <div className="grid gap-1">
+                        <p className="leftly-panel-label">Quick expense</p>
+                        <p className="leftly-panel-copy">Name, amount, category, then add it to this pay period.</p>
+                      </div>
+
+                      {quickAddCategorySuggestions.length > 0 ? (
+                        <div className="grid gap-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Category shortcuts</p>
+                          <div className="flex flex-wrap gap-2">
+                            {quickAddCategorySuggestions.map((category) => (
+                              <button
+                                key={category}
+                                type="button"
+                                onClick={() => applyQuickAddCategory(category)}
+                                aria-pressed={expenseDraft.category === category}
+                                className={`leftly-chip-button ${expenseDraft.category === category ? 'leftly-chip-button-active' : ''}`}
+                              >
+                                {category}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="Name">
+                          <input
+                            value={expenseDraft.name}
+                            onChange={(event) =>
+                              setExpenseDraft((current) => ({
+                                ...current,
+                                name: event.target.value,
+                              }))
+                            }
+                            placeholder="Groceries"
+                          />
+                        </Field>
+                        <Field label="Amount">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={expenseDraft.amount}
+                            onChange={(event) =>
+                              setExpenseDraft((current) => ({
+                                ...current,
+                                amount: event.target.value,
+                              }))
+                            }
+                            placeholder="48.25"
+                          />
+                        </Field>
+                        <Field label="Category">
+                          <select
+                            value={expenseDraft.category}
+                            onChange={(event) =>
+                              setExpenseDraft((current) => ({
+                                ...current,
+                                category: event.target.value as BudgetCategory,
+                              }))
+                            }
+                          >
+                            {DEFAULT_CATEGORIES.map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                        <Field label="Date">
+                          <input
+                            type="date"
+                            value={expenseDraft.date}
+                            onChange={(event) =>
+                              setExpenseDraft((current) => ({
+                                ...current,
+                                date: event.target.value,
+                              }))
+                            }
+                          />
+                        </Field>
+                      </div>
+                    </div>
+
+                    {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
+                    {expenseSuccess ? (
+                      <div className="leftly-success-inline" role="status">
+                        {expenseSuccess}
+                      </div>
+                    ) : null}
+
+                    <div className="leftly-action-grid">
+                      <button type="button" onClick={closeQuickAddExpense} className="button-secondary w-full sm:w-auto">
+                        Back
+                      </button>
+                      <button type="submit" className="button-primary w-full sm:w-auto">
+                        Add expense
+                      </button>
+                    </div>
+                  </form>
+                </div>
               ) : (
                 <div className="grid gap-4">
                   <EmptyState

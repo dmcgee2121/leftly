@@ -52,7 +52,7 @@ import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { PayPeriodCalendar } from './components/PayPeriodCalendar'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 
-type TabKey = 'overview' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
+type TabKey = 'overview' | 'quick-add' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
   | 'history'
   | 'data'
 type PayPeriodDraft = {
@@ -195,6 +195,7 @@ const categoryOrderOptions: Array<{ value: CategoryOrderMode; label: string }> =
 
 const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: 'Overview' },
+  { key: 'quick-add', label: 'Quick Add' },
   { key: 'income', label: 'Income' },
   { key: 'bill', label: 'One-time Bill' },
   { key: 'expense', label: 'Manual Expense' },
@@ -855,7 +856,6 @@ function App() {
   const [incomeSuccess, setIncomeSuccess] = useState('')
   const [billSuccess, setBillSuccess] = useState('')
   const [expenseSuccess, setExpenseSuccess] = useState('')
-  const [isQuickAddExpenseOpen, setIsQuickAddExpenseOpen] = useState(false)
   const [billStatus, setBillStatus] = useState('')
   const [dataMessage, setDataMessage] = useState('')
   const [dataError, setDataError] = useState('')
@@ -1599,10 +1599,9 @@ function App() {
       return
     }
 
-    setActiveTab('overview')
+    setActiveTab('quick-add')
     setExpenseError('')
     setExpenseSuccess('')
-    setIsQuickAddExpenseOpen(true)
     setExpenseDraft((current) => ({
       ...current,
       date: getQuickAddDateValue(preferences, payPeriod),
@@ -1610,8 +1609,9 @@ function App() {
   }
 
   function closeQuickAddExpense() {
-    setIsQuickAddExpenseOpen(false)
     setExpenseError('')
+    setExpenseSuccess('')
+    setActiveTab('overview')
   }
 
   function handleAddExpense(event: FormEvent<HTMLFormElement>) {
@@ -1639,7 +1639,6 @@ function App() {
 
     resetExpenseDraft(expenseDraft.category)
     setExpenseSuccess('Expense added.')
-    setIsQuickAddExpenseOpen(false)
   }
 
   function toggleBillPaid(id: string) {
@@ -2481,8 +2480,8 @@ function App() {
                     <div className="leftly-shell p-3 sm:p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <p className="text-sm font-medium text-white">Quick Add</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">Log spending fast or jump into the fuller bill and planning screens.</p>
+                          <p className="text-sm font-medium text-white">Shortcuts</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">Open the dedicated Quick Add screen or jump straight into related budget flows.</p>
                         </div>
                         {!payPeriod ? (
                           <p className="text-xs leading-5 text-slate-500">Start a pay period before logging bills or expenses.</p>
@@ -2496,7 +2495,7 @@ function App() {
                           disabled={!payPeriod}
                           className="button-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          Manual Expense
+                          Open Quick Add
                         </button>
                         <button type="button" onClick={() => payPeriod && setActiveTab('bill')} disabled={!payPeriod} className="button-secondary w-full disabled:cursor-not-allowed disabled:opacity-50">
                           One-time Bill
@@ -2505,86 +2504,6 @@ function App() {
                           Bill Plan
                         </button>
                       </div>
-
-                      {isQuickAddExpenseOpen && payPeriod ? (
-                        <form className="mt-3 grid gap-3 leftly-panel-section" onSubmit={handleQuickAddExpense}>
-                          <div className="grid gap-1">
-                            <p className="leftly-panel-label">Quick expense</p>
-                            <p className="leftly-panel-copy">Keep it light: name, amount, category, and date.</p>
-                          </div>
-
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Field label="Name">
-                              <input
-                                value={expenseDraft.name}
-                                onChange={(event) =>
-                                  setExpenseDraft((current) => ({
-                                    ...current,
-                                    name: event.target.value,
-                                  }))
-                                }
-                                placeholder="Groceries"
-                              />
-                            </Field>
-                            <Field label="Amount">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={expenseDraft.amount}
-                                onChange={(event) =>
-                                  setExpenseDraft((current) => ({
-                                    ...current,
-                                    amount: event.target.value,
-                                  }))
-                                }
-                                placeholder="48.25"
-                              />
-                            </Field>
-                            <Field label="Category">
-                              <select
-                                value={expenseDraft.category}
-                                onChange={(event) =>
-                                  setExpenseDraft((current) => ({
-                                    ...current,
-                                    category: event.target.value as BudgetCategory,
-                                  }))
-                                }
-                              >
-                                {DEFAULT_CATEGORIES.map((category) => (
-                                  <option key={category} value={category}>
-                                    {category}
-                                  </option>
-                                ))}
-                              </select>
-                            </Field>
-                            <Field label="Date">
-                              <input
-                                type="date"
-                                value={expenseDraft.date}
-                                onChange={(event) =>
-                                  setExpenseDraft((current) => ({
-                                    ...current,
-                                    date: event.target.value,
-                                  }))
-                                }
-                              />
-                            </Field>
-                          </div>
-
-                          {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
-                          {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
-
-                          <div className="leftly-action-grid">
-                            <button type="button" onClick={closeQuickAddExpense} className="button-secondary w-full sm:w-auto">
-                              Cancel
-                            </button>
-                            <button type="submit" className="button-primary w-full sm:w-auto">
-                              Add expense
-                            </button>
-                          </div>
-                        </form>
-                      ) : null}
                     </div>
                   </div>
 
@@ -2878,6 +2797,104 @@ function App() {
                     title="No budget data yet"
                     text="Start with setup, then add income, a bill, or an expense to turn the overview into a working budget snapshot."
                   />
+              )}
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'quick-add' ? (
+            <SectionShell title="Quick Add" description="Log a manual expense fast without leaving your current pay period.">
+              {payPeriod ? (
+                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleQuickAddExpense}>
+                  <div className="leftly-panel-section">
+                    <div className="grid gap-1">
+                      <p className="leftly-panel-label">Quick expense</p>
+                      <p className="leftly-panel-copy">Keep it light: name, amount, category, and date.</p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Name">
+                        <input
+                          value={expenseDraft.name}
+                          onChange={(event) =>
+                            setExpenseDraft((current) => ({
+                              ...current,
+                              name: event.target.value,
+                            }))
+                          }
+                          placeholder="Groceries"
+                        />
+                      </Field>
+                      <Field label="Amount">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={expenseDraft.amount}
+                          onChange={(event) =>
+                            setExpenseDraft((current) => ({
+                              ...current,
+                              amount: event.target.value,
+                            }))
+                          }
+                          placeholder="48.25"
+                        />
+                      </Field>
+                      <Field label="Category">
+                        <select
+                          value={expenseDraft.category}
+                          onChange={(event) =>
+                            setExpenseDraft((current) => ({
+                              ...current,
+                              category: event.target.value as BudgetCategory,
+                            }))
+                          }
+                        >
+                          {DEFAULT_CATEGORIES.map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Date">
+                        <input
+                          type="date"
+                          value={expenseDraft.date}
+                          onChange={(event) =>
+                            setExpenseDraft((current) => ({
+                              ...current,
+                              date: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
+                  {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
+
+                  <div className="leftly-action-grid">
+                    <button type="button" onClick={closeQuickAddExpense} className="button-secondary w-full sm:w-auto">
+                      Back to Overview
+                    </button>
+                    <button type="submit" className="button-primary w-full sm:w-auto">
+                      Add expense
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="grid gap-4">
+                  <EmptyState
+                    title="Start a pay period first"
+                    text="Quick Add works from an active pay period so Leftly knows where this expense belongs."
+                  />
+                  <div className="leftly-action-grid">
+                    <button type="button" onClick={() => setActiveTab('income')} className="button-primary w-full sm:w-auto">
+                      Go to Income
+                    </button>
+                  </div>
+                </div>
               )}
             </SectionShell>
           ) : null}
@@ -3347,9 +3364,9 @@ function App() {
               onClick={openQuickAddExpense}
               disabled={!payPeriod}
               aria-label="Open Quick Add"
-              aria-pressed={isQuickAddExpenseOpen && activeTab === 'overview'}
+              aria-pressed={activeTab === 'quick-add'}
               className={`leftly-mobile-nav-button disabled:cursor-not-allowed disabled:opacity-50 ${
-                isQuickAddExpenseOpen && activeTab === 'overview'
+                activeTab === 'quick-add'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
               }`}

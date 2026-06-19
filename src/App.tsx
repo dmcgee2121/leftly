@@ -55,6 +55,7 @@ import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 type TabKey = 'overview' | 'quick-add' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
   | 'history'
   | 'data'
+  | 'more'
 type PayPeriodDraft = {
   cadence: PayCadence
   income: string
@@ -202,10 +203,37 @@ const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'categories', label: 'Categories' },
   { key: 'recurring', label: 'Bill Plan' },
   { key: 'history', label: 'History' },
+  { key: 'more', label: 'More' },
   { key: 'data', label: 'Data' },
 ]
 
-const mobileMoreTabKeys: TabKey[] = ['income', 'bill', 'expense', 'categories', 'data']
+const moreMenuItems: Array<{ key: Exclude<TabKey, 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'>; label: string; helper: string }> = [
+  {
+    key: 'income',
+    label: 'Income',
+    helper: 'Update paycheck income and pay period details.',
+  },
+  {
+    key: 'expense',
+    label: 'Manual Expense',
+    helper: 'Log spending that happened during this pay period.',
+  },
+  {
+    key: 'categories',
+    label: 'Categories',
+    helper: 'Review where bills and spending are grouped.',
+  },
+  {
+    key: 'bill',
+    label: 'One-time Bill',
+    helper: 'Add an unusual bill for this pay period.',
+  },
+  {
+    key: 'data',
+    label: 'Data',
+    helper: 'Back up, import, reset, and manage local preferences.',
+  },
+]
 const quickAddDateBehaviorLabels: Record<LeftlyPreferences['quickAddDateBehavior'], string> = {
   today: 'Today',
   'pay-period-start': 'Pay period start',
@@ -870,7 +898,6 @@ function App() {
   const [isSetupOpen, setIsSetupOpen] = useState(false)
   const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -960,7 +987,6 @@ function App() {
   }, [expenseSuccess])
 
   useEffect(() => {
-    setIsMoreMenuOpen(false)
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [activeTab])
 
@@ -2735,7 +2761,7 @@ function App() {
                           recentBills.map((bill) => (
                             <div
                               key={bill.id}
-                              className="flex items-start justify-between gap-3 leftly-shell-soft px-3 py-3 sm:items-center sm:px-4"
+                              className="grid gap-3 leftly-shell-soft px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-4"
                             >
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -2747,7 +2773,7 @@ function App() {
                                   {bill.category} · due {bill.dueDate}
                                 </p>
                               </div>
-                              <div className="flex flex-wrap items-center justify-end gap-2">
+                              <div className="flex min-w-[6.75rem] flex-col items-end gap-2 self-start sm:self-center">
                                 <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
                                 <button type="button" onClick={() => startEditBill(bill)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
                                   Edit
@@ -3035,6 +3061,7 @@ function App() {
 
           {activeTab === 'income' ? (
             <SectionShell title="Income" description="Edit the active pay period and keep the current period visible.">
+              <MoreBackBar onBack={() => setActiveTab('more')} />
               <div className="mb-4 flex justify-end">
                 <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
                   Start new pay period
@@ -3165,6 +3192,7 @@ function App() {
 
           {activeTab === 'bill' ? (
             <SectionShell title="One-time Bill" description="Add a one-time bill and keep working in the same tab.">
+              <MoreBackBar onBack={() => setActiveTab('more')} />
               {bills.length === 0 ? (
                 <div className="mb-4">
                   <EmptyState title="No bills yet" text="Add the next bill here when it comes up." compact />
@@ -3236,6 +3264,7 @@ function App() {
 
           {activeTab === 'expense' ? (
             <SectionShell title="Manual Expense" description="Add a manual expense and keep working in the same tab.">
+              <MoreBackBar onBack={() => setActiveTab('more')} />
               {expenses.length === 0 ? (
                 <div className="mb-4">
                   <EmptyState title="No expenses yet" text="Add spending here as it happens." compact />
@@ -3322,6 +3351,7 @@ function App() {
 
           {activeTab === 'categories' ? (
             <SectionShell title="Categories" description="Group, sort, and reorder all categories from one place.">
+              <MoreBackBar onBack={() => setActiveTab('more')} />
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Sort items">
@@ -3448,6 +3478,7 @@ function App() {
 
           {activeTab === 'data' ? (
             <SectionShell title="Data" description="Back up or restore the Leftly data stored on this device.">
+              <MoreBackBar onBack={() => setActiveTab('more')} />
               <DataSection
                 preferences={preferences}
                 onPreferencesChange={setPreferences}
@@ -3460,6 +3491,27 @@ function App() {
                 errorMessage={dataError}
                 isImporting={isImportingBackup}
               />
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'more' ? (
+            <SectionShell title="More" description="Open the parts of Leftly that do not fit in the main bottom nav.">
+              <div className="grid gap-3">
+                {moreMenuItems.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setActiveTab(item.key)}
+                    className="leftly-shell-soft flex items-start justify-between gap-4 p-4 text-left transition hover:border-cyan-400/25 hover:bg-slate-900/70 active:translate-y-px"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold tracking-[-0.02em] text-white">{item.label}</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">{item.helper}</p>
+                    </div>
+                    <span className="mt-0.5 shrink-0 text-slate-500">›</span>
+                  </button>
+                ))}
+              </div>
             </SectionShell>
           ) : null}
 
@@ -3538,11 +3590,11 @@ function App() {
             </button>
             <button
               type="button"
-              onClick={() => setIsMoreMenuOpen((current) => !current)}
-              aria-label="Open More menu"
-              aria-pressed={isMoreMenuOpen || mobileMoreTabKeys.includes(activeTab)}
+              onClick={() => setActiveTab('more')}
+              aria-label="Go to More"
+              aria-pressed={activeTab === 'more'}
               className={`leftly-mobile-nav-button ${
-                isMoreMenuOpen || mobileMoreTabKeys.includes(activeTab)
+                activeTab === 'more'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
               }`}
@@ -3551,42 +3603,6 @@ function App() {
             </button>
           </div>
         </div>
-
-        {isMoreMenuOpen ? (
-          <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="More navigation menu">
-            <button
-              type="button"
-              aria-label="Close More menu"
-              className="absolute inset-0 bg-slate-950/60"
-              onClick={() => setIsMoreMenuOpen(false)}
-            />
-            <div className="absolute inset-x-3 bottom-24 rounded-[1.6rem] border border-slate-800/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(5,9,20,0.95))] p-3 shadow-2xl shadow-slate-950/60">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-white">More</p>
-                <button type="button" onClick={() => setIsMoreMenuOpen(false)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
-                  Close
-                </button>
-              </div>
-              <div className="grid gap-2">
-                <button type="button" onClick={() => setActiveTab('income')} className="button-secondary w-full justify-start text-left">
-                  Income
-                </button>
-                <button type="button" onClick={() => setActiveTab('bill')} className="button-secondary w-full justify-start text-left">
-                  One-time Bill
-                </button>
-                <button type="button" onClick={() => setActiveTab('expense')} className="button-secondary w-full justify-start text-left">
-                  Manual Expense
-                </button>
-                <button type="button" onClick={() => setActiveTab('categories')} className="button-secondary w-full justify-start text-left">
-                  Categories
-                </button>
-                <button type="button" onClick={() => setActiveTab('data')} className="button-secondary w-full justify-start text-left">
-                  Data
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
     </main>
   )
@@ -3777,6 +3793,20 @@ function SectionShell({
         <p className="leftly-section-helper">{description}</p>
       </div>
       <div className="p-4 sm:p-5">{children}</div>
+    </div>
+  )
+}
+
+function MoreBackBar({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="mb-4 flex flex-col gap-3 rounded-[1.3rem] border border-cyan-400/15 bg-cyan-400/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-medium text-white">More</p>
+        <p className="mt-1 text-sm leading-6 text-slate-400">Return to the More screen when you are done here.</p>
+      </div>
+      <button type="button" onClick={onBack} className="button-secondary w-full sm:w-auto">
+        Back to More
+      </button>
     </div>
   )
 }

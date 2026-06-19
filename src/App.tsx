@@ -52,10 +52,9 @@ import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { PayPeriodCalendar } from './components/PayPeriodCalendar'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 
-type TabKey = 'overview' | 'quick-add' | 'income' | 'bill' | 'expense' | 'categories' | 'recurring'
-  | 'history'
-  | 'data'
-  | 'more'
+type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
+type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data'
+type TabKey = MainTabKey | MoreMenuKey
 type PayPeriodDraft = {
   cadence: PayCadence
   income: string
@@ -207,7 +206,8 @@ const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'data', label: 'Data' },
 ]
 
-const moreMenuItems: Array<{ key: Exclude<TabKey, 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'>; label: string; helper: string }> = [
+// Keep this order explicit so a future preference can reorder More without changing the screen model.
+const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> = [
   {
     key: 'income',
     label: 'Income',
@@ -234,6 +234,20 @@ const moreMenuItems: Array<{ key: Exclude<TabKey, 'overview' | 'quick-add' | 're
     helper: 'Back up, import, reset, and manage local preferences.',
   },
 ]
+
+const moreMenuKeys: MoreMenuKey[] = ['income', 'bill', 'expense', 'categories', 'data']
+
+const moreMenuHelpers: Record<MoreMenuKey, string> = {
+  income: 'Update paycheck income and pay period details.',
+  bill: 'Add an unusual bill for this pay period.',
+  expense: 'Log spending that happened during this pay period.',
+  categories: 'Review where bills and spending are grouped.',
+  data: 'Back up, import, reset, and manage local preferences.',
+}
+
+function isMoreMenuKey(value: TabKey): value is MoreMenuKey {
+  return moreMenuKeys.includes(value as MoreMenuKey)
+}
 const quickAddDateBehaviorLabels: Record<LeftlyPreferences['quickAddDateBehavior'], string> = {
   today: 'Today',
   'pay-period-start': 'Pay period start',
@@ -1303,6 +1317,13 @@ function App() {
     )
   }, [categorySummaries])
 
+  const activeBottomNavTab: MainTabKey =
+    activeTab === 'income' || activeTab === 'bill' || activeTab === 'expense' || activeTab === 'categories' || activeTab === 'data'
+      ? 'more'
+      : activeTab
+
+  const activeScreenLabel = tabLabels.find((tab) => tab.key === activeTab)?.label ?? 'Leftly'
+
   function formatCurrency(value: number) {
     return currencyFormatter.format(value)
   }
@@ -1664,6 +1685,14 @@ function App() {
       ...current,
       date: getQuickAddDateValue(preferences, payPeriod),
     }))
+  }
+
+  function openMoreMenu() {
+    setActiveTab('more')
+  }
+
+  function openMoreScreen(key: MoreMenuKey) {
+    setActiveTab(key)
   }
 
   function closeQuickAddExpense() {
@@ -2323,7 +2352,6 @@ function App() {
 
   const hasAnyData = payPeriod || bills.length > 0 || expenses.length > 0
   const isFirstRun = !payPeriod && bills.length === 0 && expenses.length === 0 && recurringTemplates.length === 0 && payPeriodHistory.length === 0
-  const activeTabLabel = tabLabels.find((tab) => tab.key === activeTab)?.label ?? 'Leftly'
 
   return (
     <main className="leftly-page">
@@ -2347,7 +2375,7 @@ function App() {
               <div className="leftly-shell-soft grid gap-2 px-3 py-3 text-left sm:max-w-md sm:grid-cols-2 sm:gap-3 sm:px-4 sm:text-center">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Active screen</p>
-                  <p className="mt-1 text-sm font-semibold text-white">{activeTabLabel}</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{activeScreenLabel}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Storage</p>
@@ -2395,11 +2423,35 @@ function App() {
                 <MetricCard label="Expenses" value={formatCurrency(totals.totalExpenses)} />
               </div>
             </div>
+          ) : activeTab === 'more' ? (
+            <div className="leftly-shell-soft px-4 py-4 shadow-lg shadow-slate-950/25">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">More</p>
+                  <p className="mt-1 text-[1.45rem] font-semibold tracking-[-0.05em] text-white">More menu</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    Open Leftly screens that do not fit in the main bottom navigation.
+                  </p>
+                </div>
+                <Badge muted>{moreMenuItems.length} items</Badge>
+              </div>
+            </div>
+          ) : isMoreMenuKey(activeTab) ? (
+            <div className="leftly-shell-soft px-4 py-4 shadow-lg shadow-slate-950/25">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">More</p>
+                  <p className="mt-1 text-[1.45rem] font-semibold tracking-[-0.05em] text-white">{activeScreenLabel}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">{moreMenuHelpers[activeTab]}</p>
+                </div>
+                <Badge muted>More screen</Badge>
+              </div>
+            </div>
           ) : (
             <div className="leftly-shell-soft px-4 py-3.5 shadow-lg shadow-slate-950/25">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{activeTabLabel}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{activeScreenLabel}</p>
                   <p className="mt-1 text-[1.9rem] font-semibold tracking-[-0.05em] text-white">{formatCurrency(totals.leftover)}</p>
                   <p className="mt-1 text-xs leading-5 text-slate-400">Leftly amount</p>
                 </div>
@@ -2761,7 +2813,7 @@ function App() {
                           recentBills.map((bill) => (
                             <div
                               key={bill.id}
-                              className="grid gap-3 leftly-shell-soft px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-4"
+                              className="grid gap-3 leftly-shell-soft px-3 py-3 sm:grid-cols-[minmax(0,1fr)_7.75rem] sm:items-center sm:px-4"
                             >
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -2773,9 +2825,13 @@ function App() {
                                   {bill.category} · due {bill.dueDate}
                                 </p>
                               </div>
-                              <div className="flex min-w-[6.75rem] flex-col items-end gap-2 self-start sm:self-center">
+                              <div className="flex min-w-0 flex-col items-start gap-2 sm:items-end sm:justify-self-end">
                                 <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
-                                <button type="button" onClick={() => startEditBill(bill)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
+                                <button
+                                  type="button"
+                                  onClick={() => startEditBill(bill)}
+                                  className="button-secondary w-full sm:w-auto !min-h-0 !px-3 !py-2 !text-xs"
+                                >
                                   Edit
                                 </button>
                               </div>
@@ -3061,7 +3117,7 @@ function App() {
 
           {activeTab === 'income' ? (
             <SectionShell title="Income" description="Edit the active pay period and keep the current period visible.">
-              <MoreBackBar onBack={() => setActiveTab('more')} />
+              <MoreBackBar onBack={openMoreMenu} />
               <div className="mb-4 flex justify-end">
                 <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
                   Start new pay period
@@ -3192,7 +3248,7 @@ function App() {
 
           {activeTab === 'bill' ? (
             <SectionShell title="One-time Bill" description="Add a one-time bill and keep working in the same tab.">
-              <MoreBackBar onBack={() => setActiveTab('more')} />
+              <MoreBackBar onBack={openMoreMenu} />
               {bills.length === 0 ? (
                 <div className="mb-4">
                   <EmptyState title="No bills yet" text="Add the next bill here when it comes up." compact />
@@ -3264,7 +3320,7 @@ function App() {
 
           {activeTab === 'expense' ? (
             <SectionShell title="Manual Expense" description="Add a manual expense and keep working in the same tab.">
-              <MoreBackBar onBack={() => setActiveTab('more')} />
+              <MoreBackBar onBack={openMoreMenu} />
               {expenses.length === 0 ? (
                 <div className="mb-4">
                   <EmptyState title="No expenses yet" text="Add spending here as it happens." compact />
@@ -3351,7 +3407,7 @@ function App() {
 
           {activeTab === 'categories' ? (
             <SectionShell title="Categories" description="Group, sort, and reorder all categories from one place.">
-              <MoreBackBar onBack={() => setActiveTab('more')} />
+              <MoreBackBar onBack={openMoreMenu} />
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Sort items">
@@ -3478,7 +3534,7 @@ function App() {
 
           {activeTab === 'data' ? (
             <SectionShell title="Data" description="Back up or restore the Leftly data stored on this device.">
-              <MoreBackBar onBack={() => setActiveTab('more')} />
+              <MoreBackBar onBack={openMoreMenu} />
               <DataSection
                 preferences={preferences}
                 onPreferencesChange={setPreferences}
@@ -3501,8 +3557,8 @@ function App() {
                   <button
                     key={item.key}
                     type="button"
-                    onClick={() => setActiveTab(item.key)}
-                    className="leftly-shell-soft flex items-start justify-between gap-4 p-4 text-left transition hover:border-cyan-400/25 hover:bg-slate-900/70 active:translate-y-px"
+                    onClick={() => openMoreScreen(item.key)}
+                    className="leftly-more-menu-card"
                   >
                     <div className="min-w-0">
                       <p className="text-base font-semibold tracking-[-0.02em] text-white">{item.label}</p>
@@ -3535,13 +3591,13 @@ function App() {
 
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800/80 bg-slate-950/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-2 shadow-[0_-20px_40px_rgba(2,6,23,0.35)] backdrop-blur md:hidden">
           <div className="mx-auto grid max-w-7xl grid-cols-5 gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab('overview')}
-              aria-label="Go to Overview"
-              aria-pressed={activeTab === 'overview'}
-              className={`leftly-mobile-nav-button ${
-                activeTab === 'overview'
+              <button
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                aria-label="Go to Overview"
+                aria-pressed={activeBottomNavTab === 'overview'}
+                className={`leftly-mobile-nav-button ${
+                activeBottomNavTab === 'overview'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
               }`}
@@ -3553,9 +3609,9 @@ function App() {
               onClick={openQuickAddExpense}
               disabled={!payPeriod}
               aria-label="Open Quick Add"
-              aria-pressed={activeTab === 'quick-add'}
+              aria-pressed={activeBottomNavTab === 'quick-add'}
               className={`leftly-mobile-nav-button disabled:cursor-not-allowed disabled:opacity-50 ${
-                activeTab === 'quick-add'
+                activeBottomNavTab === 'quick-add'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
               }`}
@@ -3566,9 +3622,9 @@ function App() {
               type="button"
               onClick={() => setActiveTab('recurring')}
               aria-label="Go to Bill Plan"
-              aria-pressed={activeTab === 'recurring'}
+              aria-pressed={activeBottomNavTab === 'recurring'}
               className={`leftly-mobile-nav-button ${
-                activeTab === 'recurring'
+                activeBottomNavTab === 'recurring'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
               }`}
@@ -3579,9 +3635,9 @@ function App() {
               type="button"
               onClick={() => setActiveTab('history')}
               aria-label="Go to History"
-              aria-pressed={activeTab === 'history'}
+              aria-pressed={activeBottomNavTab === 'history'}
               className={`leftly-mobile-nav-button ${
-                activeTab === 'history'
+                activeBottomNavTab === 'history'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
               }`}
@@ -3590,11 +3646,11 @@ function App() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('more')}
+              onClick={openMoreMenu}
               aria-label="Go to More"
-              aria-pressed={activeTab === 'more'}
+              aria-pressed={activeBottomNavTab === 'more'}
               className={`leftly-mobile-nav-button ${
-                activeTab === 'more'
+                activeBottomNavTab === 'more'
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                   : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
               }`}

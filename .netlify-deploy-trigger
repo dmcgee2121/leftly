@@ -1,5 +1,6 @@
 Leftly production deploy trigger
 
-Triggered from ChatGPT on 2026-06-17 after mobile app interaction polish.
-Latest included app polish: a81be60 Polish mobile app interactions [skip netlify]
-Release purpose: mobile interaction polish checkpoint on Netlify.
+Triggered from ChatGPT on 2026-06-18 after Bill Plan and Quick Add polish.
+Latest included polish: a3a9d26 Polish bill plan mobile experience [skip netlify]
+Also includes: 8abec69 Polish quick add screen [skip netlify], edf1bbf Fix dark select styling [skip netlify]
+Release purpose: mobile Bill Plan and Quick Add checkpoint on Netlify.

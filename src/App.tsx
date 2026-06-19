@@ -3392,13 +3392,16 @@ function App() {
           {activeTab === 'recurring' ? (
             <SectionShell
               title="Bill Plan"
-              description="Bill Plan is where you save bills and planned spending that repeat. Starting a new pay period can pull these into your active budget automatically."
+              description="Save recurring bills and planned items here. Apply them to a pay period when you need them."
             >
               {payPeriod && hasActiveBillPlanItems ? (
-                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm leading-6 text-slate-400">
-                    Apply saved Bill Plan items to the current pay period without starting a new one.
-                  </p>
+                <div className="mb-4 flex flex-col gap-3 rounded-[1.3rem] border border-cyan-400/15 bg-cyan-400/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white">Apply saved items to this pay period</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      Pull in recurring bills and planned spending without starting a new period.
+                    </p>
+                  </div>
                   <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto">
                     Apply Bill Plan to this pay period
                   </button>

@@ -158,6 +158,10 @@ export function ApplyBillPlanPanel({
     preview.billsToAdd.length > 0 || preview.setAsidesToAdd.length > 0 || preview.plannedToAdd.length > 0
   const hasAnythingAlreadyAdded =
     preview.billsAlreadyAdded.length > 0 || preview.setAsidesAlreadyAdded.length > 0 || preview.plannedAlreadyAdded.length > 0
+  const alreadyAddedCount =
+    preview.billsAlreadyAdded.length + preview.setAsidesAlreadyAdded.length + preview.plannedAlreadyAdded.length
+  const readyToAddCount =
+    preview.billsToAdd.length + preview.setAsidesToAdd.length + preview.plannedToAdd.length
 
   function handleApply() {
     const generated = generateRecurringItems({
@@ -181,19 +185,24 @@ export function ApplyBillPlanPanel({
         <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Bill Plan</p>
-            <h3 className="mt-1 text-lg font-semibold text-white">Apply Bill Plan to this pay period</h3>
+            <h3 className="mt-1 text-lg font-semibold text-white">Review Bill Plan items</h3>
             <p className="mt-1 text-sm leading-6 text-slate-400">
               Review what Leftly will add before updating your active budget.
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge>{readyToAddCount} ready to add</Badge>
+              {alreadyAddedCount > 0 ? <Badge muted>{alreadyAddedCount} already added</Badge> : null}
+            </div>
           </div>
           <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
             Close
           </button>
         </div>
 
-        <div className="leftly-shell-soft mt-4 grid gap-3 p-4 sm:grid-cols-2">
+        <div className="leftly-shell-soft mt-4 grid gap-3 p-4 sm:grid-cols-3">
           <SummaryCard label="Pay period" value={`${preview.summary.startDate} to ${preview.summary.endDate}`} />
           <SummaryCard label="Income" value={formatCurrency(preview.summary.income)} />
+          <SummaryCard label="Ready to add" value={`${readyToAddCount}`} detail={alreadyAddedCount > 0 ? `${alreadyAddedCount} already added` : 'Nothing duplicated'} />
         </div>
 
         {!hasAnythingToAdd && !hasAnythingAlreadyAdded ? (
@@ -213,11 +222,11 @@ export function ApplyBillPlanPanel({
 
         <div className="leftly-sheet-footer">
           <div className="leftly-action-grid">
+            <button type="button" onClick={handleApply} className={`${buttonStyles.primary} w-full sm:w-auto`}>
+              Apply selected items
+            </button>
             <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
               Back
-            </button>
-            <button type="button" onClick={handleApply} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-              Apply Bill Plan
             </button>
           </div>
         </div>
@@ -284,33 +293,50 @@ function PreviewGroup({
 }
 
 function PreviewRow({ item }: { item: PreviewEntry }) {
+  const rowClass =
+    item.status === 'Already added'
+      ? 'border-emerald-400/20 bg-emerald-400/10'
+      : 'border-cyan-400/20 bg-cyan-400/10'
+
   return (
-    <div className="leftly-shell-soft flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
+    <div className={`leftly-shell-soft flex flex-col gap-2 border p-3 sm:flex-row sm:items-start sm:justify-between ${rowClass}`}>
+      <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate font-medium text-white">{item.label}</p>
-          <Badge muted>{item.status}</Badge>
+          <p className="truncate font-semibold text-white">{item.label}</p>
+          <Badge muted={item.status === 'Already added'} success={item.status === 'Already added'}>
+            {item.status}
+          </Badge>
         </div>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs leading-5 text-slate-400">
           {item.category} · {item.detail}
         </p>
       </div>
-      <p className="text-sm font-semibold text-white">{formatCurrency(item.amount)}</p>
+      <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</p>
     </div>
   )
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="leftly-shell-soft px-4 py-3.5">
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className="mt-2 text-sm font-semibold tracking-[-0.02em] text-white">{value}</p>
+      {detail ? <p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p> : null}
     </div>
   )
 }
 
-function Badge({ children, muted = false }: { children: ReactNode; muted?: boolean }) {
-  return <span className={`leftly-chip ${muted ? 'leftly-chip-muted' : 'leftly-chip-default'}`}>{children}</span>
+function Badge({
+  children,
+  muted = false,
+  success = false,
+}: {
+  children: ReactNode
+  muted?: boolean
+  success?: boolean
+}) {
+  const className = success ? 'leftly-chip-success' : muted ? 'leftly-chip-muted' : 'leftly-chip-default'
+  return <span className={`leftly-chip ${className}`}>{children}</span>
 }
 
 function formatCurrency(amount: number) {

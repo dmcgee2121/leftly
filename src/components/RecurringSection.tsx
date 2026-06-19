@@ -336,11 +336,11 @@ export function RecurringSection({
       </div>
 
       <div className="leftly-shell grid gap-3 p-3 sm:p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-white">Bill Plan management</p>
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white">Bill Plan manager</p>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              Search, filter, and organize recurring bills. Use the bulk tool to enter monthly bills faster.
+              Save recurring bills and planned items here. Apply them when a pay period is ready.
             </p>
           </div>
           <button type="button" onClick={openBulkPanel} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
@@ -356,7 +356,7 @@ export function RecurringSection({
               placeholder="Search name, category, or frequency"
             />
           </Field>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 pr-1 no-scrollbar lg:flex-wrap lg:overflow-visible lg:pb-0 lg:pr-0">
             {[
               { key: 'all', label: 'All' },
               { key: 'active', label: 'Active' },
@@ -368,7 +368,7 @@ export function RecurringSection({
                 type="button"
                 onClick={() => setStatusFilter(chip.key as typeof statusFilter)}
                 aria-pressed={statusFilter === chip.key}
-                className={`min-h-11 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                className={`min-h-11 shrink-0 rounded-full border px-3.5 py-2.5 text-xs font-semibold transition ${
                   statusFilter === chip.key
                     ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                     : 'border-slate-700/90 bg-slate-900/75 text-slate-400 hover:border-slate-600 hover:text-white'
@@ -395,7 +395,7 @@ export function RecurringSection({
 
       {isBulkOpen ? (
         <section className="leftly-shell p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
-          <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="mb-4 flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-white">Add multiple bills</h3>
               <p className="mt-1 text-sm leading-6 text-slate-400">
@@ -512,12 +512,12 @@ export function RecurringSection({
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-      <Panel
-        title={editingTemplateId ? 'Edit Bill Plan item' : 'Add Bill Plan item'}
-        action="Saved locally"
-        helper="Bill Plan items are saved templates. Later, Leftly can use them to build each new pay period automatically. Set-asides reserve money each pay period for a bill that may be due later. They lower your safe-to-spend amount but are not marked as a paid bill."
-      >
-        <form className="grid gap-4" onSubmit={handleSubmit}>
+        <Panel
+          title={editingTemplateId ? 'Edit Bill Plan item' : 'Add Bill Plan item'}
+          action="Saved locally"
+          helper="Bill Plan items are saved templates. Later, Leftly can use them to build each new pay period automatically. Set-asides reserve money each pay period for a bill that may be due later. They lower your safe-to-spend amount but are not marked as a paid bill."
+        >
+          <form className="grid gap-4" onSubmit={handleSubmit}>
           <Field label="Name">
             <input
               value={draft.name}
@@ -652,99 +652,124 @@ export function RecurringSection({
               </button>
             ) : null}
           </div>
-        </form>
-      </Panel>
+          </form>
+        </Panel>
 
-      <Panel
-        title="Saved Bill Plan items"
-        action={`${filteredTemplates.length} shown`}
-        helper="Deactivate, reactivate, or edit items without deleting them."
-      >
-        {templates.length === 0 ? (
-          <EmptyState
-            title="No Bill Plan items yet"
-            text="Save one bill or use Add multiple bills to build your Bill Plan. It will stay in the browser until you delete it."
-          />
-        ) : filteredTemplates.length === 0 ? (
-          <EmptyState title="No Bill Plan items match this filter." text="Clear the search or change the filter chips to show items again." />
-        ) : (
-          <div className="grid gap-4">
-            {groupedTemplates.map((group) => (
-              <section key={group.category} className="grid gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">{group.category}</h4>
-                  <span className="leftly-chip leftly-chip-muted px-2.5 py-1 text-[11px] font-semibold">
-                    {group.items.length}
-                  </span>
-                </div>
+        <Panel
+          title="Saved Bill Plan items"
+          action={`${filteredTemplates.length} shown`}
+          helper="Deactivate, reactivate, or edit items without deleting them."
+        >
+          {templates.length === 0 ? (
+            <EmptyState
+              title="Bill Plan is empty"
+              text="This is where recurring bills and planned items live. Add your first bill below or use the bulk tool to save a few at once."
+              actionLabel="Add multiple bills"
+              onAction={openBulkPanel}
+            />
+          ) : filteredTemplates.length === 0 ? (
+            <EmptyState
+              title="No Bill Plan items match this filter"
+              text="Clear the search or reset the chips to show your saved items again."
+              actionLabel="Clear filters"
+              onAction={() => {
+                setSearchQuery('')
+                setStatusFilter('all')
+              }}
+            />
+          ) : (
+            <div className="grid gap-4">
+              {groupedTemplates.map((group) => (
+                <section key={group.category} className="grid gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">{group.category}</h4>
+                    <span className="leftly-chip leftly-chip-muted px-2.5 py-1 text-[11px] font-semibold">
+                      {group.items.length}
+                    </span>
+                  </div>
 
-                <div className="grid gap-2">
-                  {group.items.map((template) => {
-                    const isSetAside =
-                      template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0
-                    const scheduleLabel =
-                      template.frequency === 'monthly'
-                        ? template.dueDay
-                          ? `Due day ${template.dueDay}`
-                          : 'Monthly'
-                        : frequencyLabels[template.frequency]
+                  <div className="grid gap-2">
+                    {group.items.map((template) => {
+                      const isSetAside =
+                        template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0
+                      const scheduleLabel =
+                        template.frequency === 'monthly'
+                          ? template.dueDay
+                            ? `Due day ${template.dueDay}`
+                            : 'Monthly'
+                          : frequencyLabels[template.frequency]
 
-                    return (
-                      <article key={template.id} className="leftly-shell-soft p-3 sm:p-4">
-                        <div className="flex flex-col gap-3">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate font-semibold text-white">{template.name}</p>
-                                <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned spending'}</Badge>
-                                {isSetAside ? <Badge muted>Set-aside</Badge> : null}
-                                <Badge muted>{template.isActive ? 'Active' : 'Inactive'}</Badge>
+                      return (
+                        <article
+                          key={template.id}
+                          className={`leftly-shell-soft p-3.5 sm:p-4 ${template.isActive ? '' : 'border-slate-800/90 bg-slate-950/55'}`}
+                        >
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-[1rem] font-semibold tracking-[-0.02em] text-white">{template.name}</p>
+                                  <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned spending'}</Badge>
+                                  {isSetAside ? <Badge muted>Set-aside</Badge> : null}
+                                  <Badge muted>{template.isActive ? 'Active' : 'Inactive'}</Badge>
+                                </div>
+                                <p className="mt-1 text-sm leading-5 text-slate-400">
+                                  {template.category} · {scheduleLabel}
+                                  {template.anchorDate ? ` · anchor ${template.anchorDate}` : ''}
+                                </p>
                               </div>
-                              <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-sm">
-                                {formatCurrency(template.amount)} | {template.category} | {scheduleLabel}
-                                {template.anchorDate ? ` | anchor ${template.anchorDate}` : ''}
-                              </p>
+                              <div className="shrink-0 text-right">
+                                <p className="text-[1.02rem] font-semibold tracking-[-0.02em] text-white">
+                                  {formatCurrency(template.amount)}
+                                </p>
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                                  {template.createdAt.slice(0, 10)}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{template.createdAt.slice(0, 10)}</p>
-                          </div>
 
-                          <div className="grid gap-2 sm:flex sm:flex-wrap">
-                            <button type="button" onClick={() => startEdit(template)} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onUpdateTemplate({ ...template, isActive: !template.isActive })}
-                              className={buttonStyles.secondary + ' w-full sm:w-auto'}
-                            >
-                              {template.isActive ? 'Deactivate' : 'Reactivate'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!window.confirm(`Delete ${template.name} from Bill Plan? You can\'t undo this.`)) {
-                                  return
-                                }
-                                if (editingTemplateId === template.id) {
-                                  resetForm()
-                                }
-                                onDeleteTemplate(template.id)
-                              }}
-                              className={buttonStyles.danger + ' w-full sm:w-auto'}
-                            >
-                              Delete
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge muted>{scheduleLabel}</Badge>
+                              {template.anchorDate ? <Badge muted>Anchor {template.anchorDate}</Badge> : null}
+                            </div>
+
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              <button type="button" onClick={() => startEdit(template)} className={buttonStyles.secondary + ' w-full'}>
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onUpdateTemplate({ ...template, isActive: !template.isActive })}
+                                className={buttonStyles.secondary + ' w-full'}
+                              >
+                                {template.isActive ? 'Deactivate' : 'Reactivate'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!window.confirm(`Delete ${template.name} from Bill Plan? You can't undo this.`)) {
+                                    return
+                                  }
+                                  if (editingTemplateId === template.id) {
+                                    resetForm()
+                                  }
+                                  onDeleteTemplate(template.id)
+                                }}
+                                className={buttonStyles.danger + ' w-full'}
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-      </Panel>
+                        </article>
+                      )
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </Panel>
       </div>
     </div>
   )
@@ -776,11 +801,28 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function EmptyState({ title, text }: { title: string; text: string }) {
+function EmptyState({
+  title,
+  text,
+  actionLabel,
+  onAction,
+}: {
+  title: string
+  text: string
+  actionLabel?: string
+  onAction?: () => void
+}) {
   return (
-    <div className="leftly-empty">
-      <p className="text-sm font-medium text-white">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-400">{text}</p>
+    <div className="leftly-empty grid gap-3">
+      <div>
+        <p className="text-sm font-medium text-white">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-slate-400">{text}</p>
+      </div>
+      {actionLabel && onAction ? (
+        <button type="button" onClick={onAction} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
+          {actionLabel}
+        </button>
+      ) : null}
     </div>
   )
 }

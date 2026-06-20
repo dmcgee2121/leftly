@@ -1,4 +1,5 @@
 import { DEFAULT_CATEGORIES } from '../types/budget'
+import { normalizeRecurringPlanName } from './recurring'
 import type {
   Bill,
   BudgetPeriod,
@@ -272,6 +273,7 @@ export function loadRecurringTemplates(): RecurringItemTemplate[] {
         ? (item.category as BudgetCategory)
         : 'Other / Misc',
       kind: item.kind === 'planned-expense' ? 'planned-expense' : 'bill',
+      planName: typeof item.planName === 'string' ? normalizeRecurringPlanName(item.planName) : undefined,
       frequency:
         item.frequency === 'every-pay-period' ||
         item.frequency === 'weekly' ||

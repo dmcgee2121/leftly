@@ -82,6 +82,7 @@ export type RecurringItemTemplate = {
   amount: number
   category: BudgetCategory
   kind: 'bill' | 'planned-expense'
+  planName?: string
   frequency: RecurringFrequency
   dueDay?: number
   anchorDate?: string

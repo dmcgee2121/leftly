@@ -26,7 +26,7 @@ import {
   saveSortMode,
   DEFAULT_PREFERENCES,
 } from './lib/storage'
-import { formatMonthlyDueDay, generateRecurringItems, getRecurringPeriodKey } from './lib/recurring'
+import { MAIN_BILL_PLAN, formatMonthlyDueDay, generateRecurringItems, getRecurringPeriodKey, normalizeRecurringPlanName } from './lib/recurring'
 import { createAllHistoryCsv, createCurrentPeriodCsv, createHistorySnapshotCsv, downloadCsv } from './lib/export'
 import {
   DEFAULT_CATEGORIES,
@@ -1910,6 +1910,7 @@ function App() {
         amount: 1200,
         category: 'Housing',
         kind: 'bill',
+        planName: MAIN_BILL_PLAN,
         frequency: 'monthly',
         dueDay: 1,
         setAsideEnabled: true,
@@ -1923,6 +1924,7 @@ function App() {
         amount: 200,
         category: 'Food',
         kind: 'planned-expense',
+        planName: MAIN_BILL_PLAN,
         frequency: 'every-pay-period',
         isActive: true,
         createdAt: new Date().toISOString(),
@@ -1933,6 +1935,7 @@ function App() {
         amount: 80,
         category: 'Transportation',
         kind: 'planned-expense',
+        planName: MAIN_BILL_PLAN,
         frequency: 'every-pay-period',
         isActive: true,
         createdAt: new Date().toISOString(),
@@ -1943,6 +1946,7 @@ function App() {
         amount: 85,
         category: 'Utilities',
         kind: 'bill',
+        planName: MAIN_BILL_PLAN,
         frequency: 'monthly',
         dueDay: 12,
         isActive: true,
@@ -2912,6 +2916,7 @@ function App() {
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <p className="truncate font-medium text-white">{template.name}</p>
+                                    <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge>
                                     {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
                                   </div>
                                   <p className="mt-1 text-[11px] text-slate-400">

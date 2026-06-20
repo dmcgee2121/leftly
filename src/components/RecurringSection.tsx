@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { DEFAULT_CATEGORIES, type RecurringFrequency, type RecurringItemTemplate } from '../types/budget'
-import { formatMonthlyDueDay } from '../lib/recurring'
+import { MAIN_BILL_PLAN, formatMonthlyDueDay, normalizeRecurringPlanName } from '../lib/recurring'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -14,6 +14,7 @@ type RecurringDraft = {
   amount: string
   category: RecurringItemTemplate['category']
   kind: RecurringItemTemplate['kind']
+  planName: string
   frequency: RecurringFrequency
   dueDay: string
   anchorDate: string
@@ -63,6 +64,7 @@ export function RecurringSection({
     amount: '',
     category: 'Other / Misc',
     kind: 'bill',
+    planName: MAIN_BILL_PLAN,
     frequency: 'every-pay-period',
     dueDay: '',
     anchorDate: '',
@@ -78,6 +80,7 @@ export function RecurringSection({
   const [bulkReminder, setBulkReminder] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'set-asides'>('all')
+  const [planFilter, setPlanFilter] = useState<string>('all')
 
   const sortedTemplates = useMemo(
     () => [...templates].sort((a, b) => Number(b.isActive) - Number(a.isActive) || b.createdAt.localeCompare(a.createdAt)),
@@ -97,25 +100,46 @@ export function RecurringSection({
     }
   }, [templates])
 
+  const planNames = useMemo(() => {
+    const names = new Set<string>([MAIN_BILL_PLAN])
+    for (const template of templates) {
+      names.add(normalizeRecurringPlanName(template.planName))
+    }
+
+    return [...names].sort((a, b) => {
+      if (a === MAIN_BILL_PLAN) {
+        return -1
+      }
+      if (b === MAIN_BILL_PLAN) {
+        return 1
+      }
+      return a.localeCompare(b)
+    })
+  }, [templates])
+
   const filteredTemplates = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     return sortedTemplates.filter((template) => {
       const categoryLabel = template.category || 'Other'
       const frequencyLabel = frequencyLabels[template.frequency]
+      const templatePlanName = normalizeRecurringPlanName(template.planName)
       const matchesSearch =
         query === '' ||
         template.name.toLowerCase().includes(query) ||
         categoryLabel.toLowerCase().includes(query) ||
-        frequencyLabel.toLowerCase().includes(query)
+        frequencyLabel.toLowerCase().includes(query) ||
+        templatePlanName.toLowerCase().includes(query)
       const matchesStatus =
         statusFilter === 'all' ||
         (statusFilter === 'active' && template.isActive) ||
         (statusFilter === 'inactive' && !template.isActive) ||
         (statusFilter === 'set-asides' && template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0)
 
-      return matchesSearch && matchesStatus
+      const matchesPlan = planFilter === 'all' || templatePlanName === planFilter
+
+      return matchesSearch && matchesStatus && matchesPlan
     })
-  }, [searchQuery, sortedTemplates, statusFilter])
+  }, [planFilter, searchQuery, sortedTemplates, statusFilter])
 
   const groupedTemplates = useMemo(() => {
     const order = [...DEFAULT_CATEGORIES, 'Other / Misc', 'Other']
@@ -144,6 +168,7 @@ export function RecurringSection({
       amount: '',
       category: 'Other / Misc',
       kind: 'bill',
+      planName: MAIN_BILL_PLAN,
       frequency: 'every-pay-period',
       dueDay: '',
       anchorDate: '',
@@ -184,6 +209,7 @@ export function RecurringSection({
       amount: String(template.amount),
       category: template.category,
       kind: template.kind,
+      planName: normalizeRecurringPlanName(template.planName),
       frequency: template.frequency,
       dueDay: template.dueDay ? String(template.dueDay) : '',
       anchorDate: template.anchorDate ?? '',
@@ -226,6 +252,7 @@ export function RecurringSection({
       amount,
       category: draft.category,
       kind: draft.kind,
+      planName: normalizeRecurringPlanName(draft.planName),
       frequency: draft.frequency,
       dueDay: draft.frequency === 'monthly' ? Number(draft.dueDay) : undefined,
       anchorDate: ['weekly', 'biweekly', 'one-time'].includes(draft.frequency) ? draft.anchorDate : undefined,
@@ -292,6 +319,7 @@ export function RecurringSection({
         amount,
         category: row.category,
         kind: 'bill',
+        planName: MAIN_BILL_PLAN,
         frequency: 'monthly',
         dueDay: Number(dueDay),
         anchorDate: undefined,
@@ -349,14 +377,26 @@ export function RecurringSection({
           </button>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <Field label="Search">
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search name, category, or frequency"
-            />
-          </Field>
+        <div className="grid gap-3">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:items-end">
+            <Field label="Plan">
+              <select value={planFilter} onChange={(event) => setPlanFilter(event.target.value)}>
+                <option value="all">All plans</option>
+                {planNames.map((planName) => (
+                  <option key={planName} value={planName}>
+                    {planName}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Search">
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search name, category, frequency, or plan"
+              />
+            </Field>
+          </div>
           <div className="flex gap-2 overflow-x-auto pb-1 pr-1 no-scrollbar lg:flex-wrap lg:overflow-visible lg:pb-0 lg:pr-0">
             {[
               { key: 'all', label: 'All' },
@@ -379,6 +419,9 @@ export function RecurringSection({
               </button>
             ))}
           </div>
+          <p className="text-sm leading-6 text-slate-400">
+            Showing: <span className="font-medium text-white">{planFilter === 'all' ? 'All plans' : planFilter}</span>
+          </p>
         </div>
       </div>
 
@@ -564,6 +607,15 @@ export function RecurringSection({
             </select>
           </Field>
 
+          <Field label="Plan name">
+            <input
+              list="bill-plan-names"
+              value={draft.planName}
+              onChange={(event) => setDraft({ ...draft, planName: event.target.value })}
+              placeholder={MAIN_BILL_PLAN}
+            />
+          </Field>
+
           <Field label="Frequency">
             <select
               value={draft.frequency}
@@ -654,6 +706,11 @@ export function RecurringSection({
             ) : null}
           </div>
           </form>
+          <datalist id="bill-plan-names">
+            {planNames.map((planName) => (
+              <option key={planName} value={planName} />
+            ))}
+          </datalist>
         </Panel>
 
         <Panel
@@ -693,6 +750,7 @@ export function RecurringSection({
                     {group.items.map((template) => {
                       const isSetAside =
                         template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0
+                      const planName = normalizeRecurringPlanName(template.planName)
                       const scheduleLabel =
                         template.frequency === 'monthly'
                           ? template.dueDay
@@ -711,6 +769,7 @@ export function RecurringSection({
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="truncate text-[1rem] font-semibold tracking-[-0.02em] text-white">{template.name}</p>
                                   <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned spending'}</Badge>
+                                  <Badge muted>{planName}</Badge>
                                   {isSetAside ? <Badge muted>Set-aside</Badge> : null}
                                   <Badge muted>{template.isActive ? 'Active' : 'Inactive'}</Badge>
                                 </div>
@@ -731,6 +790,7 @@ export function RecurringSection({
 
                             <div className="flex flex-wrap gap-2">
                               <Badge muted>{scheduleLabel}</Badge>
+                              <Badge muted>{planName}</Badge>
                               {template.anchorDate ? <Badge muted>Anchor {template.anchorDate}</Badge> : null}
                             </div>
 

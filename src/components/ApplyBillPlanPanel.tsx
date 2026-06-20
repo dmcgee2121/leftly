@@ -20,6 +20,7 @@ type PreviewEntry = {
   amount: number
   category: string
   detail: string
+  planName: string
   status: 'To add' | 'Already added'
 }
 
@@ -235,13 +236,17 @@ export function ApplyBillPlanPanel({
   )
 }
 
-function toPreviewEntry(item: { name: string; amount: number; category: string; frequency: string }, detail: string): PreviewEntry {
+function toPreviewEntry(
+  item: { name: string; amount: number; category: string; frequency: string; planName: string },
+  detail: string,
+): PreviewEntry {
   return {
     id: `${item.name}:${detail}:${item.amount}`,
     label: item.name,
     amount: item.amount,
     category: item.category,
     detail: `${item.frequency} · ${detail}`,
+    planName: item.planName,
     status: 'To add',
   }
 }
@@ -306,6 +311,7 @@ function PreviewRow({ item }: { item: PreviewEntry }) {
           <Badge muted={item.status === 'Already added'} success={item.status === 'Already added'}>
             {item.status}
           </Badge>
+          <Badge muted>{item.planName}</Badge>
         </div>
         <p className="mt-1 text-xs leading-5 text-slate-400">
           {item.category} · {item.detail}

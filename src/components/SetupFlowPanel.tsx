@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { BudgetCategory, BudgetPeriod, PayCadence, RecurringFrequency, RecurringItemTemplate } from '../types/budget'
-import { buildRecurringPreview } from '../lib/recurring'
+import { MAIN_BILL_PLAN, buildRecurringPreview } from '../lib/recurring'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -503,6 +503,7 @@ function validateRecurringDraft(
       amount,
       category: draft.recurringCategory,
       kind: 'bill',
+      planName: MAIN_BILL_PLAN,
       frequency: draft.recurringFrequency,
       dueDay: draft.recurringFrequency === 'monthly' ? Number(draft.monthlyDueDay) : undefined,
       anchorDate: draft.recurringFrequency === 'monthly' ? undefined : draft.anchorDate,

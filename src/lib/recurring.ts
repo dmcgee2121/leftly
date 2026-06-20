@@ -1,5 +1,7 @@
 import type { Bill, BudgetPeriod, BudgetCategory, Expense, RecurringItemTemplate } from '../types/budget'
 
+export const MAIN_BILL_PLAN = 'Main Bill Plan'
+
 export type RecurringPreviewItem = {
   templateId: string
   kind: 'bill' | 'planned-expense'
@@ -8,6 +10,7 @@ export type RecurringPreviewItem = {
   category: BudgetCategory
   dateLabel: string
   frequency: RecurringItemTemplate['frequency']
+  planName: string
   isSetAside?: boolean
 }
 
@@ -53,6 +56,10 @@ function isWithin(value: Date, start: Date, end: Date) {
 
 function getPeriodKey(period: BudgetPeriod) {
   return `${period.cadence}:${period.startDate}:${period.endDate}`
+}
+
+export function normalizeRecurringPlanName(planName?: string) {
+  return planName?.trim() || MAIN_BILL_PLAN
 }
 
 export function formatOrdinalDay(day: number) {
@@ -208,6 +215,7 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
           category: template.category,
           dateLabel,
           frequency: template.frequency,
+          planName: normalizeRecurringPlanName(template.planName),
         }
 
       if (template.kind === 'bill') {
@@ -226,6 +234,7 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
         category: template.category,
         dateLabel: 'Every pay period',
         frequency: 'every-pay-period',
+        planName: normalizeRecurringPlanName(template.planName),
         isSetAside: true,
       })
     }

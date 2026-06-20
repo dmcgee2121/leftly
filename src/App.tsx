@@ -98,6 +98,9 @@ type CategorySummary = {
   category: BudgetCategory
   items: BudgetItem[]
   total: number
+  billCount: number
+  expenseCount: number
+  manualExpenseCount: number
 }
 
 type DueSoonBillRow = {
@@ -1104,7 +1107,10 @@ function App() {
     const summaries = DEFAULT_CATEGORIES.map((category) => {
       const items = sortItems(itemsByCategory.get(category) ?? [], sortMode)
       const total = items.reduce((sum, item) => sum + item.amount, 0)
-      return { category, items, total }
+      const billCount = items.filter((item) => item.kind === 'bill').length
+      const expenseCount = items.filter((item) => item.kind === 'expense').length
+      const manualExpenseCount = items.filter((item) => item.kind === 'expense' && item.source !== 'recurring').length
+      return { category, items, total, billCount, expenseCount, manualExpenseCount }
     })
 
     if (categoryOrderMode === 'custom') {
@@ -3406,9 +3412,25 @@ function App() {
           ) : null}
 
           {activeTab === 'categories' ? (
-            <SectionShell title="Categories" description="Group, sort, and reorder all categories from one place.">
+            <SectionShell title="Categories" description="See where bills and spending are grouped for this pay period.">
               <MoreBackBar onBack={openMoreMenu} />
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 leftly-shell-soft p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">Category overview</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      Tap a category to expand its bills and expenses. Use the controls below to change how the list is ordered.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge muted>{categorySummaries.filter((summary) => summary.total > 0).length} active</Badge>
+                    <Badge muted>{categorySummaries.reduce((sum, summary) => sum + summary.billCount, 0)} bills</Badge>
+                    <Badge muted>{categorySummaries.reduce((sum, summary) => sum + summary.expenseCount, 0)} expenses</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-4 grid gap-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Sort items">
                     <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
@@ -3443,7 +3465,7 @@ function App() {
                 <div className="mb-4">
                   <EmptyState
                     title="No category items yet"
-                    text="Add bills or expenses to build category totals, sorting, and custom ordering."
+                    text="Add a bill or expense and Leftly will group it here."
                     compact
                   />
                 </div>
@@ -3724,38 +3746,19 @@ function CategoryCard({
 
   return (
     <article className={`leftly-shell-soft p-4 shadow-lg shadow-slate-950/20 ${highlightClass}`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <button type="button" onClick={onToggle} className="flex-1 text-left">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-white">{summary.category}</h3>
-            {rank <= 3 ? <Badge>{rank === 1 ? 'Highest cost' : `Top ${rank}`}</Badge> : null}
-          </div>
-          <p className="mt-1 text-sm text-slate-400">
-            {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
-          </p>
-        </button>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-white">{summary.category}</h3>
+              {rank <= 3 ? <Badge>{rank === 1 ? 'Highest cost' : `Top ${rank}`}</Badge> : null}
+            </div>
+            <p className="mt-1 text-sm text-slate-400">
+              {summary.total > 0 ? formatCurrency(summary.total) : 'No spending yet'}
+            </p>
+          </button>
 
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <button
-            type="button"
-            onClick={onMoveUp}
-            disabled={!canMoveUp}
-            aria-label={`Move ${summary.category} up`}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            onClick={onMoveDown}
-            disabled={!canMoveDown}
-            aria-label={`Move ${summary.category} down`}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            ▼
-          </button>
-          <div className="text-right">
-            <p className="text-lg font-semibold text-white">{formatCurrency(summary.total)}</p>
+          <div className="flex shrink-0 flex-col items-end gap-2">
             <button
               type="button"
               onClick={onToggle}
@@ -3765,17 +3768,48 @@ function CategoryCard({
             </button>
           </div>
         </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Badge muted>{summary.billCount} bill{summary.billCount === 1 ? '' : 's'}</Badge>
+          <Badge muted>{summary.expenseCount} expense{summary.expenseCount === 1 ? '' : 's'}</Badge>
+          {summary.manualExpenseCount > 0 ? <Badge muted>{summary.manualExpenseCount} manual</Badge> : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            aria-label={`Move ${summary.category} up`}
+            className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:w-10"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            aria-label={`Move ${summary.category} down`}
+            className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:w-10"
+          >
+            ▼
+          </button>
+          <div className="min-w-0 flex-1 text-right">
+            <p className="text-lg font-semibold text-white">{formatCurrency(summary.total)}</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Current total</p>
+          </div>
+        </div>
       </div>
 
       {expanded ? (
         <div className="mt-4 space-y-2 border-t border-slate-800/70 pt-4">
           {summary.items.length === 0 ? (
-            <EmptyState title="No items in this category" text="Add a bill or expense to see it grouped here." compact />
+            <EmptyState title="Nothing here yet" text="Add a bill or expense and it will appear in this category." compact />
           ) : (
             summary.items.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-col gap-3 leftly-shell-soft p-3 sm:flex-row sm:items-center sm:justify-between"
+                className="leftly-shell-soft flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -3786,18 +3820,26 @@ function CategoryCard({
                       </Badge>
                     ) : null}
                     {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
-                    <Badge muted>{item.kind}</Badge>
-                    <Badge>{formatCurrency(item.amount)}</Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <Badge muted>{item.kind}</Badge>
                     {item.kind === 'bill' ? <Badge muted>Due {item.dueDate}</Badge> : <Badge muted>{item.date}</Badge>}
                     {item.kind === 'bill' && item.paidDate ? <Badge success>Paid {item.paidDate}</Badge> : null}
                   </div>
+                  <p className="text-xs leading-5 text-slate-400">
+                    {item.kind === 'bill'
+                      ? item.isPaid
+                        ? 'Marked paid in this pay period.'
+                        : 'Open bill for this pay period.'
+                      : item.source === 'recurring'
+                        ? 'Recurring expense or set-aside.'
+                        : 'Manual expense logged this pay period.'}
+                  </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   {item.kind === 'bill' ? (
-                    <label className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-300">
+                    <label className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-300">
                       <input
                         type="checkbox"
                         checked={Boolean(item.isPaid)}
@@ -3811,7 +3853,7 @@ function CategoryCard({
                   <button
                     type="button"
                     onClick={() => (item.kind === 'bill' ? onEditBill(item as Bill) : onEditExpense(item as Expense))}
-                    className="button-secondary"
+                    className="button-secondary w-full sm:w-auto"
                   >
                     Edit
                   </button>
@@ -3819,7 +3861,7 @@ function CategoryCard({
                   <button
                     type="button"
                     onClick={() => (item.kind === 'bill' ? onDeleteBill(item.id) : onDeleteExpense(item.id))}
-                    className="button-secondary"
+                    className="button-secondary w-full sm:w-auto"
                   >
                     Delete
                   </button>

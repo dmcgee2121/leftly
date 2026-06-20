@@ -3122,13 +3122,8 @@ function App() {
           ) : null}
 
           {activeTab === 'income' ? (
-            <SectionShell title="Income" description="Edit the active pay period and keep the current period visible.">
+            <SectionShell title="Income" description="Update paycheck income and pay period dates.">
               <MoreBackBar onBack={openMoreMenu} />
-              <div className="mb-4 flex justify-end">
-                <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
-                  Start new pay period
-                </button>
-              </div>
 
               <StartNewPayPeriodPanel
                 currentPayPeriod={payPeriod}
@@ -3140,115 +3135,129 @@ function App() {
                 onSubmit={handleStartNewPayPeriod}
               />
 
-              <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-                <div className="rounded-[1.5rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-5">
-                      <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-200/80">Current income</p>
-                      {payPeriod ? (
-                        <>
-                          <p className="mt-3 text-4xl font-semibold tracking-tight text-white">
-                            {formatCurrency(payPeriod.income)}
-                          </p>
-                          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                            <Badge>{payPeriod.cadence}</Badge>
-                            <Badge muted>{payPeriod.startDate}</Badge>
-                            <Badge muted>{payPeriod.endDate}</Badge>
-                            {payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? <Badge success>Rollover from previous pay period</Badge> : null}
-                          </div>
-                          {payPeriod.baseIncome && payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? (
-                            <p className="mt-4 text-sm leading-6 text-slate-400">
-                              Base income {formatCurrency(payPeriod.baseIncome)} plus {formatCurrency(payPeriod.rolloverAmount)} rolled over.
-                            </p>
-                          ) : null}
-                          <p className="mt-4 text-sm leading-6 text-slate-400">
-                            This pay period drives the leftover and safe-to-spend calculations.
-                          </p>
-                        </>
-                  ) : (
-                    <EmptyState
-                      title="No active pay period yet"
-                      text="Set up a pay period on the form to unlock the budget calculations."
-                      compact
-                    />
-                  )}
+              <div className="mb-4 leftly-shell-soft p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">Current pay period</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      {payPeriod
+                        ? 'This is the paycheck Leftly is tracking right now.'
+                        : 'Set a paycheck below to begin tracking this period.'}
+                    </p>
+                  </div>
+                  {payPeriod ? <Badge muted>{payPeriod.cadence}</Badge> : <Badge muted>No active pay period</Badge>}
                 </div>
 
-                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
-                  <div className="leftly-panel-section">
-                    <div className="grid gap-1">
-                      <p className="leftly-panel-label">Active pay period</p>
-                      <p className="leftly-panel-copy">Update the income and dates for the paycheck you are tracking right now.</p>
+                {payPeriod ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="leftly-shell-soft px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Pay period</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{currentPayPeriodReview?.periodLabel ?? 'Current period'}</p>
                     </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Cadence">
-                        <select
-                          value={payPeriodDraft.cadence}
-                          onChange={(event) =>
-                            setPayPeriodDraft((current) => ({
-                              ...current,
-                              cadence: event.target.value as PayCadence,
-                            }))
-                          }
-                        >
-                          {cadenceOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Income">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={payPeriodDraft.income}
-                          onChange={(event) =>
-                            setPayPeriodDraft((current) => ({
-                              ...current,
-                              income: event.target.value,
-                            }))
-                          }
-                          placeholder="3200"
-                        />
-                      </Field>
-                      <Field label="Start date">
-                        <input
-                          type="date"
-                          value={payPeriodDraft.startDate}
-                          onChange={(event) =>
-                            setPayPeriodDraft((current) => ({
-                              ...current,
-                              startDate: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                      <Field label="End date">
-                        <input
-                          type="date"
-                          value={payPeriodDraft.endDate}
-                          onChange={(event) =>
-                            setPayPeriodDraft((current) => ({
-                              ...current,
-                              endDate: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
+                    <div className="leftly-shell-soft px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Income</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{formatCurrency(payPeriod.income)}</p>
+                    </div>
+                    <div className="leftly-shell-soft px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Cadence</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{payPeriod.cadence}</p>
                     </div>
                   </div>
+                ) : (
+                  <div className="mt-4">
+                    <EmptyState
+                      title="No active pay period yet"
+                      text="Add paycheck income and dates below to turn Income into a live pay period."
+                      compact
+                    />
+                  </div>
+                )}
 
-                  {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
-                  {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
+                <div className="mt-4 flex">
+                  <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
+                    Start new pay period
+                  </button>
+                </div>
+              </div>
 
+              <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
+                <div className="leftly-panel-section">
+                  <div className="grid gap-1">
+                    <p className="leftly-panel-label">Paycheck details</p>
+                    <p className="leftly-panel-copy">Enter the paycheck you want Leftly to track right now.</p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Cadence">
+                      <select
+                        value={payPeriodDraft.cadence}
+                        onChange={(event) =>
+                          setPayPeriodDraft((current) => ({
+                            ...current,
+                            cadence: event.target.value as PayCadence,
+                          }))
+                        }
+                      >
+                        {cadenceOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Income amount">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={payPeriodDraft.income}
+                        onChange={(event) =>
+                          setPayPeriodDraft((current) => ({
+                            ...current,
+                            income: event.target.value,
+                          }))
+                        }
+                        placeholder="3200"
+                      />
+                    </Field>
+                    <Field label="Start date">
+                      <input
+                        type="date"
+                        value={payPeriodDraft.startDate}
+                        onChange={(event) =>
+                          setPayPeriodDraft((current) => ({
+                            ...current,
+                            startDate: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label="End date">
+                      <input
+                        type="date"
+                        value={payPeriodDraft.endDate}
+                        onChange={(event) =>
+                          setPayPeriodDraft((current) => ({
+                            ...current,
+                            endDate: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
+                {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
+
+                <div className="leftly-sheet-footer">
                   <div className="leftly-action-grid">
                     <button type="submit" className="button-primary w-full sm:w-auto">
                       Save pay period
                     </button>
                   </div>
-                </form>
-              </div>
+                </div>
+              </form>
             </SectionShell>
           ) : null}
 

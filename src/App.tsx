@@ -26,7 +26,7 @@ import {
   saveSortMode,
   DEFAULT_PREFERENCES,
 } from './lib/storage'
-import { generateRecurringItems, getRecurringPeriodKey } from './lib/recurring'
+import { formatMonthlyDueDay, generateRecurringItems, getRecurringPeriodKey } from './lib/recurring'
 import { createAllHistoryCsv, createCurrentPeriodCsv, createHistorySnapshotCsv, downloadCsv } from './lib/export'
 import {
   DEFAULT_CATEGORIES,
@@ -333,7 +333,7 @@ function formatHistoryPeriodLabel(startDate: string, endDate: string) {
 
 function formatPlanSchedule(template: RecurringItemTemplate) {
   if (template.frequency === 'monthly') {
-    return template.dueDay ? `Due day ${template.dueDay}` : 'Monthly'
+    return template.dueDay ? formatMonthlyDueDay(template.dueDay) : 'Monthly'
   }
 
   if (template.frequency === 'one-time') {
@@ -1139,6 +1139,7 @@ function App() {
   )
 
   const recentBills = useMemo(() => bills.slice(0, 3), [bills])
+  const oneTimeBills = useMemo(() => bills.filter((bill) => bill.source !== 'recurring'), [bills])
   const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
   const dueSoonBills = useMemo<DueSoonBillRow[]>(() => {
     if (!payPeriod) {
@@ -3262,17 +3263,79 @@ function App() {
           ) : null}
 
           {activeTab === 'bill' ? (
-            <SectionShell title="One-time Bill" description="Add a one-time bill and keep working in the same tab.">
+            <SectionShell title="One-time Bill" description="Review one-time bills for this pay period, then add another if needed.">
               <MoreBackBar onBack={openMoreMenu} />
-              {bills.length === 0 ? (
-                <div className="mb-4">
-                  <EmptyState title="No bills yet" text="Add the next bill here when it comes up." compact />
+              <div className="mb-4 leftly-shell-soft p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">One-time bills</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      These bills are already on the current pay period and can be edited or marked paid here.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge muted>{oneTimeBills.length} item{oneTimeBills.length === 1 ? '' : 's'}</Badge>
+                    {oneTimeBills.length > 0 ? (
+                      <Badge muted>{formatCurrency(oneTimeBills.reduce((sum, bill) => sum + bill.amount, 0))}</Badge>
+                    ) : null}
+                  </div>
                 </div>
-              ) : null}
+
+                {oneTimeBills.length > 0 ? (
+                  <div className="mt-4 grid gap-2">
+                    {oneTimeBills.map((bill) => (
+                      <div
+                        key={bill.id}
+                        className="leftly-shell-soft grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium text-white">{bill.name}</p>
+                            <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                            {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
+                          </div>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {bill.category} · due {bill.dueDate}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                          <p className="text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
+                          <button
+                            type="button"
+                            onClick={() => toggleBillPaid(bill.id)}
+                            className="button-secondary w-full sm:w-auto"
+                          >
+                            {bill.isPaid ? 'Mark unpaid' : 'Mark paid'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => startEditBill(bill)}
+                            className="button-secondary w-full sm:w-auto"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteBill(bill.id)}
+                            className="button-secondary w-full sm:w-auto"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    <EmptyState title="No one-time bills yet" text="Add a one-time bill below when it belongs in this pay period." compact />
+                  </div>
+                )}
+              </div>
               <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddBill}>
                 <div className="leftly-panel-section">
                   <div className="grid gap-1">
-                    <p className="leftly-panel-label">Bill details</p>
+                    <p className="leftly-panel-label">Add a one-time bill</p>
                     <p className="leftly-panel-copy">Use this for one-off bills that belong only to the current pay period.</p>
                   </div>
 

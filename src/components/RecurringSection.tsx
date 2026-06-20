@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { DEFAULT_CATEGORIES, type RecurringFrequency, type RecurringItemTemplate } from '../types/budget'
+import { formatMonthlyDueDay } from '../lib/recurring'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -695,7 +696,7 @@ export function RecurringSection({
                       const scheduleLabel =
                         template.frequency === 'monthly'
                           ? template.dueDay
-                            ? `Due day ${template.dueDay}`
+                            ? formatMonthlyDueDay(template.dueDay)
                             : 'Monthly'
                           : frequencyLabels[template.frequency]
 

@@ -55,6 +55,29 @@ function getPeriodKey(period: BudgetPeriod) {
   return `${period.cadence}:${period.startDate}:${period.endDate}`
 }
 
+export function formatOrdinalDay(day: number) {
+  const normalized = Math.trunc(Math.abs(day))
+  const lastTwo = normalized % 100
+  if (lastTwo >= 11 && lastTwo <= 13) {
+    return `${normalized}th`
+  }
+
+  switch (normalized % 10) {
+    case 1:
+      return `${normalized}st`
+    case 2:
+      return `${normalized}nd`
+    case 3:
+      return `${normalized}rd`
+    default:
+      return `${normalized}th`
+  }
+}
+
+export function formatMonthlyDueDay(day: number) {
+  return `${formatOrdinalDay(day)} of each month`
+}
+
 function getOccurrences(template: RecurringItemTemplate, period: BudgetPeriod) {
   const start = parseDate(period.startDate)
   const end = parseDate(period.endDate)

@@ -1,4 +1,11 @@
-import type { Bill, BudgetPeriod, BudgetCategory, Expense, RecurringItemTemplate } from '../types/budget'
+import type {
+  Bill,
+  BudgetCategory,
+  BudgetPeriod,
+  Expense,
+  RecurringItemTemplate,
+  RecurringScheduleType,
+} from '../types/budget'
 
 export const MAIN_BILL_PLAN = 'Main Bill Plan'
 
@@ -11,6 +18,9 @@ export type RecurringPreviewItem = {
   dateLabel: string
   frequency: RecurringItemTemplate['frequency']
   planName: string
+  scheduleType: RecurringScheduleType
+  scheduleLabel: string
+  occurrenceLabel: string
   isSetAside?: boolean
 }
 
@@ -62,6 +72,63 @@ export function normalizeRecurringPlanName(planName?: string) {
   return planName?.trim() || MAIN_BILL_PLAN
 }
 
+const weekdayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
+const shortWeekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+
+function isValidWeekday(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 6
+}
+
+function getWeekdayFromIsoDate(value: string) {
+  const date = parseDate(value)
+  return Number.isNaN(date.getTime()) ? undefined : date.getDay()
+}
+
+export function normalizeRecurringWeekday(value: unknown) {
+  return isValidWeekday(value) ? value : undefined
+}
+
+export function normalizeRecurringScheduleType(
+  template: Pick<RecurringItemTemplate, 'scheduleType' | 'frequency' | 'dueDay' | 'dayOfWeek' | 'anchorDate'>,
+) {
+  if (template.scheduleType === 'monthly' || template.scheduleType === 'weekly' || template.scheduleType === 'biweekly') {
+    return template.scheduleType
+  }
+
+  if (template.frequency === 'monthly' || template.frequency === 'weekly' || template.frequency === 'biweekly') {
+    return template.frequency
+  }
+
+  if (typeof template.dueDay === 'number') {
+    return 'monthly'
+  }
+
+  if (isValidWeekday(template.dayOfWeek) || template.anchorDate) {
+    return 'weekly'
+  }
+
+  return 'monthly'
+}
+
+export function formatWeekday(dayOfWeek: number, style: 'long' | 'short' = 'long') {
+  const labels = style === 'short' ? shortWeekdayLabels : weekdayLabels
+  return labels[dayOfWeek] ?? ''
+}
+
+export function alignIsoDateToWeekdayOnOrAfter(value: string, dayOfWeek: number) {
+  const date = parseDate(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  const next = new Date(date)
+  while (next.getDay() !== dayOfWeek) {
+    next.setDate(next.getDate() + 1)
+  }
+
+  return formatDate(next)
+}
+
 export function formatOrdinalDay(day: number) {
   const normalized = Math.trunc(Math.abs(day))
   const lastTwo = normalized % 100
@@ -85,9 +152,44 @@ export function formatMonthlyDueDay(day: number) {
   return `${formatOrdinalDay(day)} of each month`
 }
 
+export function formatRecurringScheduleLabel(
+  template: Pick<RecurringItemTemplate, 'scheduleType' | 'frequency' | 'dueDay' | 'dayOfWeek' | 'anchorDate'>,
+) {
+  if (template.frequency === 'one-time') {
+    return 'One-time'
+  }
+
+  if (template.frequency === 'every-pay-period') {
+    return 'Every pay period'
+  }
+
+  const scheduleType = normalizeRecurringScheduleType(template)
+
+  if (scheduleType === 'monthly') {
+    return template.dueDay ? formatMonthlyDueDay(template.dueDay) : 'Monthly'
+  }
+
+  const weekday = normalizeRecurringWeekday(template.dayOfWeek) ?? (template.anchorDate ? getWeekdayFromIsoDate(template.anchorDate) : undefined)
+  if (weekday === undefined) {
+    return scheduleType === 'biweekly' ? 'Every other week' : 'Every week'
+  }
+
+  return scheduleType === 'biweekly' ? `Every other ${formatWeekday(weekday)}` : `Every ${formatWeekday(weekday)}`
+}
+
+export function formatRecurringOccurrenceLabel(dateLabel: string) {
+  const date = parseDate(dateLabel)
+  if (Number.isNaN(date.getTime())) {
+    return dateLabel
+  }
+
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).format(date)
+}
+
 function getOccurrences(template: RecurringItemTemplate, period: BudgetPeriod) {
   const start = parseDate(period.startDate)
   const end = parseDate(period.endDate)
+  const scheduleType = normalizeRecurringScheduleType(template)
 
   if (!template.isActive) {
     return [] as string[]
@@ -106,7 +208,7 @@ function getOccurrences(template: RecurringItemTemplate, period: BudgetPeriod) {
     return isWithin(anchor, start, end) ? [template.anchorDate] : []
   }
 
-  if (template.frequency === 'monthly') {
+  if (scheduleType === 'monthly') {
     if (!template.dueDay) {
       return []
     }
@@ -130,28 +232,47 @@ function getOccurrences(template: RecurringItemTemplate, period: BudgetPeriod) {
     return results
   }
 
-  if (!template.anchorDate) {
-    return []
+  if (scheduleType === 'weekly') {
+    const weekday = normalizeRecurringWeekday(template.dayOfWeek) ?? (template.anchorDate ? getWeekdayFromIsoDate(template.anchorDate) : undefined)
+    if (weekday === undefined) {
+      return []
+    }
+
+    const results: string[] = []
+    for (let current = new Date(start); current.getTime() <= end.getTime(); current = addDays(current, 1)) {
+      if (current.getDay() === weekday) {
+        results.push(formatDate(current))
+      }
+    }
+
+    return results
   }
 
-  const cadenceDays = template.frequency === 'weekly' ? 7 : 14
-  const anchor = parseDate(template.anchorDate)
-  if (anchor.getTime() > end.getTime()) {
-    return []
+  if (scheduleType === 'biweekly') {
+    if (!template.anchorDate) {
+      return []
+    }
+
+    const anchor = parseDate(template.anchorDate)
+    if (anchor.getTime() > end.getTime()) {
+      return []
+    }
+
+    let candidate = new Date(anchor)
+    while (candidate.getTime() < start.getTime()) {
+      candidate = addDays(candidate, 14)
+    }
+
+    const results: string[] = []
+    while (candidate.getTime() <= end.getTime()) {
+      results.push(formatDate(candidate))
+      candidate = addDays(candidate, 14)
+    }
+
+    return results
   }
 
-  let candidate = new Date(anchor)
-  while (candidate.getTime() < start.getTime()) {
-    candidate = addDays(candidate, cadenceDays)
-  }
-
-  const results: string[] = []
-  while (candidate.getTime() <= end.getTime()) {
-    results.push(formatDate(candidate))
-    candidate = addDays(candidate, cadenceDays)
-  }
-
-  return results
+  return []
 }
 
 function createBill(template: RecurringItemTemplate, date: string, periodKey: string): Bill {
@@ -207,6 +328,7 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
   for (const template of templates) {
     const occurrences = getOccurrences(template, period)
     for (const dateLabel of occurrences) {
+        const scheduleType = normalizeRecurringScheduleType(template)
         const item = {
           templateId: template.id,
           kind: template.kind,
@@ -216,6 +338,9 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
           dateLabel,
           frequency: template.frequency,
           planName: normalizeRecurringPlanName(template.planName),
+          scheduleType,
+          scheduleLabel: formatRecurringScheduleLabel(template),
+          occurrenceLabel: formatRecurringOccurrenceLabel(dateLabel),
         }
 
       if (template.kind === 'bill') {
@@ -235,6 +360,9 @@ export function buildRecurringPreview({ templates, period }: { templates: Recurr
         dateLabel: 'Every pay period',
         frequency: 'every-pay-period',
         planName: normalizeRecurringPlanName(template.planName),
+        scheduleType: normalizeRecurringScheduleType(template),
+        scheduleLabel: 'Every pay period',
+        occurrenceLabel: 'This pay period',
         isSetAside: true,
       })
     }

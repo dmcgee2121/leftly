@@ -14,6 +14,7 @@ export type BudgetCategory = (typeof DEFAULT_CATEGORIES)[number]
 
 export type PayCadence = 'weekly' | 'biweekly' | 'monthly'
 export type RecurringFrequency = 'every-pay-period' | 'weekly' | 'biweekly' | 'monthly' | 'one-time'
+export type RecurringScheduleType = 'monthly' | 'weekly' | 'biweekly'
 export type QuickAddDateBehavior = 'today' | 'pay-period-start' | 'blank'
 
 export type LeftlyPreferences = {
@@ -83,8 +84,10 @@ export type RecurringItemTemplate = {
   category: BudgetCategory
   kind: 'bill' | 'planned-expense'
   planName?: string
+  scheduleType?: RecurringScheduleType
   frequency: RecurringFrequency
   dueDay?: number
+  dayOfWeek?: number
   anchorDate?: string
   setAsideEnabled?: boolean
   setAsideAmount?: number

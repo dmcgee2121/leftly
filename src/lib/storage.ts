@@ -1,5 +1,5 @@
 import { DEFAULT_CATEGORIES } from '../types/budget'
-import { normalizeRecurringPlanName } from './recurring'
+import { normalizeRecurringPlanName, normalizeRecurringWeekday } from './recurring'
 import type {
   Bill,
   BudgetPeriod,
@@ -274,6 +274,12 @@ export function loadRecurringTemplates(): RecurringItemTemplate[] {
         : 'Other / Misc',
       kind: item.kind === 'planned-expense' ? 'planned-expense' : 'bill',
       planName: typeof item.planName === 'string' ? normalizeRecurringPlanName(item.planName) : undefined,
+      scheduleType:
+        item.scheduleType === 'monthly' || item.scheduleType === 'weekly' || item.scheduleType === 'biweekly'
+          ? item.scheduleType
+          : item.frequency === 'monthly' || item.frequency === 'weekly' || item.frequency === 'biweekly'
+            ? item.frequency
+            : undefined,
       frequency:
         item.frequency === 'every-pay-period' ||
         item.frequency === 'weekly' ||
@@ -283,6 +289,7 @@ export function loadRecurringTemplates(): RecurringItemTemplate[] {
           ? item.frequency
           : 'every-pay-period',
       dueDay: typeof item.dueDay === 'number' ? item.dueDay : undefined,
+      dayOfWeek: normalizeRecurringWeekday(item.dayOfWeek),
       anchorDate: typeof item.anchorDate === 'string' ? item.anchorDate : undefined,
       setAsideEnabled: typeof item.setAsideEnabled === 'boolean' ? item.setAsideEnabled : undefined,
       setAsideAmount: typeof item.setAsideAmount === 'number' && Number.isFinite(item.setAsideAmount) ? item.setAsideAmount : undefined,

@@ -26,7 +26,13 @@ import {
   saveSortMode,
   DEFAULT_PREFERENCES,
 } from './lib/storage'
-import { MAIN_BILL_PLAN, formatMonthlyDueDay, generateRecurringItems, getRecurringPeriodKey, normalizeRecurringPlanName } from './lib/recurring'
+import {
+  MAIN_BILL_PLAN,
+  formatRecurringScheduleLabel,
+  generateRecurringItems,
+  getRecurringPeriodKey,
+  normalizeRecurringPlanName,
+} from './lib/recurring'
 import { createAllHistoryCsv, createCurrentPeriodCsv, createHistorySnapshotCsv, downloadCsv } from './lib/export'
 import {
   DEFAULT_CATEGORIES,
@@ -332,19 +338,7 @@ function formatHistoryPeriodLabel(startDate: string, endDate: string) {
 }
 
 function formatPlanSchedule(template: RecurringItemTemplate) {
-  if (template.frequency === 'monthly') {
-    return template.dueDay ? formatMonthlyDueDay(template.dueDay) : 'Monthly'
-  }
-
-  if (template.frequency === 'one-time') {
-    return template.anchorDate ? `Anchor ${template.anchorDate}` : 'One-time'
-  }
-
-  if (template.frequency === 'every-pay-period') {
-    return 'Every pay period'
-  }
-
-  return template.anchorDate ? `Anchor ${template.anchorDate}` : template.frequency
+  return formatRecurringScheduleLabel(template)
 }
 
 function getUpcomingRecurringBills(templates: RecurringItemTemplate[], bills: Bill[]) {
@@ -2920,7 +2914,7 @@ function App() {
                                     {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
                                   </div>
                                   <p className="mt-1 text-[11px] text-slate-400">
-                                    {template.category} · {template.frequency} · {formatPlanSchedule(template)}
+                                    {template.category} · {formatPlanSchedule(template)}
                                   </p>
                                 </div>
                                 <p className="text-sm font-semibold text-white">{formatCurrency(template.amount)}</p>

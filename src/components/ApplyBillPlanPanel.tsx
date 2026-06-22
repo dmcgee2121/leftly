@@ -1,7 +1,11 @@
-﻿import { useMemo } from 'react'
+import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import type { Bill, BudgetPeriod, Expense, RecurringItemTemplate } from '../types/budget'
-import { buildRecurringPreview, generateRecurringItems, getRecurringPeriodKey } from '../lib/recurring'
+import {
+  buildRecurringPreview,
+  generateRecurringItems,
+  getRecurringPeriodKey,
+} from '../lib/recurring'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -21,6 +25,8 @@ type PreviewEntry = {
   category: string
   detail: string
   planName: string
+  scheduleLabel: string
+  occurrenceLabel: string
   status: 'To add' | 'Already added'
 }
 
@@ -99,7 +105,7 @@ export function ApplyBillPlanPanel({
     const billsAlreadyAdded: PreviewEntry[] = []
     for (const item of recurringPreview.bills) {
       const key = `${item.templateId}:${item.dateLabel}:${periodKey}`
-      const entry = toPreviewEntry(item, `Due ${item.dateLabel}`)
+      const entry = toPreviewEntry(item)
       if (addedBillKeys.has(key)) {
         billsAlreadyAdded.push({ ...entry, status: 'Already added' })
       } else {
@@ -111,7 +117,7 @@ export function ApplyBillPlanPanel({
     const setAsidesAlreadyAdded: PreviewEntry[] = []
     for (const item of recurringPreview.setAsides) {
       const key = `${item.templateId}:${periodKey}`
-      const entry = toPreviewEntry(item, 'Set aside each pay period')
+      const entry = toPreviewEntry(item)
       if (addedSetAsideKeys.has(key)) {
         setAsidesAlreadyAdded.push({ ...entry, status: 'Already added' })
       } else {
@@ -123,7 +129,7 @@ export function ApplyBillPlanPanel({
     const plannedAlreadyAdded: PreviewEntry[] = []
     for (const item of recurringPreview.plannedExpenses) {
       const key = `${item.templateId}:${item.dateLabel}:${periodKey}`
-      const entry = toPreviewEntry(item, `Date ${item.dateLabel}`)
+      const entry = toPreviewEntry(item)
       if (addedPlannedExpenseKeys.has(key)) {
         plannedAlreadyAdded.push({ ...entry, status: 'Already added' })
       } else {
@@ -237,16 +243,25 @@ export function ApplyBillPlanPanel({
 }
 
 function toPreviewEntry(
-  item: { name: string; amount: number; category: string; frequency: string; planName: string },
-  detail: string,
+  item: {
+    name: string
+    amount: number
+    category: string
+    planName: string
+    scheduleLabel: string
+    occurrenceLabel: string
+    dateLabel: string
+  },
 ): PreviewEntry {
   return {
-    id: `${item.name}:${detail}:${item.amount}`,
+    id: `${item.name}:${item.dateLabel}:${item.amount}`,
     label: item.name,
     amount: item.amount,
     category: item.category,
-    detail: `${item.frequency} · ${detail}`,
+    detail: `${item.scheduleLabel} · ${item.occurrenceLabel}`,
     planName: item.planName,
+    scheduleLabel: item.scheduleLabel,
+    occurrenceLabel: item.occurrenceLabel,
     status: 'To add',
   }
 }

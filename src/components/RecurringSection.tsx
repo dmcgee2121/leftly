@@ -1,7 +1,15 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { DEFAULT_CATEGORIES, type RecurringFrequency, type RecurringItemTemplate } from '../types/budget'
-import { MAIN_BILL_PLAN, formatMonthlyDueDay, normalizeRecurringPlanName } from '../lib/recurring'
+import { DEFAULT_CATEGORIES, type RecurringItemTemplate, type RecurringScheduleType } from '../types/budget'
+import {
+  MAIN_BILL_PLAN,
+  alignIsoDateToWeekdayOnOrAfter,
+  formatRecurringScheduleLabel,
+  formatWeekday,
+  normalizeRecurringPlanName,
+  normalizeRecurringScheduleType,
+  normalizeRecurringWeekday,
+} from '../lib/recurring'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -15,7 +23,8 @@ type RecurringDraft = {
   category: RecurringItemTemplate['category']
   kind: RecurringItemTemplate['kind']
   planName: string
-  frequency: RecurringFrequency
+  scheduleType: RecurringScheduleType
+  dayOfWeek: string
   dueDay: string
   anchorDate: string
   setAsideEnabled: boolean
@@ -26,17 +35,20 @@ type BulkRecurringDraft = {
   name: string
   amount: string
   category: RecurringItemTemplate['category']
-  frequency: RecurringFrequency
+  frequency: 'monthly'
   dueDay: string
 }
 
-const frequencyLabels: Record<RecurringFrequency, string> = {
-  'every-pay-period': 'Every pay period',
+const scheduleTypeLabels: Record<RecurringScheduleType, string> = {
+  monthly: 'Monthly',
   weekly: 'Weekly',
   biweekly: 'Biweekly',
-  monthly: 'Monthly',
-  'one-time': 'One-time',
 }
+
+const weekdayOptions: Array<{ value: number; label: string }> = Array.from({ length: 7 }, (_, index) => ({
+  value: index,
+  label: formatWeekday(index),
+}))
 
 function createBulkRows(): BulkRecurringDraft[] {
   return Array.from({ length: 3 }, () => ({
@@ -65,7 +77,8 @@ export function RecurringSection({
     category: 'Other / Misc',
     kind: 'bill',
     planName: MAIN_BILL_PLAN,
-    frequency: 'every-pay-period',
+    scheduleType: 'monthly',
+    dayOfWeek: '',
     dueDay: '',
     anchorDate: '',
     setAsideEnabled: false,
@@ -121,13 +134,13 @@ export function RecurringSection({
     const query = searchQuery.trim().toLowerCase()
     return sortedTemplates.filter((template) => {
       const categoryLabel = template.category || 'Other'
-      const frequencyLabel = frequencyLabels[template.frequency]
+      const scheduleLabel = formatRecurringScheduleLabel(template)
       const templatePlanName = normalizeRecurringPlanName(template.planName)
       const matchesSearch =
         query === '' ||
         template.name.toLowerCase().includes(query) ||
         categoryLabel.toLowerCase().includes(query) ||
-        frequencyLabel.toLowerCase().includes(query) ||
+        scheduleLabel.toLowerCase().includes(query) ||
         templatePlanName.toLowerCase().includes(query)
       const matchesStatus =
         statusFilter === 'all' ||
@@ -169,7 +182,8 @@ export function RecurringSection({
       category: 'Other / Misc',
       kind: 'bill',
       planName: MAIN_BILL_PLAN,
-      frequency: 'every-pay-period',
+      scheduleType: 'monthly',
+      dayOfWeek: '',
       dueDay: '',
       anchorDate: '',
       setAsideEnabled: false,
@@ -203,6 +217,12 @@ export function RecurringSection({
   }
 
   function startEdit(template: RecurringItemTemplate) {
+    const scheduleType =
+      template.frequency === 'one-time' || template.frequency === 'every-pay-period'
+        ? 'monthly'
+        : normalizeRecurringScheduleType(template)
+    const weekday =
+      normalizeRecurringWeekday(template.dayOfWeek) ?? (template.anchorDate ? new Date(`${template.anchorDate}T00:00:00`).getDay() : undefined)
     setEditingTemplateId(template.id)
     setDraft({
       name: template.name,
@@ -210,7 +230,8 @@ export function RecurringSection({
       category: template.category,
       kind: template.kind,
       planName: normalizeRecurringPlanName(template.planName),
-      frequency: template.frequency,
+      scheduleType,
+      dayOfWeek: weekday === undefined ? '' : String(weekday),
       dueDay: template.dueDay ? String(template.dueDay) : '',
       anchorDate: template.anchorDate ?? '',
       setAsideEnabled: Boolean(template.setAsideEnabled),
@@ -237,12 +258,36 @@ export function RecurringSection({
       setError('Set aside amount must be greater than 0 when set aside is enabled.')
       return
     }
-    if (draft.frequency === 'monthly' && (!draft.dueDay || Number(draft.dueDay) < 1 || Number(draft.dueDay) > 31)) {
+    if (draft.scheduleType === 'monthly' && (!draft.dueDay || Number(draft.dueDay) < 1 || Number(draft.dueDay) > 31)) {
       setError('Monthly items need a due day between 1 and 31.')
       return
     }
-    if (['weekly', 'biweekly', 'one-time'].includes(draft.frequency) && !draft.anchorDate) {
-      setError('Weekly, biweekly, and one-time items need an anchor date.')
+    if (draft.scheduleType === 'weekly' && !draft.dayOfWeek) {
+      setError('Weekly items need a day of week.')
+      return
+    }
+    if (draft.scheduleType === 'biweekly') {
+      if (!draft.dayOfWeek) {
+        setError('Biweekly items need a day of week.')
+        return
+      }
+      if (!draft.anchorDate) {
+        setError('Biweekly items need an anchor date.')
+        return
+      }
+    }
+
+    const parsedDayOfWeek = draft.dayOfWeek === '' ? undefined : Number(draft.dayOfWeek)
+    if (draft.scheduleType === 'biweekly' && draft.anchorDate && parsedDayOfWeek !== undefined) {
+      const anchoredWeekday = new Date(`${draft.anchorDate}T00:00:00`).getDay()
+      if (anchoredWeekday !== parsedDayOfWeek) {
+        setError('Biweekly anchor date must match the selected day of week.')
+        return
+      }
+    }
+
+    if (draft.scheduleType === 'weekly' && draft.dayOfWeek === '') {
+      setError('Weekly items need a day of week.')
       return
     }
 
@@ -253,9 +298,11 @@ export function RecurringSection({
       category: draft.category,
       kind: draft.kind,
       planName: normalizeRecurringPlanName(draft.planName),
-      frequency: draft.frequency,
-      dueDay: draft.frequency === 'monthly' ? Number(draft.dueDay) : undefined,
-      anchorDate: ['weekly', 'biweekly', 'one-time'].includes(draft.frequency) ? draft.anchorDate : undefined,
+      scheduleType: draft.scheduleType,
+      frequency: draft.scheduleType,
+      dueDay: draft.scheduleType === 'monthly' ? Number(draft.dueDay) : undefined,
+      dayOfWeek: draft.scheduleType === 'monthly' ? undefined : parsedDayOfWeek,
+      anchorDate: draft.scheduleType === 'biweekly' ? draft.anchorDate : undefined,
       setAsideEnabled: draft.kind === 'bill' ? draft.setAsideEnabled : undefined,
       setAsideAmount: draft.kind === 'bill' ? setAsideAmount : undefined,
       isActive: editingTemplateId
@@ -501,7 +548,7 @@ export function RecurringSection({
                     <Field label="Frequency">
                       <select
                         value={row.frequency}
-                        onChange={(event) => updateBulkRow(index, { frequency: event.target.value as RecurringFrequency })}
+                        onChange={(event) => updateBulkRow(index, { frequency: event.target.value as 'monthly' })}
                       >
                         <option value="monthly">Monthly</option>
                       </select>
@@ -616,12 +663,25 @@ export function RecurringSection({
             />
           </Field>
 
-          <Field label="Frequency">
+          <Field label="Schedule">
             <select
-              value={draft.frequency}
-              onChange={(event) => setDraft({ ...draft, frequency: event.target.value as RecurringFrequency })}
+              value={draft.scheduleType}
+              onChange={(event) => {
+                const nextScheduleType = event.target.value as RecurringScheduleType
+                setDraft((current) => {
+                  const currentDayOfWeek = current.dayOfWeek === '' ? String(new Date().getDay()) : current.dayOfWeek
+                  const currentAnchorDate = current.anchorDate || new Date().toISOString().slice(0, 10)
+                  return {
+                    ...current,
+                    scheduleType: nextScheduleType,
+                    dayOfWeek: nextScheduleType === 'monthly' ? '' : currentDayOfWeek,
+                    dueDay: nextScheduleType === 'monthly' ? current.dueDay || '1' : '',
+                    anchorDate: nextScheduleType === 'biweekly' ? currentAnchorDate : '',
+                  }
+                })
+              }}
             >
-              {Object.entries(frequencyLabels).map(([value, label]) => (
+              {Object.entries(scheduleTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -629,7 +689,7 @@ export function RecurringSection({
             </select>
           </Field>
 
-          {draft.frequency === 'monthly' ? (
+          {draft.scheduleType === 'monthly' ? (
             <Field label="Due day">
               <input
                 type="number"
@@ -643,12 +703,47 @@ export function RecurringSection({
             </Field>
           ) : null}
 
-          {draft.frequency === 'weekly' || draft.frequency === 'biweekly' || draft.frequency === 'one-time' ? (
+          {draft.scheduleType === 'weekly' || draft.scheduleType === 'biweekly' ? (
+            <Field label="Day of week">
+              <select
+                value={draft.dayOfWeek}
+                onChange={(event) =>
+                  setDraft((current) => {
+                    const nextDayOfWeek = event.target.value
+                    if (current.scheduleType === 'biweekly' && current.anchorDate && nextDayOfWeek !== '') {
+                      return {
+                        ...current,
+                        dayOfWeek: nextDayOfWeek,
+                        anchorDate: alignIsoDateToWeekdayOnOrAfter(current.anchorDate, Number(nextDayOfWeek)),
+                      }
+                    }
+
+                    return { ...current, dayOfWeek: nextDayOfWeek }
+                  })
+                }
+              >
+                <option value="">Select day</option>
+                {weekdayOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+
+          {draft.scheduleType === 'biweekly' ? (
             <Field label="Anchor date">
               <input
                 type="date"
                 value={draft.anchorDate}
-                onChange={(event) => setDraft({ ...draft, anchorDate: event.target.value })}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    anchorDate: event.target.value,
+                    dayOfWeek: event.target.value ? String(new Date(`${event.target.value}T00:00:00`).getDay()) : current.dayOfWeek,
+                  }))
+                }
               />
             </Field>
           ) : null}
@@ -751,12 +846,7 @@ export function RecurringSection({
                       const isSetAside =
                         template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0
                       const planName = normalizeRecurringPlanName(template.planName)
-                      const scheduleLabel =
-                        template.frequency === 'monthly'
-                          ? template.dueDay
-                            ? formatMonthlyDueDay(template.dueDay)
-                            : 'Monthly'
-                          : frequencyLabels[template.frequency]
+                      const scheduleLabel = formatRecurringScheduleLabel(template)
 
                       return (
                         <article

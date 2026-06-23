@@ -1139,6 +1139,22 @@ function App() {
 
   const recentBills = useMemo(() => bills.slice(0, 3), [bills])
   const oneTimeBills = useMemo(() => bills.filter((bill) => bill.source !== 'recurring'), [bills])
+  const oneTimeBillSummary = useMemo(
+    () =>
+      oneTimeBills.reduce(
+        (summary, bill) => {
+          summary.total += bill.amount
+          if (bill.isPaid) {
+            summary.paidCount += 1
+          } else {
+            summary.unpaidCount += 1
+          }
+          return summary
+        },
+        { total: 0, paidCount: 0, unpaidCount: 0 },
+      ),
+    [oneTimeBills],
+  )
   const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
   const dueSoonBills = useMemo<DueSoonBillRow[]>(() => {
     if (!payPeriod) {
@@ -3277,95 +3293,138 @@ function App() {
           ) : null}
 
           {activeTab === 'bill' ? (
-            <SectionShell title="One-time Bill" description="Review one-time bills for this pay period, then add another if needed.">
+            <SectionShell title="One-time Bill" description="Review and manage unusual bills that belong only to the current pay period.">
               <MoreBackBar onBack={openMoreMenu} />
-              <div className="mb-4 leftly-shell-soft p-4 sm:p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">One-time bills</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      These bills are already on the current pay period and can be edited or marked paid here.
-                    </p>
+              <div className="grid gap-4">
+                <div className="leftly-shell-soft p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Current pay period bills</p>
+                      <p className="mt-2 text-lg font-semibold text-white">Keep unusual bills separate from Bill Plan.</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                        {payPeriod
+                          ? `These one-time bills apply to ${payPeriod.startDate} to ${payPeriod.endDate}.`
+                          : 'Review unusual bills here, then start a pay period in Income when you are ready.'}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
+                      <Badge muted>{oneTimeBills.length} bill{oneTimeBills.length === 1 ? '' : 's'}</Badge>
+                      {oneTimeBills.length > 0 ? <Badge muted>{formatCurrency(oneTimeBillSummary.total)}</Badge> : null}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge muted>{oneTimeBills.length} item{oneTimeBills.length === 1 ? '' : 's'}</Badge>
-                    {oneTimeBills.length > 0 ? (
-                      <Badge muted>{formatCurrency(oneTimeBills.reduce((sum, bill) => sum + bill.amount, 0))}</Badge>
-                    ) : null}
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm leading-6 text-slate-400">
+                      Recurring bills still belong in Bill Plan. Use this screen for unusual charges that only belong to this pay period once.
+                    </p>
+                    <button type="button" onClick={() => setActiveTab('recurring')} className="button-secondary w-full sm:w-auto">
+                      Open Bill Plan
+                    </button>
                   </div>
                 </div>
 
-                {oneTimeBills.length > 0 ? (
-                  <div className="mt-4 grid gap-2">
-                    {oneTimeBills.map((bill) => (
-                      <div
-                        key={bill.id}
-                        className="leftly-shell-soft grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate font-medium text-white">{bill.name}</p>
-                            <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                <div className="leftly-shell-soft p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">Existing one-time bills</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                        Review unusual bills for this pay period, then edit, delete, or mark them paid here.
+                      </p>
+                    </div>
+                    {oneTimeBills.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        <Badge muted>{oneTimeBillSummary.unpaidCount} unpaid</Badge>
+                        <Badge muted>{oneTimeBillSummary.paidCount} paid</Badge>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {billStatus ? (
+                    <div className="mt-4">
+                      <SuccessMessage>{billStatus}</SuccessMessage>
+                    </div>
+                  ) : null}
+
+                  {oneTimeBills.length > 0 ? (
+                    <div className="mt-4 grid gap-2.5">
+                      {oneTimeBills.map((bill) => (
+                        <div key={bill.id} className="leftly-compact-list-card">
+                          <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-white">{bill.name}</p>
+                                <p className="mt-1 text-xs leading-5 text-slate-400">
+                                  Due {formatCompactDateLabel(bill.dueDate)} · {bill.category}
+                                </p>
+                              </div>
+                              <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <span className={`leftly-chip px-3 py-1 text-xs font-medium ${bill.isPaid ? 'leftly-chip-success' : 'leftly-chip-warning'}`}>
+                              {bill.isPaid ? 'Paid' : 'Unpaid'}
+                            </span>
+                            {bill.paidDate ? <Badge muted>Paid {formatCompactDateLabel(bill.paidDate)}</Badge> : null}
                             {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
                           </div>
-                          <p className="mt-1 text-[11px] text-slate-400">
-                            {bill.category} · due {bill.dueDate}
-                          </p>
-                        </div>
 
-                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                          <p className="text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
-                          <button
-                            type="button"
-                            onClick={() => toggleBillPaid(bill.id)}
-                            className="button-secondary w-full sm:w-auto"
-                          >
-                            {bill.isPaid ? 'Mark unpaid' : 'Mark paid'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => startEditBill(bill)}
-                            className="button-secondary w-full sm:w-auto"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteBill(bill.id)}
-                            className="button-secondary w-full sm:w-auto"
-                          >
-                            Delete
-                          </button>
+                          <div className="leftly-compact-actions">
+                            <button
+                              type="button"
+                              onClick={() => toggleBillPaid(bill.id)}
+                              className="button-secondary col-span-2 w-full sm:w-auto"
+                            >
+                              {bill.isPaid ? 'Mark unpaid' : 'Mark paid'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startEditBill(bill)}
+                              className="button-secondary w-full sm:w-auto"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteBill(bill.id)}
+                              className="button-secondary w-full sm:w-auto"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-4">
-                    <EmptyState title="No one-time bills yet" text="Add a one-time bill below when it belongs in this pay period." compact />
-                  </div>
-                )}
-              </div>
-              <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddBill}>
-                <div className="leftly-panel-section">
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <EmptyState title="No one-time bills yet" text="Add an unusual bill for this pay period." compact />
+                    </div>
+                  )}
+                </div>
+
+                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddBill}>
                   <div className="grid gap-1">
-                    <p className="leftly-panel-label">Add a one-time bill</p>
-                    <p className="leftly-panel-copy">Use this for one-off bills that belong only to the current pay period.</p>
+                    <p className="leftly-panel-label">Add one-time bill</p>
+                    <p className="leftly-panel-copy">Enter the bill details below to track a charge that does not belong in Bill Plan.</p>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Name">
-                      <input
-                        value={billDraft.name}
-                        onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
-                        placeholder="Rent"
-                      />
-                    </Field>
+                  <div className="leftly-form-grid">
+                    <div className="leftly-form-grid-full">
+                      <Field label="Name">
+                        <input
+                          value={billDraft.name}
+                          onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
+                          placeholder="Car repair"
+                        />
+                      </Field>
+                    </div>
                     <Field label="Amount">
                       <input
                         type="number"
                         min="0"
                         step="0.01"
+                        inputMode="decimal"
                         value={billDraft.amount}
                         onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))}
                         placeholder="1200"
@@ -3378,35 +3437,47 @@ function App() {
                         onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))}
                       />
                     </Field>
-                    <Field label="Category">
-                      <select
-                        value={billDraft.category}
-                        onChange={(event) =>
-                          setBillDraft((current) => ({
-                            ...current,
-                            category: event.target.value as BudgetCategory,
-                          }))
-                        }
-                      >
-                        {DEFAULT_CATEGORIES.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+                    <div className="leftly-form-grid-full">
+                      <Field label="Category">
+                        <select
+                          value={billDraft.category}
+                          onChange={(event) =>
+                            setBillDraft((current) => ({
+                              ...current,
+                              category: event.target.value as BudgetCategory,
+                            }))
+                          }
+                        >
+                          {DEFAULT_CATEGORIES.map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    </div>
                   </div>
-                </div>
 
-                {billError ? <FormMessage>{billError}</FormMessage> : null}
-                {billSuccess ? <SuccessMessage>{billSuccess}</SuccessMessage> : null}
+                  <div className="leftly-shell-faint p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Paid status</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      New one-time bills start unpaid. Mark them paid from the list above after the bill is handled.
+                    </p>
+                  </div>
 
-                <div className="leftly-action-grid">
-                  <button type="submit" className="button-primary w-full sm:w-auto">
-                    Add bill
-                  </button>
-                </div>
-              </form>
+                  {billError ? <FormMessage>{billError}</FormMessage> : null}
+                  {billSuccess ? <SuccessMessage>{billSuccess}</SuccessMessage> : null}
+
+                  <div className="leftly-action-grid">
+                    <button type="button" onClick={openMoreMenu} className="button-secondary w-full sm:w-auto">
+                      Back to More
+                    </button>
+                    <button type="submit" className="button-primary w-full sm:w-auto">
+                      Save one-time bill
+                    </button>
+                  </div>
+                </form>
+              </div>
             </SectionShell>
           ) : null}
 

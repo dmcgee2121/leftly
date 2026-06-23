@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
+import { MAIN_BILL_PLAN } from '../lib/recurring'
 import type { Bill, BudgetPeriod, Expense, RecurringItemTemplate } from '../types/budget'
 import {
   buildRecurringPreview,
@@ -20,14 +21,17 @@ type ApplyResult = {
 
 type PreviewEntry = {
   id: string
+  templateId: string
   label: string
   amount: number
   category: string
-  detail: string
   planName: string
   scheduleLabel: string
   occurrenceLabel: string
-  status: 'To add' | 'Already added'
+  dateLabel: string
+  status: 'Ready' | 'Already added'
+  occurrenceIndex: number
+  occurrenceCount: number
 }
 
 type ApplyPreview = {
@@ -43,6 +47,18 @@ type ApplyPreview = {
   plannedToAdd: PreviewEntry[]
   plannedAlreadyAdded: PreviewEntry[]
   hasTemplates: boolean
+  planNames: string[]
+}
+
+type RecurringPreviewLikeItem = {
+  templateId: string
+  name: string
+  amount: number
+  category: string
+  planName: string
+  scheduleLabel: string
+  occurrenceLabel: string
+  dateLabel: string
 }
 
 export function ApplyBillPlanPanel({
@@ -109,7 +125,7 @@ export function ApplyBillPlanPanel({
       if (addedBillKeys.has(key)) {
         billsAlreadyAdded.push({ ...entry, status: 'Already added' })
       } else {
-        billsToAdd.push({ ...entry, status: 'To add' })
+        billsToAdd.push({ ...entry, status: 'Ready' })
       }
     }
 
@@ -121,7 +137,7 @@ export function ApplyBillPlanPanel({
       if (addedSetAsideKeys.has(key)) {
         setAsidesAlreadyAdded.push({ ...entry, status: 'Already added' })
       } else {
-        setAsidesToAdd.push({ ...entry, status: 'To add' })
+        setAsidesToAdd.push({ ...entry, status: 'Ready' })
       }
     }
 
@@ -133,9 +149,18 @@ export function ApplyBillPlanPanel({
       if (addedPlannedExpenseKeys.has(key)) {
         plannedAlreadyAdded.push({ ...entry, status: 'Already added' })
       } else {
-        plannedToAdd.push({ ...entry, status: 'To add' })
+        plannedToAdd.push({ ...entry, status: 'Ready' })
       }
     }
+
+    const planNames = getUniquePlanNames([
+      ...billsToAdd,
+      ...billsAlreadyAdded,
+      ...setAsidesToAdd,
+      ...setAsidesAlreadyAdded,
+      ...plannedToAdd,
+      ...plannedAlreadyAdded,
+    ])
 
     return {
       summary: {
@@ -143,13 +168,14 @@ export function ApplyBillPlanPanel({
         startDate: activePayPeriod.startDate,
         endDate: activePayPeriod.endDate,
       },
-      billsToAdd,
-      billsAlreadyAdded,
-      setAsidesToAdd,
-      setAsidesAlreadyAdded,
-      plannedToAdd,
-      plannedAlreadyAdded,
+      billsToAdd: annotateOccurrences(billsToAdd),
+      billsAlreadyAdded: annotateOccurrences(billsAlreadyAdded),
+      setAsidesToAdd: annotateOccurrences(setAsidesToAdd),
+      setAsidesAlreadyAdded: annotateOccurrences(setAsidesAlreadyAdded),
+      plannedToAdd: annotateOccurrences(plannedToAdd),
+      plannedAlreadyAdded: annotateOccurrences(plannedAlreadyAdded),
       hasTemplates: activeTemplates.length > 0,
+      planNames,
     }
   }, [activePayPeriod, bills, expenses, templates])
 
@@ -169,6 +195,7 @@ export function ApplyBillPlanPanel({
     preview.billsAlreadyAdded.length + preview.setAsidesAlreadyAdded.length + preview.plannedAlreadyAdded.length
   const readyToAddCount =
     preview.billsToAdd.length + preview.setAsidesToAdd.length + preview.plannedToAdd.length
+  const planContext = formatPlanContext(preview.planNames)
 
   function handleApply() {
     const generated = generateRecurringItems({
@@ -190,33 +217,47 @@ export function ApplyBillPlanPanel({
       <button type="button" aria-label="Close bill plan review" className="absolute inset-0 cursor-default" onClick={onClose} />
       <section className="leftly-sheet max-w-3xl">
         <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Bill Plan</p>
-            <h3 className="mt-1 text-lg font-semibold text-white">Review Bill Plan items</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-400">
-              Review what Leftly will add before updating your active budget.
+            <h3 className="mt-1 text-lg font-semibold text-white">Apply Bill Plan</h3>
+            <p className="mt-1 max-w-xl text-sm leading-6 text-slate-400">
+              Add the ready Bill Plan items below to this pay period.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge>{readyToAddCount} ready to add</Badge>
-              {alreadyAddedCount > 0 ? <Badge muted>{alreadyAddedCount} already added</Badge> : null}
-            </div>
           </div>
           <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
             Close
           </button>
         </div>
 
-        <div className="leftly-shell-soft mt-4 grid gap-3 p-4 sm:grid-cols-3">
-          <SummaryCard label="Pay period" value={`${preview.summary.startDate} to ${preview.summary.endDate}`} />
-          <SummaryCard label="Income" value={formatCurrency(preview.summary.income)} />
-          <SummaryCard label="Ready to add" value={`${readyToAddCount}`} detail={alreadyAddedCount > 0 ? `${alreadyAddedCount} already added` : 'Nothing duplicated'} />
+        <div className="leftly-shell-soft mt-4 grid gap-3 p-3 sm:p-4">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <ContextCard label="Pay period" value={`${preview.summary.startDate} to ${preview.summary.endDate}`} />
+            <ContextCard label="Plan" value={planContext} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <ContextStat label="Ready to add" value={String(readyToAddCount)} tone="ready" />
+            <ContextStat label="Already added" value={String(alreadyAddedCount)} tone="muted" />
+          </div>
         </div>
 
         {!hasAnythingToAdd && !hasAnythingAlreadyAdded ? (
-          <div className="leftly-shell-faint mt-4 grid gap-3 p-4">
-            <p className="text-sm font-semibold text-white">Nothing from Bill Plan lands in this pay period.</p>
+          <div className="leftly-empty mt-4 grid gap-2">
+            <p className="text-sm font-semibold text-white">
+              {preview.hasTemplates ? 'Nothing from Bill Plan lands in this pay period.' : 'No Bill Plan items yet.'}
+            </p>
             <p className="text-sm leading-6 text-slate-400">
-              Items saved in Bill Plan will appear when their due date falls inside a pay period, or when set-aside is enabled.
+              {preview.hasTemplates
+                ? 'Weekly, biweekly, and monthly items will show up here when one of their dates falls inside this range.'
+                : 'Save a bill or planned item first, then Leftly can apply it to the current pay period.'}
+            </p>
+          </div>
+        ) : null}
+
+        {!hasAnythingToAdd && hasAnythingAlreadyAdded ? (
+          <div className="leftly-empty mt-4 grid gap-2">
+            <p className="text-sm font-semibold text-white">Everything for this pay period is already in place.</p>
+            <p className="text-sm leading-6 text-slate-400">
+              Leftly found matching Bill Plan items, but they were already added so nothing new will be duplicated.
             </p>
           </div>
         ) : null}
@@ -228,9 +269,23 @@ export function ApplyBillPlanPanel({
         </div>
 
         <div className="leftly-sheet-footer">
-          <div className="leftly-action-grid">
-            <button type="button" onClick={handleApply} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-              Apply selected items
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800/70 pb-3 sm:hidden">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Ready now</p>
+              <p className="text-sm font-semibold text-white">
+                {readyToAddCount > 0 ? `${readyToAddCount} item${readyToAddCount === 1 ? '' : 's'} ready` : 'Nothing new to apply'}
+              </p>
+            </div>
+            {alreadyAddedCount > 0 ? <Badge muted>{alreadyAddedCount} already added</Badge> : null}
+          </div>
+          <div className="leftly-action-grid pt-3 sm:pt-0">
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={!hasAnythingToAdd}
+              className={`${buttonStyles.primary} w-full sm:w-auto`}
+            >
+              {hasAnythingToAdd ? `Apply selected bills (${readyToAddCount})` : 'Nothing new to apply'}
             </button>
             <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
               Back
@@ -242,28 +297,73 @@ export function ApplyBillPlanPanel({
   )
 }
 
-function toPreviewEntry(
-  item: {
-    name: string
-    amount: number
-    category: string
-    planName: string
-    scheduleLabel: string
-    occurrenceLabel: string
-    dateLabel: string
-  },
-): PreviewEntry {
+function toPreviewEntry(item: RecurringPreviewLikeItem): PreviewEntry {
   return {
-    id: `${item.name}:${item.dateLabel}:${item.amount}`,
+    id: `${item.templateId}:${item.dateLabel}:${item.amount}:${item.name}`,
+    templateId: item.templateId,
     label: item.name,
     amount: item.amount,
     category: item.category,
-    detail: `${item.scheduleLabel} · ${item.occurrenceLabel}`,
     planName: item.planName,
     scheduleLabel: item.scheduleLabel,
     occurrenceLabel: item.occurrenceLabel,
-    status: 'To add',
+    dateLabel: item.dateLabel,
+    status: 'Ready',
+    occurrenceIndex: 1,
+    occurrenceCount: 1,
   }
+}
+
+function annotateOccurrences(entries: PreviewEntry[]) {
+  const grouped = new Map<string, PreviewEntry[]>()
+
+  for (const entry of entries) {
+    const key = `${entry.templateId}:${entry.status}`
+    const current = grouped.get(key) ?? []
+    current.push(entry)
+    grouped.set(key, current)
+  }
+
+  return entries.map((entry) => {
+    const matches = [...(grouped.get(`${entry.templateId}:${entry.status}`) ?? [])].sort((left, right) =>
+      left.dateLabel.localeCompare(right.dateLabel),
+    )
+    const occurrenceIndex = matches.findIndex((candidate) => candidate.id === entry.id) + 1
+
+    return {
+      ...entry,
+      occurrenceIndex,
+      occurrenceCount: matches.length,
+    }
+  })
+}
+
+function getUniquePlanNames(entries: PreviewEntry[]) {
+  return [...new Set(entries.map((entry) => entry.planName).filter(Boolean))].sort((left, right) => {
+    if (left === MAIN_BILL_PLAN) {
+      return -1
+    }
+    if (right === MAIN_BILL_PLAN) {
+      return 1
+    }
+    return left.localeCompare(right)
+  })
+}
+
+function formatPlanContext(planNames: string[]) {
+  if (planNames.length === 0) {
+    return 'No active plan items'
+  }
+
+  if (planNames.length === 1) {
+    return planNames[0]
+  }
+
+  if (planNames.length === 2) {
+    return `${planNames[0]} + ${planNames[1]}`
+  }
+
+  return `${planNames.length} plans in this pay period`
 }
 
 function PreviewGroup({
@@ -281,31 +381,27 @@ function PreviewGroup({
     <div className="leftly-shell-soft p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-white">{title}</p>
-        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-          {toAdd.length} to add{alreadyAdded.length > 0 ? ` · ${alreadyAdded.length} already added` : ''}
-        </p>
+        <div className="flex flex-wrap gap-2">
+          {toAdd.length > 0 ? <Badge>{toAdd.length} ready</Badge> : null}
+          {alreadyAdded.length > 0 ? <Badge muted>{alreadyAdded.length} already added</Badge> : null}
+        </div>
       </div>
 
       {toAdd.length === 0 && alreadyAdded.length === 0 ? (
-        <p className="mt-3 text-sm leading-6 text-slate-400">Nothing to add yet. Bill Plan items only appear here when they belong in this pay period.</p>
+        <p className="mt-3 text-sm leading-6 text-slate-400">Nothing from this section belongs in the current pay period.</p>
       ) : (
         <div className="mt-3 grid gap-3">
           {toAdd.map((item) => (
             <PreviewRow key={item.id} item={item} />
           ))}
-          {alreadyAdded.length > 0 ? (
-            <div className="leftly-shell-faint grid gap-2 p-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Already added</p>
-              {alreadyAdded.map((item) => (
-                <PreviewRow key={item.id} item={item} />
-              ))}
-            </div>
-          ) : null}
+          {alreadyAdded.map((item) => (
+            <PreviewRow key={item.id} item={item} />
+          ))}
         </div>
       )}
       {totalRows > 0 ? (
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          {toAdd.length > 0 ? 'New items will affect this pay period after you apply.' : 'Everything here is already active in this pay period.'}
+          {toAdd.length > 0 ? 'Each row is one occurrence that will be added for this pay period.' : 'These occurrences are already part of this pay period.'}
         </p>
       ) : null}
     </div>
@@ -313,36 +409,93 @@ function PreviewGroup({
 }
 
 function PreviewRow({ item }: { item: PreviewEntry }) {
-  const rowClass =
-    item.status === 'Already added'
-      ? 'border-emerald-400/20 bg-emerald-400/10'
-      : 'border-cyan-400/20 bg-cyan-400/10'
+  const isAlreadyAdded = item.status === 'Already added'
+  const rowClass = isAlreadyAdded
+    ? 'border-slate-800/90 bg-slate-950/45'
+    : 'border-cyan-400/20 bg-cyan-400/10 shadow-[0_0_0_1px_rgba(34,211,238,0.05)]'
+  const amountClass = isAlreadyAdded ? 'text-slate-300' : 'text-white'
 
   return (
-    <div className={`leftly-shell-soft flex flex-col gap-2 border p-3 sm:flex-row sm:items-start sm:justify-between ${rowClass}`}>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate font-semibold text-white">{item.label}</p>
-          <Badge muted={item.status === 'Already added'} success={item.status === 'Already added'}>
-            {item.status}
-          </Badge>
-          <Badge muted>{item.planName}</Badge>
+    <div className={`leftly-shell-soft overflow-hidden border p-3 ${rowClass}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3 sm:hidden">
+            <p className="min-w-0 flex-1 text-sm font-semibold text-white">{item.label}</p>
+            <p className={`shrink-0 text-sm font-semibold ${amountClass}`}>{formatCurrency(item.amount)}</p>
+          </div>
+
+          <div className="hidden items-start justify-between gap-3 sm:flex">
+            <p className="min-w-0 flex-1 text-sm font-semibold text-white">{item.label}</p>
+            <p className={`shrink-0 text-sm font-semibold ${amountClass}`}>{formatCurrency(item.amount)}</p>
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge muted={isAlreadyAdded}>
+              {item.status}
+            </Badge>
+            <Badge muted>{item.planName}</Badge>
+            <Badge muted>{item.scheduleLabel}</Badge>
+            {item.occurrenceCount > 1 ? (
+              <Badge muted>
+                Occurrence {item.occurrenceIndex} of {item.occurrenceCount}
+              </Badge>
+            ) : null}
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <DetailTile label={item.status === 'Already added' ? 'Added for' : 'Adds for'} value={item.occurrenceLabel} quiet={isAlreadyAdded} />
+            <DetailTile label="Category" value={item.category} quiet={isAlreadyAdded} />
+          </div>
         </div>
-        <p className="mt-1 text-xs leading-5 text-slate-400">
-          {item.category} · {item.detail}
-        </p>
       </div>
-      <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</p>
     </div>
   )
 }
 
-function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function ContextCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="leftly-shell-soft px-4 py-3.5">
+    <div className="rounded-[1rem] border border-slate-800/80 bg-slate-950/45 px-3.5 py-3">
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold tracking-[-0.02em] text-white">{value}</p>
-      {detail ? <p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p> : null}
+      <p className="mt-1.5 text-sm font-semibold tracking-[-0.02em] text-white">{value}</p>
+    </div>
+  )
+}
+
+function ContextStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone: 'ready' | 'muted'
+}) {
+  const classes =
+    tone === 'ready'
+      ? 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
+      : 'border-slate-800/80 bg-slate-950/45 text-slate-200'
+
+  return (
+    <div className={`rounded-[1rem] border px-3.5 py-3 ${classes}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-1.5 text-base font-semibold tracking-[-0.02em]">{value}</p>
+    </div>
+  )
+}
+
+function DetailTile({
+  label,
+  value,
+  quiet = false,
+}: {
+  label: string
+  value: string
+  quiet?: boolean
+}) {
+  return (
+    <div className={`rounded-[0.95rem] border px-3 py-2.5 ${quiet ? 'border-slate-800/80 bg-slate-950/40' : 'border-slate-700/80 bg-slate-950/55'}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className={`mt-1 text-sm font-medium ${quiet ? 'text-slate-300' : 'text-slate-100'}`}>{value}</p>
     </div>
   )
 }
@@ -363,4 +516,3 @@ function Badge({
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
-

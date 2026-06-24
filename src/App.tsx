@@ -2894,6 +2894,7 @@ function App() {
                         payPeriod={payPeriod}
                         bills={bills}
                         expenses={expenses}
+                        recurringTemplates={recurringTemplates}
                         onEditBill={startEditBill}
                         onEditExpense={startEditExpense}
                       />

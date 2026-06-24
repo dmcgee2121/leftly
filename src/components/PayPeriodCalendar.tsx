@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Bill, BudgetPeriod, Expense } from '../types/budget'
+import { formatRecurringScheduleLabel, normalizeRecurringPlanName } from '../lib/recurring'
+import type { Bill, BudgetPeriod, Expense, RecurringItemTemplate } from '../types/budget'
 
 type CalendarItemKind = 'income' | 'bill' | 'expense' | 'set-aside'
 type CalendarItemTone = 'income' | 'bill' | 'expense' | 'set-aside' | 'paid'
@@ -14,6 +15,9 @@ type CalendarItem = {
   paidStatus?: 'Paid' | 'Unpaid'
   carriedOverFromPayPeriodId?: string
   detail: string
+  planName?: string
+  scheduleLabel?: string
+  paidDate?: string | null
   onClick?: () => void
 }
 
@@ -69,6 +73,7 @@ function buildDays(
   payPeriod: BudgetPeriod,
   bills: Bill[],
   expenses: Expense[],
+  recurringTemplates: RecurringItemTemplate[],
   onEditBill?: (bill: Bill) => void,
   onEditExpense?: (expense: Expense) => void,
 ) {
@@ -88,6 +93,7 @@ function buildDays(
     billByDate.set(isoDate, bucket)
     return bucket
   }
+  const recurringTemplateById = new Map(recurringTemplates.map((template) => [template.id, template]))
 
   const days: CalendarDay[] = []
   for (let current = new Date(start); current <= end; current = addDays(current, 1)) {
@@ -120,6 +126,7 @@ function buildDays(
     if (!billByDate.has(isoDate)) {
       continue
     }
+    const template = bill.templateId ? recurringTemplateById.get(bill.templateId) : undefined
 
     ensureBucket(isoDate).push({
       id: bill.id,
@@ -131,6 +138,9 @@ function buildDays(
       paidStatus: bill.isPaid ? 'Paid' : 'Unpaid',
       carriedOverFromPayPeriodId: bill.carriedOverFromPayPeriodId,
       detail: bill.isPaid ? 'Paid bill' : 'Bill',
+      planName: template ? normalizeRecurringPlanName(template.planName) : undefined,
+      scheduleLabel: template ? formatRecurringScheduleLabel(template) : undefined,
+      paidDate: bill.paidDate,
       onClick: onEditBill ? () => onEditBill(bill) : undefined,
     })
   }
@@ -142,6 +152,7 @@ function buildDays(
     }
 
     const isSetAside = Boolean(expense.setAsideForTemplateId)
+    const template = expense.templateId ? recurringTemplateById.get(expense.templateId) : undefined
     ensureBucket(isoDate).push({
       id: expense.id,
       kind: isSetAside ? 'set-aside' : 'expense',
@@ -150,6 +161,8 @@ function buildDays(
       amount: expense.amount,
       category: expense.category,
       detail: isSetAside ? 'Set-aside' : expense.isPlanned ? 'Planned spending' : 'Expense',
+      planName: template ? normalizeRecurringPlanName(template.planName) : undefined,
+      scheduleLabel: template ? formatRecurringScheduleLabel(template) : undefined,
       onClick: onEditExpense ? () => onEditExpense(expense) : undefined,
     })
   }
@@ -201,22 +214,36 @@ function itemBadgeClasses(tone: CalendarItemTone) {
   }
 }
 
+function CalendarMetaBadges({ item }: { item: CalendarItem }) {
+  return (
+    <>
+      <span className="leftly-chip leftly-chip-muted px-2.5 py-1 text-[10px]">{item.detail}</span>
+      {item.kind === 'bill' && item.paidStatus ? (
+        <span className={`leftly-chip px-2.5 py-1 text-[10px] ${item.paidStatus === 'Paid' ? 'leftly-chip-success' : 'leftly-chip-warning'}`}>
+          {item.paidStatus}
+        </span>
+      ) : null}
+      {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? (
+        <span className="leftly-chip leftly-chip-muted px-2.5 py-1 text-[10px]">Carried over</span>
+      ) : null}
+      {item.planName ? <span className="leftly-chip leftly-chip-muted px-2.5 py-1 text-[10px]">{item.planName}</span> : null}
+      {item.scheduleLabel ? <span className="leftly-chip leftly-chip-muted px-2.5 py-1 text-[10px]">{item.scheduleLabel}</span> : null}
+    </>
+  )
+}
+
 function DayChip({ item }: { item: CalendarItem }) {
   return (
-    <div className={`flex min-w-0 items-start gap-2 rounded-xl border px-2.5 py-2 text-[11px] leading-4 ${toneClasses(item.tone)}`}>
+    <div className={`leftly-calendar-chip ${toneClasses(item.tone)}`}>
       <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center justify-between gap-2">
           <span className="truncate font-medium">{item.label}</span>
           <span className="shrink-0 font-semibold">{formatCurrency(item.amount)}</span>
         </div>
-        {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? (
-          <div className="mt-1">
-            <span className="inline-flex rounded-full border border-slate-700 bg-slate-900/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-200">
-              Carried over
-            </span>
-          </div>
-        ) : null}
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          <CalendarMetaBadges item={item} />
+        </div>
       </div>
     </div>
   )
@@ -239,7 +266,7 @@ function DayCard({
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`min-h-[4.5rem] rounded-[1.1rem] border p-2.5 text-left shadow-sm shadow-slate-950/20 transition active:translate-y-px sm:min-h-[5.5rem] sm:p-3.5 ${
+      className={`leftly-calendar-day-card ${
         selected
           ? 'border-cyan-400/30 bg-cyan-400/10 ring-1 ring-cyan-400/20'
           : day.isToday
@@ -251,6 +278,7 @@ function DayCard({
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">{day.dayLabel}</p>
           <p className="mt-1 text-lg font-semibold tracking-tight text-white">{day.date.getDate()}</p>
+          <p className="mt-1 text-[11px] text-slate-500">{day.shortLabel}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           {day.isStart ? (
@@ -296,24 +324,17 @@ function DetailItem({
       type="button"
       onClick={item.onClick}
       disabled={!isClickable}
-      className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${isClickable ? 'hover:border-slate-500/70 hover:bg-black/10 active:translate-y-px' : ''} ${itemBadgeClasses(item.tone)}`}
+      className={`leftly-calendar-detail-item ${isClickable ? 'hover:border-slate-500/70 hover:bg-black/10 active:translate-y-px' : ''} ${itemBadgeClasses(item.tone)}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="min-w-0 truncate font-medium text-white">{item.label}</p>
-            <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
-              {item.detail}
-            </span>
-            {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? (
-              <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
-                Carried over
-              </span>
-            ) : null}
+            <CalendarMetaBadges item={item} />
           </div>
           <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}
-            {item.kind === 'bill' && item.paidStatus ? ` \u00B7 ${item.paidStatus}` : ''}
+            {item.kind === 'bill' && item.paidDate ? ` \u00B7 paid ${item.paidDate}` : ''}
           </p>
         </div>
         <div className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</div>
@@ -343,24 +364,17 @@ function AgendaItemRow({ item }: { item: CalendarItem }) {
       type="button"
       onClick={item.onClick}
       disabled={!isClickable}
-      className={`w-full rounded-xl border px-3 py-2 text-left transition ${isClickable ? 'hover:border-slate-500/70 hover:bg-black/10 active:translate-y-px' : ''} ${itemBadgeClasses(item.tone)}`}
+      className={`leftly-calendar-agenda-item ${isClickable ? 'hover:border-slate-500/70 hover:bg-black/10 active:translate-y-px' : ''} ${itemBadgeClasses(item.tone)}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="min-w-0 truncate font-medium text-white">{item.label}</p>
-            <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
-              {itemTypeLabel(item)}
-            </span>
-            {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? (
-              <span className="rounded-full border border-current/20 bg-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-current/90">
-                Carried over
-              </span>
-            ) : null}
+            <CalendarMetaBadges item={{ ...item, detail: itemTypeLabel(item) }} />
           </div>
           <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}
-            {item.kind === 'bill' && item.paidStatus ? ` \u00B7 ${item.paidStatus}` : ''}
+            {item.kind === 'bill' && item.paidDate ? ` \u00B7 paid ${item.paidDate}` : ''}
           </p>
         </div>
         <div className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</div>
@@ -371,8 +385,8 @@ function AgendaItemRow({ item }: { item: CalendarItem }) {
 
 function AgendaGapRow({ start, end }: { start: string; end: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-[11px] leading-5 text-slate-400">
-      No scheduled items {start} {"\u2013"} {end}
+    <div className="leftly-calendar-gap-row">
+      Nothing scheduled from {start} {"\u2013"} {end}
     </div>
   )
 }
@@ -396,12 +410,13 @@ function AgendaDaySection({
   }
 
   return (
-    <section className={`rounded-[1.15rem] border p-3 shadow-sm shadow-slate-950/20 sm:p-4 ${day.isToday ? 'border-cyan-400/20 bg-cyan-400/5' : 'border-slate-800/70 bg-slate-950/55'}`}>
+    <section className={`leftly-calendar-agenda-day ${day.isToday ? 'border-cyan-400/20 bg-cyan-400/5' : 'border-slate-800/70 bg-slate-950/55'}`}>
       <button type="button" onClick={onToggle} className="flex w-full items-start justify-between gap-3 text-left">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">{day.dayLabel}</p>
             <p className="text-lg font-semibold tracking-tight text-white">{day.date.getDate()}</p>
+            <p className="text-[11px] text-slate-500">{day.shortLabel}</p>
             {day.isToday ? (
               <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
                 Today
@@ -418,16 +433,17 @@ function AgendaDaySection({
             {day.items.length > 0 ? <span>{"\u2022"} {formatCurrency(totalAmount)}</span> : <span>No scheduled items</span>}
           </div>
         </div>
-        <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] font-semibold text-slate-200">
-          {expanded ? 'Hide' : 'Show'}
-        </span>
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-semibold text-white">{day.items.length > 0 ? formatCurrency(totalAmount) : 'Clear'}</p>
+          <span className="mt-1 inline-flex rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] font-semibold text-slate-200">
+            {expanded ? 'Hide' : 'Show'}
+          </span>
+        </div>
       </button>
 
       <div className="mt-3 grid gap-2">
         {day.items.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-[11px] text-slate-500">
-            No items scheduled on this day.
-          </p>
+          <p className="rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-3 py-2 text-[11px] text-slate-500">Nothing scheduled this day.</p>
         ) : null}
 
         {groups.income.length > 0 ? (
@@ -478,12 +494,14 @@ export function PayPeriodCalendar({
   payPeriod,
   bills,
   expenses,
+  recurringTemplates,
   onEditBill,
   onEditExpense,
 }: {
   payPeriod: BudgetPeriod | null
   bills: Bill[]
   expenses: Expense[]
+  recurringTemplates: RecurringItemTemplate[]
   onEditBill?: (bill: Bill) => void
   onEditExpense?: (expense: Expense) => void
 }) {
@@ -492,8 +510,8 @@ export function PayPeriodCalendar({
       return []
     }
 
-    return buildDays(payPeriod, bills, expenses, onEditBill, onEditExpense)
-  }, [bills, expenses, onEditBill, onEditExpense, payPeriod])
+    return buildDays(payPeriod, bills, expenses, recurringTemplates, onEditBill, onEditExpense)
+  }, [bills, expenses, onEditBill, onEditExpense, payPeriod, recurringTemplates])
 
   const hasScheduledItems = days.some((day) => day.items.some((item) => item.kind !== 'income'))
   const start = payPeriod ? startOfLocalDay(payPeriod.startDate) : null
@@ -572,6 +590,7 @@ export function PayPeriodCalendar({
   const expenseCount = expenses.length
   const setAsideCount = expenses.filter((expense) => Boolean(expense.setAsideForTemplateId)).length
   const rangeLabel = `${longDateFormatter.format(start)} - ${longDateFormatter.format(end)}`
+  const nextScheduledDay = days.find((day) => day.items.some((item) => item.kind !== 'income'))
 
   const groupedItems = selectedDay
     ? {
@@ -604,20 +623,16 @@ export function PayPeriodCalendar({
   }
 
   return (
-    <section className="rounded-[1.5rem] border border-slate-800/80 bg-[linear-gradient(180deg,rgba(8,12,20,0.96),rgba(6,10,16,0.92))] p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
+    <section className="leftly-calendar-shell">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.22em] text-cyan-200/70">Pay Period Calendar</p>
           <h3 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">{rangeLabel}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Agenda on mobile. Calendar on desktop. Empty stretches are collapsed in Agenda.
+            Agenda stays compact on mobile. Calendar stays available when you want the full spread.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{dayCount} days</span>
-          <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{billCount} bills</span>
-          <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{expenseCount} expenses</span>
-          <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-slate-300">{setAsideCount} set-asides</span>
+        <div className="leftly-calendar-toggle-wrap">
           <div className="inline-flex rounded-full border border-slate-800 bg-slate-950/70 p-1">
             <button
               type="button"
@@ -639,9 +654,56 @@ export function PayPeriodCalendar({
         </div>
       </div>
 
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="leftly-calendar-stat">
+          <p className="leftly-calendar-stat-label">Pay period</p>
+          <p className="leftly-calendar-stat-value">{dayCount} days</p>
+        </div>
+        <div className="leftly-calendar-stat">
+          <p className="leftly-calendar-stat-label">Bills</p>
+          <p className="leftly-calendar-stat-value">{billCount}</p>
+        </div>
+        <div className="leftly-calendar-stat">
+          <p className="leftly-calendar-stat-label">Expenses</p>
+          <p className="leftly-calendar-stat-value">{expenseCount}</p>
+        </div>
+        <div className="leftly-calendar-stat">
+          <p className="leftly-calendar-stat-label">Set-asides</p>
+          <p className="leftly-calendar-stat-value">{setAsideCount}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 leftly-shell-soft p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              {agendaIsActive ? 'Agenda focus' : 'Calendar focus'}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-white">
+              {nextScheduledDay
+                ? `Next scheduled day: ${longDateFormatter.format(nextScheduledDay.date)}`
+                : 'No scheduled items in this pay period yet'}
+            </p>
+            <p className="mt-1 text-[11px] leading-5 text-slate-400">
+              {agendaIsActive
+                ? 'Grouped rows keep upcoming bills and spending readable on phone screens.'
+                : 'Tap a day to inspect the items scheduled there.'}
+            </p>
+          </div>
+          {selectedDay ? (
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              <span className="leftly-chip leftly-chip-muted px-2.5 py-1">Selected {selectedDay.shortLabel}</span>
+              <span className="leftly-chip leftly-chip-muted px-2.5 py-1">
+                {selectedDay.items.length} item{selectedDay.items.length === 1 ? '' : 's'}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
       {hasScheduledItems ? null : (
         <div className="mt-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 px-4 py-3 text-sm leading-6 text-slate-400">
-          Nothing scheduled yet. Add bills, expenses, or apply your Bill Plan to fill out this pay period.
+          Nothing scheduled yet. Add a bill, log spending, or apply Bill Plan.
         </div>
       )}
 

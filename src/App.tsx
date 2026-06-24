@@ -114,6 +114,8 @@ type DueSoonBillRow = {
   status: 'Overdue' | 'Due today' | 'Due in next 7 days'
   statusTone: 'rose' | 'cyan' | 'amber'
   dueDateLabel: string
+  scheduleLabel?: string
+  planName?: string
 }
 
 type SpendingSnapshotRow = {
@@ -1128,6 +1130,11 @@ function App() {
       .slice(0, 3)
   }, [categorySummaries])
 
+  const recurringTemplateById = useMemo(
+    () => new Map(recurringTemplates.map((template) => [template.id, template])),
+    [recurringTemplates],
+  )
+
   const upcomingRecurringBills = useMemo(
     () => getUpcomingRecurringBills(recurringTemplates, bills),
     [bills, recurringTemplates],
@@ -1179,11 +1186,12 @@ function App() {
 
         return bill.source !== 'recurring' || bill.generatedForPeriodId === currentPeriodKey || !bill.generatedForPeriodId
       })
-      .map((bill) => {
+      .flatMap<DueSoonBillRow>((bill) => {
         const dueDate = parseLocalDate(bill.dueDate)
         if (Number.isNaN(dueDate.getTime()) || dueDate > soonEnd) {
-          return null
+          return []
         }
+        const template = bill.templateId ? recurringTemplateById.get(bill.templateId) : undefined
 
         let status: DueSoonBillRow['status']
         let statusTone: DueSoonBillRow['statusTone']
@@ -1199,21 +1207,22 @@ function App() {
           statusTone = 'amber'
         }
 
-        return {
+        return [{
           bill,
           status,
           statusTone,
           dueDateLabel: dueSoonDateFormatter.format(dueDate),
-        }
+          scheduleLabel: template ? formatPlanSchedule(template) : undefined,
+          planName: template ? normalizeRecurringPlanName(template.planName) : undefined,
+        }]
       })
-      .filter((item): item is DueSoonBillRow => Boolean(item))
       .sort(
         (left, right) =>
           dueSoonOrder[left.status] - dueSoonOrder[right.status] ||
           parseLocalDate(left.bill.dueDate).getTime() - parseLocalDate(right.bill.dueDate).getTime() ||
           left.bill.name.localeCompare(right.bill.name),
       )
-  }, [bills, payPeriod])
+  }, [bills, payPeriod, recurringTemplateById])
 
   const spendingSnapshot = useMemo<SpendingSnapshotRow[]>(() => {
     if (!payPeriod || expenses.length === 0) {
@@ -1253,6 +1262,30 @@ function App() {
 
     return new Set(expenses.map((expense) => expense.category)).size
   }, [expenses, payPeriod])
+
+  const nextOverviewAction = !payPeriod
+    ? {
+        label: 'Set up pay period',
+        helper: 'Add income and dates to unlock the rest of Overview.',
+        onClick: () => setActiveTab('income'),
+      }
+    : dueSoonBills.length > 0
+      ? {
+          label: 'Review next bill',
+          helper: `${dueSoonBills[0].bill.name} is ${dueSoonBills[0].status.toLowerCase()}.`,
+          onClick: () => startEditBill(dueSoonBills[0].bill),
+        }
+      : hasActiveBillPlanItems && upcomingRecurringBills.length > 0
+        ? {
+            label: 'Apply Bill Plan',
+            helper: 'Pull saved items into this pay period.',
+            onClick: openBillPlanApply,
+          }
+        : {
+            label: 'Quick Add expense',
+            helper: 'Log spending without leaving this pay period.',
+            onClick: openQuickAddExpense,
+          }
 
   const recentManualExpenses = useMemo(
     () => expenses.filter((expense) => expense.source !== 'recurring').slice(0, 4),
@@ -2580,165 +2613,184 @@ function App() {
                   <FirstRunPanel onStartSetup={openSetup} onLoadDemoData={loadDemoData} />
                 )
               ) : hasAnyData ? (
-                <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-                  <div className="grid gap-4">
-                    <div className="leftly-shell p-3 sm:p-5">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 sm:text-sm sm:tracking-[0.2em]">Current pay period</p>
+                <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                  <div className="leftly-overview-hero md:hidden">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/80">Leftly</p>
+                        <p className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-white">{formatCurrency(totals.leftover)}</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-300">Left over after bills, set-asides, and spending in this pay period.</p>
+                      </div>
+                      <Badge muted>{payPeriod ? payPeriod.cadence : 'No pay period'}</Badge>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                       {payPeriod ? (
                         <>
-                          <p className="mt-3 text-xl font-semibold text-white sm:text-2xl">{formatCurrency(payPeriod.income)}</p>
-                          <p className="mt-3 text-sm leading-6 text-slate-400">
-                            Leftly counts active bills, planned spending, and set-asides in this pay period. Use Bill Plan to save repeating bills.
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2 text-[11px] sm:text-xs">
-                            <Badge>{payPeriod.cadence}</Badge>
-                            <Badge muted>{payPeriod.startDate}</Badge>
-                            <Badge muted>{payPeriod.endDate}</Badge>
-                            {payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? <Badge success>Rollover from previous pay period</Badge> : null}
-                          </div>
-                          {payPeriod.baseIncome && payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? (
-                            <p className="mt-3 text-xs leading-5 text-slate-500">
-                              Base income {formatCurrency(payPeriod.baseIncome)} + rollover {formatCurrency(payPeriod.rolloverAmount)}
-                            </p>
-                          ) : null}
-                          <div className="mt-4">
-                            <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
-                              Start new pay period
-                            </button>
-                          </div>
+                          <Badge muted>{payPeriod.startDate}</Badge>
+                          <Badge muted>{payPeriod.endDate}</Badge>
+                          {payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? <Badge success>Rollover active</Badge> : null}
                         </>
                       ) : (
-                        <EmptyState
-                          title="No income yet"
-                          text="Add or load a pay period in the Income tab to turn the overview into a live budget snapshot."
-                          compact
-                        />
+                        <Badge muted>Add a pay period to begin tracking</Badge>
                       )}
                     </div>
 
-                    <div className="leftly-shell p-4 sm:p-5">
-                      <p className="text-sm font-medium text-white">Top categories</p>
-                      <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
-                        {topCategories.length > 0 ? (
-                          topCategories.map((summary, index) => (
-                            <div key={summary.category} className="flex items-start justify-between gap-3 leftly-shell-soft px-3 py-2.5 sm:items-center sm:px-4">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium text-white">{summary.category}</p>
-                                  {index === 0 ? <Badge>Highest cost</Badge> : null}
-                                </div>
-                                <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
-                                  {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
-                                </p>
-                              </div>
-                              <p className="text-sm font-semibold text-white sm:text-base">{formatCurrency(summary.total)}</p>
-                            </div>
-                          ))
-                        ) : (
-                          <EmptyState
-                            title="No category items yet"
-                            text="Add bills and expenses to see your top categories here."
-                            compact
-                          />
-                        )}
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <MiniStat label="Income" value={formatCurrency(totals.income)} dense />
+                      <MiniStat label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" dense />
+                      <MiniStat label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} dense />
+                      <MiniStat label="Spending" value={formatCurrency(totals.totalExpenses)} dense />
+                    </div>
+
+                    <div className="mt-4 leftly-shell-soft p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Next action</p>
+                      <div className="mt-2 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white">{nextOverviewAction.label}</p>
+                          <p className="mt-1 text-[11px] leading-5 text-slate-400">{nextOverviewAction.helper}</p>
+                        </div>
+                        <button type="button" onClick={nextOverviewAction.onClick} className="button-primary !min-h-0 shrink-0 !px-3 !py-2 !text-xs">
+                          Open
+                        </button>
                       </div>
                     </div>
+
+                    {topCategories.length > 0 ? (
+                      <div className="mt-4 grid gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Highest cost categories</p>
+                        {topCategories.map((summary, index) => (
+                          <div key={summary.category} className="leftly-shell-soft flex items-center justify-between gap-3 px-3 py-2.5">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-sm font-medium text-white">{summary.category}</p>
+                                {index === 0 ? <Badge>Highest cost</Badge> : null}
+                              </div>
+                              <p className="mt-1 text-[11px] text-slate-400">
+                                {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
+                              </p>
+                            </div>
+                            <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(summary.total)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="lg:col-span-2">
-                    <div className="leftly-shell p-3 sm:p-4">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-white">Shortcuts</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">Open the dedicated Quick Add screen or jump straight into related budget flows.</p>
-                        </div>
-                        {!payPeriod ? (
-                          <p className="text-xs leading-5 text-slate-500">Start a pay period before logging bills or expenses.</p>
-                        ) : null}
-                      </div>
+                    <div className="leftly-overview-section">
+                      <OverviewSectionHeader
+                        title="Quick actions"
+                        description="Keep the next move close: add spending, pull in saved bills, or start the next pay period."
+                        aside={!payPeriod ? <p className="text-xs leading-5 text-slate-500">Start a pay period to unlock bill and expense actions.</p> : undefined}
+                      />
 
-                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                        <button
-                          type="button"
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <OverviewActionCard
+                          eyebrow="Fastest"
+                          title="Quick Add"
+                          helper="Log spending in a few taps."
                           onClick={openQuickAddExpense}
                           disabled={!payPeriod}
-                          className="button-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Open Quick Add
-                        </button>
-                        <button type="button" onClick={() => payPeriod && setActiveTab('bill')} disabled={!payPeriod} className="button-secondary w-full disabled:cursor-not-allowed disabled:opacity-50">
-                          One-time Bill
-                        </button>
-                        <button type="button" onClick={() => payPeriod && setActiveTab('recurring')} disabled={!payPeriod} className="button-secondary w-full disabled:cursor-not-allowed disabled:opacity-50">
-                          Bill Plan
-                        </button>
+                          tone="accent"
+                        />
+                        <OverviewActionCard
+                          eyebrow={payPeriod && hasActiveBillPlanItems ? 'Saved items' : 'Bill Plan'}
+                          title={payPeriod && hasActiveBillPlanItems ? 'Apply Bill Plan' : 'Open Bill Plan'}
+                          helper={payPeriod && hasActiveBillPlanItems ? 'Bring in recurring bills and set-asides.' : 'Manage saved repeating bills.'}
+                          onClick={payPeriod && hasActiveBillPlanItems ? openBillPlanApply : () => setActiveTab('recurring')}
+                        />
+                        <OverviewActionCard
+                          eyebrow="One-time"
+                          title="One-time Bill"
+                          helper="Add a bill for just this period."
+                          onClick={() => payPeriod && setActiveTab('bill')}
+                          disabled={!payPeriod}
+                        />
+                        <OverviewActionCard
+                          eyebrow="Manual"
+                          title="Manual Expense"
+                          helper="Open the full expense screen."
+                          onClick={() => payPeriod && setActiveTab('expense')}
+                          disabled={!payPeriod}
+                        />
+                        {payPeriod ? (
+                          <OverviewActionCard
+                            eyebrow="Next paycheck"
+                            title="Start New Pay Period"
+                            helper="Archive this one and carry forward what matters."
+                            onClick={openStartNewPayPeriod}
+                            wide
+                          />
+                        ) : null}
                       </div>
                     </div>
                   </div>
 
                   <div className="lg:col-span-2">
-                    <div className="leftly-shell p-3 sm:p-4">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-white">Due Soon</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">Unpaid bills that need attention in the next 7 days.</p>
-                        </div>
-                        {payPeriod && dueSoonBills.length > 0 ? (
-                          <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
-                            <span className="leftly-chip border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-100">
-                              {dueSoonBills.filter((item) => item.status === 'Overdue').length} overdue
-                            </span>
-                            <span className="leftly-chip border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-100">
-                              {dueSoonBills.filter((item) => item.status === 'Due today').length} today
-                            </span>
-                            <span className="leftly-chip border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-amber-100">
-                              {dueSoonBills.filter((item) => item.status === 'Due in next 7 days').length} soon
-                            </span>
-                          </div>
-                        ) : null}
-                      </div>
+                    <div className="leftly-overview-section">
+                      <OverviewSectionHeader
+                        title="Due Soon"
+                        description="Unpaid bills that need attention in the next 7 days."
+                        aside={
+                          payPeriod && dueSoonBills.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+                              <span className="leftly-chip border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-100">
+                                {dueSoonBills.filter((item) => item.status === 'Overdue').length} overdue
+                              </span>
+                              <span className="leftly-chip border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-100">
+                                {dueSoonBills.filter((item) => item.status === 'Due today').length} today
+                              </span>
+                              <span className="leftly-chip border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-amber-100">
+                                {dueSoonBills.filter((item) => item.status === 'Due in next 7 days').length} soon
+                              </span>
+                            </div>
+                          ) : undefined
+                        }
+                      />
 
                       {payPeriod ? (
                         dueSoonBills.length > 0 ? (
                           <>
                             <div className="mt-3 grid gap-2">
-                              {dueSoonBills.slice(0, 3).map(({ bill, status, statusTone, dueDateLabel }) => (
-                                <div
+                              {dueSoonBills.slice(0, 3).map(({ bill, status, statusTone, dueDateLabel, scheduleLabel, planName }) => (
+                                <OverviewListRow
                                   key={bill.id}
-                                className="flex flex-col gap-3 leftly-shell-soft px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="truncate font-medium text-white">{bill.name}</p>
+                                  title={bill.name}
+                                  badges={
+                                    <>
+                                      <Badge muted>Unpaid</Badge>
                                       {bill.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
-                                      <span
-                                        className={`leftly-chip px-2 py-0.5 text-[10px] ${
-                                          statusTone === 'rose'
-                                            ? 'border-rose-500/20 bg-rose-500/10 text-rose-100'
-                                            : statusTone === 'cyan'
-                                              ? 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
-                                              : 'border-amber-500/20 bg-amber-500/10 text-amber-100'
-                                        }`}
-                                      >
-                                        {status}
-                                      </span>
-                                    </div>
-                                    <p className="mt-1 text-[11px] text-slate-400">
+                                      {planName ? <Badge muted>{planName}</Badge> : null}
+                                      {scheduleLabel ? <Badge muted>{scheduleLabel}</Badge> : null}
+                                      <DueSoonStatusBadge status={status} tone={statusTone} />
+                                    </>
+                                  }
+                                  meta={
+                                    <>
                                       {bill.category} · due {dueDateLabel}
-                                    </p>
-                                  </div>
-
-                                  <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
-                                    <p className="text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleBillPaid(bill.id)}
-                                      className="button-secondary !min-h-0 !px-3 !py-2 !text-xs"
-                                    >
-                                      Mark paid
-                                    </button>
-                                  </div>
-                                </div>
+                                    </>
+                                  }
+                                  amount={formatCurrency(bill.amount)}
+                                  actions={
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleBillPaid(bill.id)}
+                                        className="leftly-overview-inline-button"
+                                      >
+                                        Mark paid
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => startEditBill(bill)}
+                                        className="leftly-overview-inline-button"
+                                      >
+                                        Edit
+                                      </button>
+                                    </>
+                                  }
+                                />
                               ))}
                             </div>
 
@@ -2752,31 +2804,27 @@ function App() {
                             ) : null}
                           </>
                         ) : (
-                          <p className="mt-3 leftly-empty-compact">
-                            No unpaid bills due soon.
-                          </p>
+                          <EmptyState title="No bills due soon" text="Add a One-time Bill or apply Bill Plan when something new is coming up." compact />
                         )
                       ) : (
-                        <p className="mt-3 leftly-empty-compact">
-                          Start a pay period to see bills due soon.
-                        </p>
+                        <EmptyState title="No active pay period" text="Start a pay period to see what bills are coming up next." compact />
                       )}
                     </div>
                   </div>
 
                   <div className="lg:col-span-2">
-                    <div className="leftly-shell p-3 sm:p-4">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-white">Spending Snapshot</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">Active expenses in this pay period, grouped by category.</p>
-                        </div>
-                        {payPeriod && spendingSnapshot.length > 0 ? (
-                          <p className="text-xs leading-5 text-slate-500">
-                            {spendingSnapshotCategoryCount} {spendingSnapshotCategoryCount === 1 ? 'category' : 'categories'} tracked
-                          </p>
-                        ) : null}
-                      </div>
+                    <div className="leftly-overview-section">
+                      <OverviewSectionHeader
+                        title="Spending Snapshot"
+                        description="Active expenses in this pay period, grouped by category."
+                        aside={
+                          payPeriod && spendingSnapshot.length > 0 ? (
+                            <p className="text-xs leading-5 text-slate-500">
+                              {spendingSnapshotCategoryCount} {spendingSnapshotCategoryCount === 1 ? 'category' : 'categories'} tracked
+                            </p>
+                          ) : undefined
+                        }
+                      />
 
                       {payPeriod ? (
                         spendingSnapshot.length > 0 ? (
@@ -2814,17 +2862,28 @@ function App() {
                             {spendingSnapshotCategoryCount > spendingSnapshot.length ? (
                               <p className="mt-3 text-xs text-slate-500">+{spendingSnapshotCategoryCount - spendingSnapshot.length} more categories</p>
                             ) : null}
+
+                            {topCategories.length > 0 ? (
+                              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                                {topCategories.map((summary, index) => (
+                                  <div key={summary.category} className="leftly-shell-soft px-3 py-2.5">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-sm font-medium text-white">{summary.category}</p>
+                                      {index === 0 ? <Badge>Highest cost</Badge> : null}
+                                    </div>
+                                    <p className="mt-1 text-[11px] text-slate-400">
+                                      {formatCurrency(summary.total)} · {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
                           </>
                         ) : (
-                          <div className="mt-3 leftly-empty-compact">
-                            <p className="text-sm text-slate-300">No spending logged yet.</p>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">Use Quick Add to log spending as it happens.</p>
-                          </div>
+                          <EmptyState title="No spending yet" text="Use Quick Add or Manual Expense when you spend something." compact />
                         )
                       ) : (
-                        <p className="mt-3 leftly-empty-compact">
-                          Start a pay period to see your spending snapshot.
-                        </p>
+                        <EmptyState title="No active pay period" text="Start a pay period to track spending by category." compact />
                       )}
                     </div>
                   </div>
@@ -2842,39 +2901,55 @@ function App() {
                   ) : null}
 
                   <div className="grid gap-4">
-                    <div className="leftly-shell p-4 sm:p-5">
-                      <p className="text-sm font-medium text-white">Recent bills</p>
+                    <div className="leftly-overview-section">
+                      <OverviewSectionHeader title="Recent bills" description="Latest bills in this pay period, with quick paid and edit actions." />
                       <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {recentBills.length > 0 ? (
-                          recentBills.map((bill) => (
-                            <div
-                              key={bill.id}
-                              className="grid gap-3 leftly-shell-soft px-3 py-3 sm:grid-cols-[minmax(0,1fr)_7.75rem] sm:items-center sm:px-4"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="truncate font-medium text-white">{bill.name}</p>
-                                  {bill.source === 'recurring' ? <Badge muted>Bill Plan</Badge> : null}
-                                  {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
-                                </div>
-                                <p className="mt-1 text-[11px] text-slate-400">
-                                  {bill.category} · due {bill.dueDate}
-                                </p>
-                              </div>
-                              <div className="flex min-w-0 flex-col items-start gap-2 sm:items-end sm:justify-self-end">
-                                <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
-                                <button
-                                  type="button"
-                                  onClick={() => startEditBill(bill)}
-                                  className="button-secondary w-full sm:w-auto !min-h-0 !px-3 !py-2 !text-xs"
-                                >
-                                  Edit
-                                </button>
-                              </div>
-                            </div>
-                          ))
+                          recentBills.map((bill) => {
+                            const template = bill.templateId ? recurringTemplateById.get(bill.templateId) : undefined
+
+                            return (
+                              <OverviewListRow
+                                key={bill.id}
+                                title={bill.name}
+                                badges={
+                                  <>
+                                    <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                                    {template ? <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge> : null}
+                                    {template ? <Badge muted>{formatPlanSchedule(template)}</Badge> : null}
+                                    {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
+                                  </>
+                                }
+                                meta={
+                                  <>
+                                    {bill.category} · due {bill.dueDate}
+                                  </>
+                                }
+                                amount={formatCurrency(bill.amount)}
+                                actions={
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleBillPaid(bill.id)}
+                                      disabled={bill.isPaid}
+                                      className="leftly-overview-inline-button disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {bill.isPaid ? 'Paid' : 'Mark paid'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditBill(bill)}
+                                      className="leftly-overview-inline-button"
+                                    >
+                                      Edit
+                                    </button>
+                                  </>
+                                }
+                              />
+                            )
+                          })
                         ) : (
-                          <EmptyState title="No bills yet" text="Add a bill to see it here." compact />
+                          <EmptyState title="No bills yet" text="Add a One-time Bill or apply Bill Plan to populate this list." compact />
                         )}
                       </div>
                       {bills.length > 3 ? (
@@ -2886,76 +2961,85 @@ function App() {
                       ) : null}
                     </div>
 
-                    <div className="leftly-shell p-3 sm:p-5">
-                      <p className="text-sm font-medium text-white">Recent expenses</p>
+                    <div className="leftly-overview-section">
+                      <OverviewSectionHeader title="Recent expenses" description="Latest expenses in this pay period, using the same compact card treatment." />
                       <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                         {recentExpenses.length > 0 ? (
-                          recentExpenses.map((expense) => (
-                            <div key={expense.id} className="flex items-start justify-between gap-3 leftly-shell-soft px-3 py-2.5 sm:items-center sm:px-4">
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="truncate font-medium text-white">{expense.name}</p>
-                                  {expense.source === 'recurring' ? (
-                                    <Badge muted={Boolean(expense.setAsideForTemplateId)}>
-                                      {expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned spending' : 'Bill Plan'}
-                                    </Badge>
-                                  ) : null}
-                                </div>
-                                <p className="mt-1 text-[11px] text-slate-400">
-                                  {expense.category} · {expense.date}
-                                </p>
-                              </div>
-                              <div className="flex flex-wrap items-center justify-end gap-2">
-                                <p className="text-sm font-semibold text-white">{formatCurrency(expense.amount)}</p>
-                                <button type="button" onClick={() => startEditExpense(expense)} className="button-secondary !min-h-0 !px-3 !py-2 !text-xs">
-                                  Edit
-                                </button>
-                              </div>
-                            </div>
-                          ))
+                          recentExpenses.map((expense) => {
+                            const template = expense.templateId ? recurringTemplateById.get(expense.templateId) : undefined
+
+                            return (
+                              <OverviewListRow
+                                key={expense.id}
+                                title={expense.name}
+                                badges={
+                                  <>
+                                    {expense.source === 'recurring' ? (
+                                      <Badge muted={Boolean(expense.setAsideForTemplateId)}>
+                                        {expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned spending' : 'Bill Plan'}
+                                      </Badge>
+                                    ) : null}
+                                    {template ? <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge> : null}
+                                  </>
+                                }
+                                meta={
+                                  <>
+                                    {expense.category} · {expense.date}
+                                    {template && !expense.setAsideForTemplateId ? ` · ${formatPlanSchedule(template)}` : ''}
+                                  </>
+                                }
+                                amount={formatCurrency(expense.amount)}
+                                actions={
+                                  <button type="button" onClick={() => startEditExpense(expense)} className="leftly-overview-inline-button">
+                                    Edit
+                                  </button>
+                                }
+                              />
+                            )
+                          })
                         ) : (
-                          <EmptyState title="No expenses yet" text="Add an expense to see it here." compact />
+                          <EmptyState title="No expenses yet" text="Use Quick Add or Manual Expense to start tracking spending." compact />
                         )}
                       </div>
                     </div>
 
-                    <div className="leftly-shell p-3 sm:p-5">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-white">Upcoming from your Bill Plan</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">
-                            Active Bill Plan items that are not yet in this pay period&apos;s active list.
-                          </p>
-                        </div>
-                        {payPeriod && hasActiveBillPlanItems ? (
-                          <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto sm:min-w-0 sm:px-3 sm:py-2.5 sm:text-xs">
-                            Review Bill Plan items
-                          </button>
-                        ) : null}
-                      </div>
+                    <div className="leftly-overview-section">
+                      <OverviewSectionHeader
+                        title="Upcoming from your Bill Plan"
+                        description="Saved items that are active but not yet in this pay period."
+                        aside={
+                          payPeriod && hasActiveBillPlanItems ? (
+                            <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto sm:min-w-0 sm:px-3 sm:py-2.5 sm:text-xs">
+                              Review Bill Plan items
+                            </button>
+                          ) : undefined
+                        }
+                      />
                       <div className="mt-3 space-y-2">
                         {upcomingRecurringBills.length > 0 ? (
                           upcomingRecurringBills.slice(0, 2).map((template) => (
-                            <div key={template.id} className="leftly-shell-soft px-3 py-2.5">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate font-medium text-white">{template.name}</p>
-                                    <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge>
-                                    {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
-                                  </div>
-                                  <p className="mt-1 text-[11px] text-slate-400">
-                                    {template.category} · {formatPlanSchedule(template)}
-                                  </p>
-                                </div>
-                                <p className="text-sm font-semibold text-white">{formatCurrency(template.amount)}</p>
-                              </div>
-                            </div>
+                            <OverviewListRow
+                              key={template.id}
+                              title={template.name}
+                              badges={
+                                <>
+                                  <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge>
+                                  <Badge muted>{formatPlanSchedule(template)}</Badge>
+                                  {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
+                                </>
+                              }
+                              meta={
+                                <>
+                                  {template.category}
+                                </>
+                              }
+                              amount={formatCurrency(template.amount)}
+                            />
                           ))
                         ) : (
                           <EmptyState
-                            title="Nothing upcoming yet"
-                            text="Save bills in Bill Plan and Leftly will show the ones not active in this pay period here."
+                            title="Nothing waiting"
+                            text="Add bills to Bill Plan and Leftly will surface them here before you apply them."
                             compact
                           />
                         )}
@@ -4214,6 +4298,101 @@ function MetricCard({
       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-[11px]">{label}</p>
       <p className={`mt-2 text-[1.08rem] font-semibold tracking-[-0.03em] sm:mt-3 sm:text-[1.55rem] sm:leading-none ${valueClass}`}>{value}</p>
     </div>
+  )
+}
+
+function OverviewSectionHeader({
+  title,
+  description,
+  aside,
+}: {
+  title: string
+  description: string
+  aside?: ReactNode
+}) {
+  return (
+    <div className="leftly-card-heading">
+      <div className="min-w-0">
+        <p className="leftly-card-title">{title}</p>
+        <p className="mt-1 leftly-card-helper">{description}</p>
+      </div>
+      {aside ? <div className="shrink-0">{aside}</div> : null}
+    </div>
+  )
+}
+
+function OverviewActionCard({
+  eyebrow,
+  title,
+  helper,
+  onClick,
+  disabled = false,
+  tone = 'default',
+  wide = false,
+}: {
+  eyebrow: string
+  title: string
+  helper: string
+  onClick: () => void
+  disabled?: boolean
+  tone?: 'default' | 'accent'
+  wide?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`leftly-overview-action-card ${tone === 'accent' ? 'leftly-overview-action-card-accent' : ''} ${wide ? 'sm:col-span-2' : ''} disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
+        <p className="mt-1 text-sm font-semibold tracking-[-0.02em] text-white">{title}</p>
+        <p className="mt-1 text-[11px] leading-5 text-slate-400">{helper}</p>
+      </div>
+      <span className="shrink-0 text-sm text-slate-500">›</span>
+    </button>
+  )
+}
+
+function DueSoonStatusBadge({ status, tone }: { status: DueSoonBillRow['status']; tone: DueSoonBillRow['statusTone'] }) {
+  const className =
+    tone === 'rose'
+      ? 'border-rose-500/20 bg-rose-500/10 text-rose-100'
+      : tone === 'cyan'
+        ? 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
+        : 'border-amber-500/20 bg-amber-500/10 text-amber-100'
+
+  return <span className={`leftly-chip px-2.5 py-1 text-[10px] ${className}`}>{status}</span>
+}
+
+function OverviewListRow({
+  title,
+  badges,
+  meta,
+  amount,
+  actions,
+}: {
+  title: string
+  badges?: ReactNode
+  meta: ReactNode
+  amount: string
+  actions?: ReactNode
+}) {
+  return (
+    <article className="leftly-overview-list-row">
+      <div className="leftly-overview-list-main">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-sm font-medium text-white">{title}</p>
+          {badges}
+        </div>
+        <div className="text-[11px] leading-5 text-slate-400">{meta}</div>
+      </div>
+      <div className="leftly-overview-list-side">
+        <p className="text-sm font-semibold text-white">{amount}</p>
+        {actions ? <div className="leftly-overview-inline-actions">{actions}</div> : null}
+      </div>
+    </article>
   )
 }
 

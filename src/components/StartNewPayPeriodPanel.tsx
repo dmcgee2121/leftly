@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bill, BudgetPeriod, PayCadence, RecurringItemTemplate } from '../types/budget'
 import { buildRecurringPreview } from '../lib/recurring'
@@ -13,6 +13,13 @@ const cadenceOptions: Array<{ value: PayCadence; label: string }> = [
   { value: 'biweekly', label: 'Biweekly' },
   { value: 'monthly', label: 'Monthly' },
 ]
+
+const reviewSteps = [
+  'Review current period',
+  'Choose rollover',
+  'Handle unpaid bills',
+  'Start next period',
+] as const
 
 type StartNewPeriodDraft = {
   income: string
@@ -136,6 +143,8 @@ export function StartNewPayPeriodPanel({
   const plannedExpensesAmount = preview.plannedExpenses.reduce((sum, item) => sum + item.amount, 0)
   const estimatedSafeToSpendImpact = recurringBillsAmount + setAsidesAmount + plannedExpensesAmount
   const unpaidBills = currentReview?.unpaidBills ?? []
+  const unpaidBillsAmount = unpaidBills.reduce((sum, bill) => sum + bill.amount, 0)
+
   const selectedCarryoverBills = useMemo(() => {
     if (!currentReview || carryoverMode === 'skip') {
       return []
@@ -148,7 +157,9 @@ export function StartNewPayPeriodPanel({
     const selectedIds = new Set(selectedCarryoverBillIds)
     return currentReview.unpaidBills.filter((bill) => selectedIds.has(bill.id))
   }, [carryoverMode, currentReview, selectedCarryoverBillIds])
+
   const selectedCarryoverAmount = selectedCarryoverBills.reduce((sum, bill) => sum + bill.amount, 0)
+
   const selectedCarryoverUniqueAmount = useMemo(() => {
     if (selectedCarryoverBills.length === 0) {
       return 0
@@ -159,8 +170,24 @@ export function StartNewPayPeriodPanel({
       .filter((bill) => !previewKeys.has(getBillDedupKey(bill)))
       .reduce((sum, bill) => sum + bill.amount, 0)
   }, [preview.bills, selectedCarryoverBills])
+
   const rolloverAmount = applyRollover && currentReview?.leftover && currentReview.leftover > 0 ? currentReview.leftover : 0
   const nextIncome = Number(draft.income) + rolloverAmount
+  const hasRolloverAvailable = Boolean(currentReview && currentReview.leftover > 0)
+  const hasUnpaidBills = unpaidBills.length > 0
+  const baseIncome = Number(draft.income)
+  const archivedHistoryMessage = currentReview
+    ? `${currentReview.periodLabel} will be saved to History with its bills, expenses, and paid statuses exactly as they are now.`
+    : 'The current pay period will be saved to History before the next one begins.'
+
+  const carryoverModeSummary =
+    carryoverMode === 'all'
+      ? 'All unpaid bills will be copied into the next pay period.'
+      : carryoverMode === 'choose'
+        ? selectedCarryoverBills.length > 0
+          ? `${selectedCarryoverBills.length} unpaid bill${selectedCarryoverBills.length === 1 ? '' : 's'} will be copied into the next pay period.`
+          : 'No unpaid bills are selected to carry into the next pay period.'
+        : 'No unpaid bills will be copied into the next pay period.'
 
   function validateDraft() {
     const income = Number(draft.income)
@@ -196,7 +223,7 @@ export function StartNewPayPeriodPanel({
       return
     }
 
-    const baseIncome = Number(draft.income)
+    const nextBaseIncome = Number(draft.income)
 
     onSubmit(
       {
@@ -204,7 +231,7 @@ export function StartNewPayPeriodPanel({
         income: nextIncome,
         startDate: draft.startDate,
         endDate: draft.endDate,
-        baseIncome,
+        baseIncome: nextBaseIncome,
         rolloverAmount: rolloverAmount > 0 ? rolloverAmount : undefined,
         rolloverApplied: rolloverAmount > 0,
       },
@@ -233,17 +260,37 @@ export function StartNewPayPeriodPanel({
         </button>
       </div>
 
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {reviewSteps.map((step, index) => (
+          <div key={step} className="leftly-shell-soft flex items-center gap-3 px-3 py-3">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-400/25 bg-cyan-400/10 text-[11px] font-semibold text-cyan-100">
+              {index + 1}
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Step {index + 1}</p>
+              <p className="mt-1 text-sm font-medium text-white">{step}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {mode === 'edit' ? (
         <form className="mt-4 grid gap-4" onSubmit={(event) => event.preventDefault()}>
           {currentReview ? (
             <div className="leftly-panel-section">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-semibold text-white">Current pay period review</p>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{currentReview.periodLabel}</p>
+              <div className="grid gap-1">
+                <p className="leftly-panel-label">Review current period</p>
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-semibold text-white">What will be archived before the next paycheck starts</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{currentReview.periodLabel}</p>
+                </div>
+                <p className="leftly-panel-copy">{archivedHistoryMessage}</p>
               </div>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <SummaryCard label="Current income" value={formatCurrency(currentReview.income)} />
+                <SummaryCard label="Date range" value={currentReview.periodLabel} />
+                <SummaryCard label="Income" value={formatCurrency(currentReview.income)} />
+                <SummaryCard label="Final Leftly" value={formatCurrency(currentReview.leftover)} detail="Available before any rollover choice" />
                 <SummaryCard
                   label="Bills"
                   value={formatCurrency(currentReview.totalBills)}
@@ -251,8 +298,7 @@ export function StartNewPayPeriodPanel({
                 />
                 <SummaryCard label="Expenses" value={formatCurrency(currentReview.totalExpenses)} />
                 <SummaryCard label="Set-asides" value={formatCurrency(currentReview.totalSetAsides)} />
-                <SummaryCard label="Rollover available" value={formatCurrency(currentReview.leftover)} detail="Can be added to the next pay period" />
-                <SummaryCard label="New income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Includes rollover' : 'Starts with base income'} />
+                <SummaryCard label="Unpaid bills" value={`${currentReview.unpaidBillsCount}`} detail={formatCurrency(unpaidBillsAmount)} />
                 <SummaryCard
                   label="Top spending category"
                   value={currentReview.topCategory ? currentReview.topCategory.category : 'None yet'}
@@ -260,10 +306,16 @@ export function StartNewPayPeriodPanel({
                 />
               </div>
 
-              {currentReview.leftover > 0 ? (
+              {hasRolloverAvailable ? (
                 <div className="mt-4 leftly-shell-soft border-emerald-500/20 bg-emerald-500/10 p-4">
-                  <p className="text-sm font-semibold text-emerald-100">Leftover rollover amount: {formatCurrency(currentReview.leftover)}</p>
-                  <p className="mt-1 text-sm leading-6 text-emerald-50/80">Add it to the new pay period income total?</p>
+                  <div className="grid gap-1">
+                    <p className="leftly-panel-label text-emerald-200/80">Choose rollover</p>
+                    <p className="text-sm font-semibold text-emerald-100">You can roll over {formatCurrency(currentReview.leftover)}</p>
+                    <p className="text-sm leading-6 text-emerald-50/80">
+                      If you apply rollover, Leftly adds this amount to the next pay period income. If you skip it, the next period starts with base income only.
+                    </p>
+                  </div>
+
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <label className={`leftly-selection-card ${!applyRollover ? 'leftly-selection-card-active' : ''}`}>
                       <input
@@ -275,7 +327,7 @@ export function StartNewPayPeriodPanel({
                       />
                       <span>
                         <span className="block font-semibold">No, start fresh</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">New pay period starts at the base income amount.</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">The next pay period starts with base income only.</span>
                       </span>
                     </label>
 
@@ -289,31 +341,48 @@ export function StartNewPayPeriodPanel({
                       />
                       <span>
                         <span className="block font-semibold">Yes, add as rollover income</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">Adds {formatCurrency(currentReview.leftover)} to the new pay period income total.</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Adds {formatCurrency(currentReview.leftover)} to the next pay period total.</span>
                       </span>
                     </label>
+                  </div>
+
+                  <div className="mt-3 leftly-shell-faint px-3 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200/80">Next income preview</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{formatCurrency(nextIncome || 0)}</p>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-300">
+                      {rolloverAmount > 0
+                        ? `${formatCurrency(baseIncome || 0)} base income + ${formatCurrency(rolloverAmount)} rollover`
+                        : `${formatCurrency(baseIncome || 0)} base income only`}
+                    </p>
                   </div>
                 </div>
               ) : (
                 <EmptyNotice message="No leftover amount is available to roll into the next pay period." />
               )}
 
-              {unpaidBills.length > 0 ? (
+              {hasUnpaidBills ? (
                 <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-amber-100">Unpaid bills available to carry over</p>
-                      <p className="mt-1 text-sm leading-6 text-amber-50/80">Carry unpaid bills into the next pay period?</p>
+                  <div className="grid gap-1">
+                    <p className="leftly-panel-label text-amber-200/80">Handle unpaid bills</p>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-amber-100">Choose how unpaid bills move forward</p>
+                        <p className="mt-1 text-sm leading-6 text-amber-50/80">Copied bills stay unpaid and keep the existing carried-over metadata.</p>
+                      </div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-amber-100/70">
+                        {unpaidBills.length} item{unpaidBills.length === 1 ? '' : 's'}
+                      </p>
                     </div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-amber-100/70">
-                      {unpaidBills.length} item{unpaidBills.length === 1 ? '' : 's'}
-                    </p>
+                  </div>
+
+                  <div className="mt-3 leftly-shell-faint px-3 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">Current unpaid total</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{formatCurrency(unpaidBillsAmount)}</p>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-300">{carryoverModeSummary}</p>
                   </div>
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                    <label
-                      className={`leftly-selection-card ${carryoverMode === 'all' ? 'leftly-selection-card-active' : ''}`}
-                    >
+                    <label className={`leftly-selection-card ${carryoverMode === 'all' ? 'leftly-selection-card-active' : ''}`}>
                       <input
                         type="radio"
                         name="carryover"
@@ -323,13 +392,11 @@ export function StartNewPayPeriodPanel({
                       />
                       <span>
                         <span className="block font-semibold">Carry all unpaid bills</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">Copies every unpaid bill into the next pay period.</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Every unpaid bill is copied into the next pay period.</span>
                       </span>
                     </label>
 
-                    <label
-                      className={`leftly-selection-card ${carryoverMode === 'choose' ? 'leftly-selection-card-active' : ''}`}
-                    >
+                    <label className={`leftly-selection-card ${carryoverMode === 'choose' ? 'leftly-selection-card-active' : ''}`}>
                       <input
                         type="radio"
                         name="carryover"
@@ -339,13 +406,11 @@ export function StartNewPayPeriodPanel({
                       />
                       <span>
                         <span className="block font-semibold">Choose bills</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">Pick which unpaid bills should stay active.</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Select only the unpaid bills that should stay active.</span>
                       </span>
                     </label>
 
-                    <label
-                      className={`leftly-selection-card ${carryoverMode === 'skip' ? 'leftly-selection-card-active' : ''}`}
-                    >
+                    <label className={`leftly-selection-card ${carryoverMode === 'skip' ? 'leftly-selection-card-active' : ''}`}>
                       <input
                         type="radio"
                         name="carryover"
@@ -355,7 +420,7 @@ export function StartNewPayPeriodPanel({
                       />
                       <span>
                         <span className="block font-semibold">Do not carry over</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">Start fresh and leave unpaid bills out.</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">Leave unpaid bills in the archived period only.</span>
                       </span>
                     </label>
                   </div>
@@ -374,10 +439,7 @@ export function StartNewPayPeriodPanel({
                         {unpaidBills.map((bill) => {
                           const checked = selectedCarryoverBillIds.includes(bill.id)
                           return (
-                            <label
-                              key={bill.id}
-                              className={`leftly-selection-card ${checked ? 'leftly-selection-card-active' : ''}`}
-                            >
+                            <label key={bill.id} className={`leftly-selection-card ${checked ? 'leftly-selection-card-active' : ''}`}>
                               <input
                                 type="checkbox"
                                 checked={checked}
@@ -413,13 +475,22 @@ export function StartNewPayPeriodPanel({
                     </div>
                   ) : null}
                 </div>
-              ) : null}
+              ) : (
+                <EmptyNotice message="No unpaid bills need a carryover decision for this closeout." />
+              )}
+
+              <div className="mt-4 leftly-shell-faint p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">History safety</p>
+                <p className="mt-1 text-sm leading-6 text-slate-300">
+                  Closing this pay period creates a History snapshot first. Archived unpaid bills stay archived exactly as they were, and any carried bills are copied forward as new unpaid items rather than changing the old snapshot.
+                </p>
+              </div>
             </div>
           ) : null}
 
           <div className="leftly-panel-section">
             <div className="grid gap-1">
-              <p className="leftly-panel-label">New pay period</p>
+              <p className="leftly-panel-label">Start next period</p>
               <p className="leftly-panel-copy">Set the income and date range for the next pay period.</p>
             </div>
 
@@ -453,6 +524,12 @@ export function StartNewPayPeriodPanel({
                 <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
               </Field>
             </div>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <SummaryCard label="Base income" value={formatCurrency(baseIncome || 0)} detail="Before rollover" />
+              <SummaryCard label="Rollover" value={formatCurrency(rolloverAmount)} detail={rolloverAmount > 0 ? 'Will be added to next income' : 'Not applied'} />
+              <SummaryCard label="Next income total" value={formatCurrency(nextIncome || 0)} detail="What Leftly starts with" />
+            </div>
           </div>
 
           <label className="leftly-selection-card">
@@ -466,7 +543,7 @@ export function StartNewPayPeriodPanel({
               <span className="block font-semibold">Apply Bill Plan items to this pay period</span>
               <span className="mt-1 block text-sm leading-6 text-slate-400">
                 {templates.length > 0
-                  ? 'Checked by default because Bill Plan items are saved.'
+                  ? 'Recurring and planned Bill Plan items can be added to the next pay period right away.'
                   : 'No Bill Plan items are saved yet.'}
               </span>
             </span>
@@ -489,28 +566,33 @@ export function StartNewPayPeriodPanel({
             </div>
           </div>
         </form>
-  ) : (
-            <div className="mt-4 grid gap-4">
-          <div className="leftly-shell-soft grid gap-3 p-4 sm:grid-cols-2">
-            <SummaryCard label="Pay period dates" value={`${draft.startDate} to ${draft.endDate}`} />
-            <SummaryCard label="Base income" value={formatCurrency(Number(draft.income))} detail="Before rollover" />
-            <SummaryCard
-              label="Rollover"
-              value={formatCurrency(rolloverAmount)}
-              detail={rolloverAmount > 0 ? 'Added to the new pay period income total' : 'Starting fresh'}
-            />
-            <SummaryCard label="New income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Base income + rollover' : 'Base income only'} />
-            <SummaryCard label="Carry over bills" value={`${selectedCarryoverBills.length}`} detail={selectedCarryoverBills.length > 0 ? formatCurrency(selectedCarryoverAmount) : 'None selected'} />
-            <SummaryCard label="Estimated bills" value={formatCurrency(recurringBillsAmount + selectedCarryoverUniqueAmount)} detail="Bill Plan + carried unpaid bills" />
-            <SummaryCard label="Estimated expenses" value={formatCurrency(setAsidesAmount + plannedExpensesAmount)} detail="Bill Plan expenses" />
+      ) : (
+        <div className="mt-4 grid gap-4">
+          <div className="leftly-panel-section">
+            <div className="grid gap-1">
+              <p className="leftly-panel-label">Start next period</p>
+              <p className="text-sm font-semibold text-white">Final confirmation</p>
+              <p className="leftly-panel-copy">This is the exact closeout summary Leftly will use when you start the next pay period.</p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <SummaryCard label="Next pay period" value={`${draft.startDate} to ${draft.endDate}`} detail={draft.cadence} />
+              <SummaryCard label="Base income" value={formatCurrency(baseIncome)} detail="Before rollover" />
+              <SummaryCard label="Rollover" value={formatCurrency(rolloverAmount)} detail={rolloverAmount > 0 ? 'Added to next income' : 'Not applied'} />
+              <SummaryCard label="Next income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Base income + rollover' : 'Base income only'} />
+              <SummaryCard label="Bills carried over" value={`${selectedCarryoverBills.length}`} detail={selectedCarryoverBills.length > 0 ? formatCurrency(selectedCarryoverAmount) : 'None selected'} />
+              <SummaryCard label="Archived to History" value={currentReview?.periodLabel ?? 'Current period'} detail="Saved before the next period begins" />
+              <SummaryCard label="Estimated bills" value={formatCurrency(recurringBillsAmount + selectedCarryoverUniqueAmount)} detail="Bill Plan + carried unpaid bills" />
+              <SummaryCard label="Estimated expenses" value={formatCurrency(setAsidesAmount + plannedExpensesAmount)} detail="Bill Plan expenses" />
+            </div>
           </div>
 
           <div className="leftly-shell-soft p-4">
             <p className="text-sm font-semibold text-white">After you confirm</p>
             <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-300">
-              <li>Leftly archives the current pay period in History.</li>
-              <li>The new pay period starts with the base income, plus rollover if you chose it.</li>
-              <li>Selected unpaid bills are copied forward and stay unpaid.</li>
+              <li>Leftly saves the current pay period to History before opening the new one.</li>
+              <li>{rolloverAmount > 0 ? `${formatCurrency(rolloverAmount)} is added to the new pay period income.` : 'No rollover is applied to the new pay period income.'}</li>
+              <li>{carryoverModeSummary}</li>
             </ul>
           </div>
 
@@ -591,9 +673,9 @@ function SummaryCard({ label, value, detail }: { label: string; value: string; d
   return (
     <div className="leftly-shell-soft px-4 py-3.5">
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <div className="mt-2 flex items-end justify-between gap-3">
+      <div className="mt-2 grid gap-1">
         <p className="text-sm font-semibold tracking-[-0.02em] text-white sm:text-[0.96rem]">{value}</p>
-        {detail ? <p className="text-xs text-slate-400">{detail}</p> : null}
+        {detail ? <p className="text-xs leading-5 text-slate-400">{detail}</p> : null}
       </div>
     </div>
   )
@@ -709,4 +791,3 @@ function Badge({ children }: { children: ReactNode }) {
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
-

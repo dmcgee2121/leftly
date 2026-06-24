@@ -1910,12 +1910,12 @@ function App() {
     setSelectedHistoryId(null)
     setEditingItem(null)
     setActiveTab('income')
-    const successParts = ['New pay period started.']
+    const successParts = ['New pay period started and the previous one was saved to History.']
     if (period.rolloverAmount && period.rolloverAmount > 0) {
-      successParts.push(`${formatCurrency(period.rolloverAmount)} rolled over into the new pay period.`)
+      successParts.push(`Rollover applied: ${formatCurrency(period.rolloverAmount)}.`)
     }
     if (carriedOverCount > 0) {
-      successParts.push(`${carriedOverCount} unpaid bill${carriedOverCount === 1 ? '' : 's'} carried into the new pay period.`)
+      successParts.push(`Carried over ${carriedOverCount} unpaid bill${carriedOverCount === 1 ? '' : 's'}.`)
     }
     setIncomeSuccess(successParts.join(' '))
   }

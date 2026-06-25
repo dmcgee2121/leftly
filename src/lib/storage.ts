@@ -29,10 +29,23 @@ export const DEFAULT_PREFERENCES: LeftlyPreferences = {
   quickAddDateBehavior: 'today',
 }
 
+export type LeftlyBackupSummary = {
+  hasActivePayPeriod: boolean
+  billCount: number
+  expenseCount: number
+  recurringTemplateCount: number
+  historySnapshotCount: number
+  categoryCount: number
+  preferencesIncluded: boolean
+}
+
 export type LeftlyBackup = {
   version: 1
   app: 'leftly'
+  appName?: 'Leftly'
+  backupVersion?: 1
   exportedAt: string
+  summary?: LeftlyBackupSummary
   activeBudgetPeriod: BudgetPeriod | null
   bills: Bill[]
   expenses: Expense[]
@@ -42,6 +55,26 @@ export type LeftlyBackup = {
   categoryOrderMode: CategoryOrderMode
   sortMode: SortMode
   preferences?: LeftlyPreferences
+}
+
+export function getLeftlyBackupSummary(params: {
+  activeBudgetPeriod: BudgetPeriod | null
+  bills: Bill[]
+  expenses: Expense[]
+  recurringTemplates: RecurringItemTemplate[]
+  payPeriodHistory: PayPeriodSnapshot[]
+  categoryOrder: BudgetCategory[]
+  preferences?: LeftlyPreferences
+}): LeftlyBackupSummary {
+  return {
+    hasActivePayPeriod: params.activeBudgetPeriod !== null,
+    billCount: params.bills.length,
+    expenseCount: params.expenses.length,
+    recurringTemplateCount: params.recurringTemplates.length,
+    historySnapshotCount: params.payPeriodHistory.length,
+    categoryCount: params.categoryOrder.length,
+    preferencesIncluded: params.preferences !== undefined,
+  }
 }
 
 function readJson<T>(key: string, fallback: T): T {

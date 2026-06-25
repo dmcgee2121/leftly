@@ -59,6 +59,18 @@
     @apply text-sm leading-6 text-slate-400;
   }
 
+  .leftly-data-stat {
+    @apply rounded-[1.05rem] border border-slate-800/75 bg-[linear-gradient(180deg,rgba(9,14,26,0.84),rgba(4,8,18,0.74))] px-3 py-3;
+  }
+
+  .leftly-data-stat-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500;
+  }
+
+  .leftly-data-stat-value {
+    @apply mt-1.5 text-sm font-semibold text-white break-words;
+  }
+
   .leftly-btn-primary {
     @apply inline-flex min-h-12 items-center justify-center rounded-2xl border border-cyan-200/25 bg-[linear-gradient(180deg,rgba(103,232,249,0.98),rgba(34,211,238,0.94))] px-4 py-3 text-[0.94rem] font-semibold tracking-[0.01em] text-slate-950 shadow-[0_16px_36px_rgba(34,211,238,0.16)] transition hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap;
   }

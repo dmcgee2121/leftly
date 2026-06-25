@@ -4,6 +4,7 @@ import {
   clearAllAppData,
   addPayPeriodSnapshot,
   deletePayPeriodSnapshot,
+  getLeftlyBackupSummary,
   parseLeftlyBackupJson,
   loadActiveBudgetPeriod,
   loadBills,
@@ -26,6 +27,7 @@ import {
   saveSortMode,
   DEFAULT_PREFERENCES,
 } from './lib/storage'
+import type { LeftlyBackupSummary } from './lib/storage'
 import {
   MAIN_BILL_PLAN,
   formatRecurringScheduleLabel,
@@ -474,10 +476,14 @@ function buildLeftlyBackup(params: {
   preferences: LeftlyPreferences
 }): string {
   const exportedAt = new Date().toISOString()
+  const summary = getLeftlyBackupSummary(params)
   const backup = {
     version: 1 as const,
     app: 'leftly' as const,
+    appName: 'Leftly' as const,
+    backupVersion: 1 as const,
     exportedAt,
+    summary,
     activeBudgetPeriod: params.activeBudgetPeriod,
     bills: params.bills,
     expenses: params.expenses,
@@ -490,6 +496,17 @@ function buildLeftlyBackup(params: {
   }
 
   return JSON.stringify(backup, null, 2)
+}
+
+function formatBackupSummary(summary: LeftlyBackupSummary) {
+  return [
+    summary.hasActivePayPeriod ? 'active pay period saved' : 'no active pay period',
+    `${summary.billCount} bill${summary.billCount === 1 ? '' : 's'}`,
+    `${summary.expenseCount} expense${summary.expenseCount === 1 ? '' : 's'}`,
+    `${summary.recurringTemplateCount} Bill Plan item${summary.recurringTemplateCount === 1 ? '' : 's'}`,
+    `${summary.historySnapshotCount} history snapshot${summary.historySnapshotCount === 1 ? '' : 's'}`,
+    summary.preferencesIncluded ? 'preferences included' : 'preferences not included',
+  ]
 }
 
 function formatArchivedDate(value: string) {
@@ -1381,6 +1398,19 @@ function App() {
         .map((summary, index) => [summary.category, index + 1]),
     )
   }, [categorySummaries])
+  const backupSummary = useMemo(
+    () =>
+      getLeftlyBackupSummary({
+        activeBudgetPeriod: payPeriod,
+        bills,
+        expenses,
+        recurringTemplates,
+        payPeriodHistory,
+        categoryOrder,
+        preferences,
+      }),
+    [payPeriod, bills, expenses, recurringTemplates, payPeriodHistory, categoryOrder, preferences],
+  )
 
   const activeBottomNavTab: MainTabKey =
     activeTab === 'income' || activeTab === 'bill' || activeTab === 'expense' || activeTab === 'categories' || activeTab === 'data'
@@ -1523,7 +1553,9 @@ function App() {
     anchor.download = getBackupFilename()
     anchor.click()
     window.URL.revokeObjectURL(url)
-    setDataMessage(`Backup exported as ${anchor.download}.`)
+    setDataMessage(
+      `Backup exported as ${anchor.download}. Save it somewhere safe before resetting data or switching devices.`,
+    )
   }
 
   async function importBackupFile(file: File | null) {
@@ -1551,7 +1583,12 @@ function App() {
         return
       }
 
-      if (!window.confirm('Importing this JSON backup will replace the current Leftly data on this device.')) {
+      const importSummary = parsed.backup.summary ?? getLeftlyBackupSummary(parsed.backup)
+      if (
+        !window.confirm(
+          `Import this Leftly backup from ${file.name}?\n\nIt will replace the current data saved on this device.\n\nThis backup includes ${formatBackupSummary(importSummary).join(', ')}.\n\nOlder Leftly backups still work even if they do not include newer metadata. Export a fresh backup first if you want to keep what is currently saved here.`,
+        )
+      ) {
         return
       }
 
@@ -1591,7 +1628,7 @@ function App() {
       setBillSuccess('')
       setExpenseSuccess('')
       setBillStatus('')
-      setDataMessage(`Backup imported from ${file.name}.`)
+      setDataMessage(`Backup imported from ${file.name}. Leftly restored the saved data from that backup.`)
     } finally {
       setIsImportingBackup(false)
     }
@@ -1942,7 +1979,11 @@ function App() {
   }
 
   function loadDemoData() {
-    if (!window.confirm('Load demo data? This will replace the current Leftly data on this device.')) {
+    if (
+      !window.confirm(
+        'Load demo data on this device? This replaces the current Leftly data in this browser. Export a backup first if you may want to restore your current data later.',
+      )
+    ) {
       return
     }
 
@@ -2362,7 +2403,7 @@ function App() {
   function handleReset() {
     if (
       !window.confirm(
-        'Reset all Leftly data in this browser? This permanently erases the saved data on this device unless you already exported a backup.',
+        'Reset all Leftly data on this device? This clears the saved Leftly data in this browser. Export a backup first if you may want to restore it later.',
       )
     ) {
       return
@@ -2587,14 +2628,6 @@ function App() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            <button type="button" onClick={loadDemoData} className="button-secondary w-full sm:w-auto">
-              Load demo data
-            </button>
-            <button type="button" onClick={handleReset} className="button-secondary w-full sm:w-auto">
-              Reset all data
-            </button>
-          </div>
         </div>
 
         <section className="mx-auto mt-4 w-full max-w-5xl sm:mt-5">
@@ -3796,11 +3829,6 @@ function App() {
                     </select>
                   </Field>
                 </div>
-                <div className="flex justify-end">
-                  <button type="button" onClick={handleReset} className="button-secondary w-full sm:w-auto">
-                    Reset all data
-                  </button>
-                </div>
               </div>
 
               {bills.length === 0 && expenses.length === 0 ? (
@@ -3900,6 +3928,7 @@ function App() {
             <SectionShell title="Data" description="Back up or restore the Leftly data stored only on this device.">
               <MoreBackBar onBack={openMoreMenu} />
               <DataSection
+                backupSummary={backupSummary}
                 preferences={preferences}
                 onPreferencesChange={setPreferences}
                 onExport={exportBackup}
@@ -3907,6 +3936,7 @@ function App() {
                 onExportCurrentPeriodCsv={exportCurrentPeriodCsv}
                 onExportAllHistoryCsv={exportAllHistoryCsv}
                 onLoadDemoData={loadDemoData}
+                onReset={handleReset}
                 statusMessage={dataMessage}
                 errorMessage={dataError}
                 isImporting={isImportingBackup}

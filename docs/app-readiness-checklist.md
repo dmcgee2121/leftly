@@ -11,12 +11,15 @@
 - Keep Leftly localStorage-only until a deliberate backend phase.
 - Make sure the UI says data stays on this device and browser.
 - Treat reset wording as destructive and explicit.
+- Keep backup metadata optional and backward-compatible so older JSON backups still restore cleanly.
+- Keep future cloud sync out of scope until a dedicated backend phase.
 
 ## Backup and import
 
 - JSON backup should remain the restore format.
 - CSV exports are for spreadsheet review only.
 - Import copy should warn that current local data gets replaced.
+- New backups can include export summary metadata, but import must not require it.
 
 ## Mobile QA
 

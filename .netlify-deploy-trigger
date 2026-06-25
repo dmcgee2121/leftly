@@ -1,6 +1,6 @@
 Leftly production deploy trigger
 
-Triggered from ChatGPT on 2026-06-23 after app-readiness prep polish.
-Latest included polish: cc930a2 Polish pay period closeout flow [skip netlify]
-Also includes: f71e51d Polish overview mobile dashboard [skip netlify], 5d2e2cd Polish pay period calendar mobile experience [skip netlify], d39b56e Polish one-time bill mobile screen [skip netlify], 28efbe6 Polish manual expense mobile screen [skip netlify], cd03406 Polish apply bill plan experience [skip netlify], f3e9c4b Add weekly and biweekly bill plan schedules [skip netlify]
-Release purpose: bundled mobile polish and bill planning checkpoint on Netlify.
+Triggered from ChatGPT on 2026-06-24 after App Readiness Foundation Pass 2.
+Latest included polish: f03d442 Improve data safety confidence [skip netlify]
+Also includes: bf50efe Fix browser tab favicon [skip netlify], f47351e Polish app readiness foundation [skip netlify], cc930a2 Polish pay period closeout flow [skip netlify], f71e51d Polish overview mobile dashboard [skip netlify], 5d2e2cd Polish pay period calendar mobile experience [skip netlify]
+Release purpose: bundled app-readiness, data safety, favicon, and mobile polish checkpoint on Netlify.

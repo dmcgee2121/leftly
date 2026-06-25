@@ -2360,7 +2360,11 @@ function App() {
   }
 
   function handleReset() {
-    if (!window.confirm('Reset all Leftly data in this browser? This will erase the saved data on this device.')) {
+    if (
+      !window.confirm(
+        'Reset all Leftly data in this browser? This permanently erases the saved data on this device unless you already exported a backup.',
+      )
+    ) {
       return
     }
 
@@ -3893,7 +3897,7 @@ function App() {
           ) : null}
 
           {activeTab === 'data' ? (
-            <SectionShell title="Data" description="Back up or restore the Leftly data stored on this device.">
+            <SectionShell title="Data" description="Back up or restore the Leftly data stored only on this device.">
               <MoreBackBar onBack={openMoreMenu} />
               <DataSection
                 preferences={preferences}

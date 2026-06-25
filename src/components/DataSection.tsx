@@ -47,12 +47,14 @@ export function DataSection({
   return (
     <div className="grid gap-4">
       <div className="leftly-shell-soft grid gap-3 border-cyan-400/15 bg-cyan-400/5 p-4">
-        <p className="text-sm font-semibold text-white">Privacy note</p>
+        <p className="text-sm font-semibold text-white">Stored on this device</p>
         <p className="text-sm leading-6 text-slate-300">
-          Leftly stores your data on this device. Export a backup if you want to save or move your data.
+          Leftly saves your budget in this browser on this device. If you clear browser data, switch devices, or reset
+          Leftly, that data will not follow you unless you export a backup first.
         </p>
         <p className="text-sm leading-6 text-slate-300">
-          JSON backups restore your Leftly data. CSV exports are for viewing your budget in a spreadsheet.
+          Export a JSON backup before a reset or major change. Importing a Leftly JSON backup restores the saved data
+          from that file. CSV exports are spreadsheet copies only and cannot be imported back into Leftly.
         </p>
       </div>
 
@@ -131,7 +133,8 @@ export function DataSection({
       <div className="leftly-banner-warning">
         <p className="text-sm font-semibold text-amber-100">Backup first</p>
         <p className="mt-1 text-sm leading-6 text-amber-50/80">
-          Before resetting data or making major changes, export a backup so you can restore your budget later.
+          Before resetting data, loading demo data, or making major changes, export a backup so you can restore your
+          budget later.
         </p>
       </div>
 
@@ -195,10 +198,12 @@ export function DataSection({
       <div className="leftly-banner-warning">
         <p className="text-sm font-semibold text-amber-100">Import warning</p>
         <p className="text-sm leading-6 text-amber-50/80">
-          Importing this JSON backup will replace the current Leftly data on this device.
+          Importing this JSON backup will replace the current Leftly data on this device with the data saved in that
+          file.
         </p>
         <p className="text-sm leading-6 text-slate-300">
-          Make sure the file came from Leftly before importing it.
+          Export a fresh backup first if you might need what is currently saved here, and only import files that came
+          from Leftly.
         </p>
       </div>
 

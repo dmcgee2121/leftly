@@ -636,19 +636,21 @@ function validateRecurringDraft(
   | { kind: 'complete'; template: RecurringItemTemplate } {
   const hasName = draft.name.trim().length > 0
   const hasAmount = draft.amount.trim().length > 0
-  const hasMonthlyDueDay = draft.monthlyDueDay.trim().length > 0
-  const hasAnchorDate = draft.anchorDate.trim().length > 0
-  const hasContent = hasName || hasAmount || hasMonthlyDueDay || (draft.frequency !== 'monthly' && hasAnchorDate)
+  const hasContent = hasName || hasAmount
 
   if (!hasContent) {
     return { kind: 'blank' }
   }
 
-  const amount = Number(draft.amount)
   if (!hasName) {
     return { kind: 'partial', error: 'Bill Plan item name is required.' }
   }
-  if (!hasAmount || !Number.isFinite(amount) || amount <= 0) {
+  if (!hasAmount) {
+    return { kind: 'partial', error: 'Bill Plan item amount is required.' }
+  }
+
+  const amount = Number(draft.amount)
+  if (!Number.isFinite(amount) || amount <= 0) {
     return { kind: 'partial', error: 'Bill Plan item amount must be greater than 0.' }
   }
   if (!draft.category) {

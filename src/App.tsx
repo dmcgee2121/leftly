@@ -1522,23 +1522,17 @@ function App() {
     setIsSetupOpen(false)
     if (setupTemplates.length > 0) {
       const setupTemplateIds = new Set(setupTemplates.map((template) => template.id))
+      const savedLabel = `${setupTemplates.length} Bill Plan item${setupTemplates.length === 1 ? '' : 's'}`
+      const savedVerb = setupTemplates.length === 1 ? 'was' : 'were'
       const billAddedCount = generated.bills.filter((bill) => bill.templateId && setupTemplateIds.has(bill.templateId)).length
       const setAsideAddedCount = generated.expenses.filter(
         (expense) => expense.setAsideForTemplateId && setupTemplateIds.has(expense.setAsideForTemplateId),
       ).length
 
       if (billAddedCount > 0 || setAsideAddedCount > 0) {
-        setSetupSuccess(
-          `Setup complete. Your pay period is ready and ${setupTemplates.length} Bill Plan item${
-            setupTemplates.length === 1 ? '' : 's'
-          } were saved.`,
-        )
+        setSetupSuccess(`Setup complete. Your pay period is ready and ${savedLabel} ${savedVerb} saved.`)
       } else {
-        setSetupSuccess(
-          `Setup complete. Your pay period is ready and ${setupTemplates.length} Bill Plan item${
-            setupTemplates.length === 1 ? '' : 's'
-          } were saved for later.`,
-        )
+        setSetupSuccess(`Setup complete. Your pay period is ready and ${savedLabel} ${savedVerb} saved for later.`)
       }
     } else {
       setSetupSuccess('Setup complete. Your pay period is ready.')

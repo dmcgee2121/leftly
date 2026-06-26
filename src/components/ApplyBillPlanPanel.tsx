@@ -221,7 +221,7 @@ export function ApplyBillPlanPanel({
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Bill Plan</p>
             <h3 className="mt-1 text-lg font-semibold text-white">Apply Bill Plan</h3>
             <p className="mt-1 max-w-xl text-sm leading-6 text-slate-400">
-              Add the ready Bill Plan items below to this pay period.
+              Review what Leftly will add to this pay period, then confirm only the ready items.
             </p>
           </div>
           <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
@@ -232,22 +232,26 @@ export function ApplyBillPlanPanel({
         <div className="leftly-shell-soft mt-4 grid gap-3 p-3 sm:p-4">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <ContextCard label="Pay period" value={`${preview.summary.startDate} to ${preview.summary.endDate}`} />
-            <ContextCard label="Plan" value={planContext} />
+            <ContextCard label="Bill Plan" value={planContext} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <ContextStat label="Ready to add" value={String(readyToAddCount)} tone="ready" />
             <ContextStat label="Already added" value={String(alreadyAddedCount)} tone="muted" />
           </div>
+          <p className="text-sm leading-6 text-slate-400">
+            Bills, set-asides, and planned spending are shown separately below. Ready means Leftly will add it now.
+            Already added means it is already in this pay period, so it will not be duplicated.
+          </p>
         </div>
 
         {!hasAnythingToAdd && !hasAnythingAlreadyAdded ? (
           <div className="leftly-empty mt-4 grid gap-2">
             <p className="text-sm font-semibold text-white">
-              {preview.hasTemplates ? 'Nothing from Bill Plan lands in this pay period.' : 'No Bill Plan items yet.'}
+              {preview.hasTemplates ? 'Nothing from this plan lands in the current pay period.' : 'No Bill Plan items yet.'}
             </p>
             <p className="text-sm leading-6 text-slate-400">
               {preview.hasTemplates
-                ? 'Weekly, biweekly, and monthly items will show up here when one of their dates falls inside this range.'
+                ? 'That can happen when the schedule does not fall inside this date range yet. The items stay saved in Bill Plan for later.'
                 : 'Save a bill or planned item first, then Leftly can apply it to the current pay period.'}
             </p>
           </div>
@@ -257,7 +261,7 @@ export function ApplyBillPlanPanel({
           <div className="leftly-empty mt-4 grid gap-2">
             <p className="text-sm font-semibold text-white">Everything for this pay period is already in place.</p>
             <p className="text-sm leading-6 text-slate-400">
-              Leftly found matching Bill Plan items, but they were already added so nothing new will be duplicated.
+              Leftly found matching Bill Plan items, but they were already added to this pay period so nothing new will be duplicated.
             </p>
           </div>
         ) : null}
@@ -285,7 +289,7 @@ export function ApplyBillPlanPanel({
               disabled={!hasAnythingToAdd}
               className={`${buttonStyles.primary} w-full sm:w-auto`}
             >
-              {hasAnythingToAdd ? `Apply selected bills (${readyToAddCount})` : 'Nothing new to apply'}
+              {hasAnythingToAdd ? `Apply ready items (${readyToAddCount})` : 'Nothing new to apply'}
             </button>
             <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
               Back
@@ -401,7 +405,9 @@ function PreviewGroup({
       )}
       {totalRows > 0 ? (
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          {toAdd.length > 0 ? 'Each row is one occurrence that will be added for this pay period.' : 'These occurrences are already part of this pay period.'}
+          {toAdd.length > 0
+            ? 'Each row is one occurrence that will be added for this pay period.'
+            : 'These occurrences are already part of this pay period, so Apply will leave them alone.'}
         </p>
       ) : null}
     </div>

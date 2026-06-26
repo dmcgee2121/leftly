@@ -39,6 +39,7 @@
 - Recheck first-run, import/export wording, and demo-data warnings after onboarding changes.
 - Manual release check still recommended before a public checkpoint for: Apply Bill Plan preview/apply, Start New Pay Period rollover + unpaid carryover, Weekly/Biweekly Bill Plan schedule review, and History snapshot review after closing a live period.
 - Manual release check still recommended before a public checkpoint for: one full export/import/restore round-trip using a saved JSON backup in a clean browser profile.
+- Pass 5 status on `2026-06-26`: closeout copy now calls out the closed period, leftover rollover, unpaid carryover, next pay period summary, and the History save before confirm.
 
 ## Onboarding and first run
 

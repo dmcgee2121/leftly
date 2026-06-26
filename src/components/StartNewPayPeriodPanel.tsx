@@ -177,7 +177,7 @@ export function StartNewPayPeriodPanel({
   const hasUnpaidBills = unpaidBills.length > 0
   const baseIncome = Number(draft.income)
   const archivedHistoryMessage = currentReview
-    ? `${currentReview.periodLabel} will be saved to History with its bills, expenses, and paid statuses exactly as they are now.`
+    ? `${currentReview.periodLabel} will be saved to History exactly as it looks now, before the next pay period starts.`
     : 'The current pay period will be saved to History before the next one begins.'
 
   const carryoverModeSummary =
@@ -572,16 +572,18 @@ export function StartNewPayPeriodPanel({
             <div className="grid gap-1">
               <p className="leftly-panel-label">Start next period</p>
               <p className="text-sm font-semibold text-white">Final confirmation</p>
-              <p className="leftly-panel-copy">This is the exact closeout summary Leftly will use when you start the next pay period.</p>
+              <p className="leftly-panel-copy">
+                This summary shows what will be saved, what will roll forward, and what the next pay period will start with.
+              </p>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <SummaryCard label="Closed period" value={currentReview?.periodLabel ?? 'Current period'} detail="Saved to History first" />
               <SummaryCard label="Next pay period" value={`${draft.startDate} to ${draft.endDate}`} detail={draft.cadence} />
               <SummaryCard label="Base income" value={formatCurrency(baseIncome)} detail="Before rollover" />
               <SummaryCard label="Rollover" value={formatCurrency(rolloverAmount)} detail={rolloverAmount > 0 ? 'Added to next income' : 'Not applied'} />
               <SummaryCard label="Next income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Base income + rollover' : 'Base income only'} />
               <SummaryCard label="Bills carried over" value={`${selectedCarryoverBills.length}`} detail={selectedCarryoverBills.length > 0 ? formatCurrency(selectedCarryoverAmount) : 'None selected'} />
-              <SummaryCard label="Archived to History" value={currentReview?.periodLabel ?? 'Current period'} detail="Saved before the next period begins" />
               <SummaryCard label="Estimated bills" value={formatCurrency(recurringBillsAmount + selectedCarryoverUniqueAmount)} detail="Bill Plan + carried unpaid bills" />
               <SummaryCard label="Estimated expenses" value={formatCurrency(setAsidesAmount + plannedExpensesAmount)} detail="Bill Plan expenses" />
             </div>
@@ -593,6 +595,7 @@ export function StartNewPayPeriodPanel({
               <li>Leftly saves the current pay period to History before opening the new one.</li>
               <li>{rolloverAmount > 0 ? `${formatCurrency(rolloverAmount)} is added to the new pay period income.` : 'No rollover is applied to the new pay period income.'}</li>
               <li>{carryoverModeSummary}</li>
+              <li>You can go Back to edit or Cancel to leave without changing data.</li>
             </ul>
           </div>
 

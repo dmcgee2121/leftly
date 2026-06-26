@@ -28,12 +28,17 @@
 - Confirm the Data tab stays readable and tappable on mobile.
 - Confirm sticky form footers and primary actions stay above the fixed bottom nav on mobile.
 - Smoke test first-run setup, Bill Plan, More, and Data without horizontal scrolling.
+- Pass 4 status on `2026-06-26`: `360px` and `390px` were checked in the local Vite app with no horizontal scrolling on first-run, setup, Overview, Bill Plan, or Data.
+- Pass 4 status on `2026-06-26`: first-run setup still completed with zero Bill Plan items, one item, multiple items, checked-but-blank rows, ignored extra blank rows, targeted name-only and amount-only validation, and extra-row removal.
+- Pass 4 status on `2026-06-26`: mobile bottom nav, More entry points, local backup export buttons, and the compact first-run / setup card layout remained readable on phone widths.
 
 ## Release prep
 
 - Run `npm run build` before release-facing merges.
 - Keep release-prep fixes narrow: copy, layout, tappability, and safe local-only flows.
 - Recheck first-run, import/export wording, and demo-data warnings after onboarding changes.
+- Manual release check still recommended before a public checkpoint for: Apply Bill Plan preview/apply, Start New Pay Period rollover + unpaid carryover, Weekly/Biweekly Bill Plan schedule review, and History snapshot review after closing a live period.
+- Manual release check still recommended before a public checkpoint for: one full export/import/restore round-trip using a saved JSON backup in a clean browser profile.
 
 ## Onboarding and first run
 

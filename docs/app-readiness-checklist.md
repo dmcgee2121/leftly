@@ -23,9 +23,17 @@
 
 ## Mobile QA
 
-- Check first-load layout on a narrow phone viewport.
+- Check first-load layout at `360px` and `390px`.
 - Check installed PWA icon, title, and theme color.
 - Confirm the Data tab stays readable and tappable on mobile.
+- Confirm sticky form footers and primary actions stay above the fixed bottom nav on mobile.
+- Smoke test first-run setup, Bill Plan, More, and Data without horizontal scrolling.
+
+## Release prep
+
+- Run `npm run build` before release-facing merges.
+- Keep release-prep fixes narrow: copy, layout, tappability, and safe local-only flows.
+- Recheck first-run, import/export wording, and demo-data warnings after onboarding changes.
 
 ## Onboarding and first run
 

@@ -70,12 +70,12 @@ export function SetupFlowPanel({
 
   const stepTitle = useMemo(() => {
     if (draft.step === 1) {
-      return 'Step 1 of 3: Pay cadence'
+      return 'Step 1 of 3: Income and cadence'
     }
     if (draft.step === 2) {
       return 'Step 2 of 3: Pay period'
     }
-    return 'Step 3 of 3: First recurring item'
+    return 'Step 3 of 3: First Bill Plan item'
   }, [draft.step])
 
   const canContinue =
@@ -91,7 +91,7 @@ export function SetupFlowPanel({
       return {
         recurringItem: null as RecurringItemTemplate | null,
         willAddToPeriod: false,
-        status: 'You can skip a regular bill for now and add one later from Bill Plan.',
+        status: 'You can skip this for now and add regular bills later from Bill Plan.',
       }
     }
 
@@ -110,13 +110,13 @@ export function SetupFlowPanel({
     })
     const willAddToPeriod = preview.bills.length > 0 || preview.setAsides.length > 0 || preview.plannedExpenses.length > 0
 
-    return {
-      recurringItem: recurringValidation.template,
-      willAddToPeriod,
-      status: willAddToPeriod
-        ? 'This regular bill will be added to your active budget.'
-        : 'This bill plan will be saved, but it is not due in this pay period yet.',
-    }
+      return {
+        recurringItem: recurringValidation.template,
+        willAddToPeriod,
+        status: willAddToPeriod
+          ? 'This Bill Plan item will be added to your first pay period.'
+          : 'This Bill Plan item will be saved, but it is not due in this pay period yet.',
+      }
   }, [draft])
 
   function goBack() {
@@ -174,12 +174,12 @@ export function SetupFlowPanel({
   if (draft.step === 1) {
     return renderPanel(
       'Welcome to Leftly',
-      "Set up your first pay period to see what's left before you spend.",
+      "Set up the paycheck Leftly should track first. This stays short and gives you a working budget right away.",
       <>
         <div className="leftly-panel-section">
           <div className="grid gap-1">
-            <p className="leftly-panel-label">How you get paid</p>
-            <p className="leftly-panel-copy">Pick the cadence Leftly should use when it plans this pay period and future ones.</p>
+            <p className="leftly-panel-label">Paycheck basics</p>
+            <p className="leftly-panel-copy">Choose how often you get paid and the income amount for the paycheck you want to track first.</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -195,7 +195,24 @@ export function SetupFlowPanel({
                 ))}
               </select>
             </Field>
+            <Field label="Income amount">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={draft.income}
+                onChange={(event) => setDraft((current) => ({ ...current, income: event.target.value }))}
+                placeholder="3200"
+              />
+            </Field>
           </div>
+        </div>
+
+        <div className="leftly-shell-faint grid gap-2 p-3">
+          <p className="text-sm font-medium text-white">Local-only and simple</p>
+          <p className="text-sm leading-6 text-slate-400">
+            Leftly stores your budget on this device. No bank connection is needed, and you can export a backup later from Data.
+          </p>
         </div>
 
         {error ? <ErrorBanner message={error} /> : null}
@@ -219,7 +236,7 @@ export function SetupFlowPanel({
   if (draft.step === 2) {
     return renderPanel(
       'Set up your first pay period',
-      'Add the income and date range for the pay period you want Leftly to track.',
+      'Choose the start and end dates for the paycheck you want Leftly to track right now.',
       <>
         <div className="leftly-panel-section">
           <div className="grid gap-1">
@@ -228,16 +245,6 @@ export function SetupFlowPanel({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Income amount">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.income}
-                onChange={(event) => setDraft((current) => ({ ...current, income: event.target.value }))}
-                placeholder="3200"
-              />
-            </Field>
             <Field label="Start date">
               <input
                 type="date"
@@ -253,6 +260,13 @@ export function SetupFlowPanel({
               />
             </Field>
           </div>
+        </div>
+
+        <div className="leftly-shell-faint grid gap-2 p-3">
+          <p className="text-sm font-medium text-white">What this sets up</p>
+          <p className="text-sm leading-6 text-slate-400">
+            Leftly will use your cadence, income, and these dates to build your first pay period.
+          </p>
         </div>
 
         {error ? <ErrorBanner message={error} /> : null}
@@ -275,28 +289,33 @@ export function SetupFlowPanel({
 
   return renderPanel(
     'Add your first Bill Plan item',
-    'Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your pay period plan.',
+    'Optional: save one regular bill now so Leftly can include it in this pay period when it applies.',
     <form className="grid gap-4" onSubmit={handleFinish}>
       <div className="leftly-panel-section">
         <p className="text-sm font-semibold text-white">Setup review</p>
-        <div className="grid gap-2 text-sm leading-6 text-slate-300 sm:grid-cols-2">
-          <p>
-            <span className="text-slate-500">Pay period:</span> {draft.startDate || 'Select a start date'} to {draft.endDate || 'Select an end date'}
-          </p>
-          <p>
-            <span className="text-slate-500">Income:</span> {draft.income ? formatCurrency(Number(draft.income)) : 'Add income'}
-          </p>
-          <p className="sm:col-span-2">
-            <span className="text-slate-500">Bill Plan item:</span>{' '}
-            {setupReview?.recurringItem
-              ? `${setupReview.recurringItem.name} | ${formatCurrency(setupReview.recurringItem.amount)} | ${setupReview.recurringItem.frequency}`
-              : draft.addRecurringBill
-                ? 'Fill in the bill details below'
-                : 'No Bill Plan item selected'}
-          </p>
-          <p className="sm:col-span-2">
-            <span className="text-slate-500">Included in this pay period:</span> {setupReview?.willAddToPeriod ? 'Yes' : 'No'}
-          </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SummaryCard label="Pay cadence" value={cadenceOptions.find((option) => option.value === draft.cadence)?.label ?? draft.cadence} />
+          <SummaryCard label="Income" value={draft.income ? formatCurrency(Number(draft.income)) : 'Add income'} />
+          <SummaryCard
+            label="Pay period"
+            value={draft.startDate && draft.endDate ? `${draft.startDate} to ${draft.endDate}` : 'Choose your dates'}
+          />
+          <SummaryCard
+            label="Bill Plan item"
+            value={
+              setupReview?.recurringItem
+                ? `${setupReview.recurringItem.name} • ${formatCurrency(setupReview.recurringItem.amount)}`
+                : draft.addRecurringBill
+                  ? 'Fill in the bill details below'
+                  : 'Skipping for now'
+            }
+            detail={setupReview?.recurringItem ? formatRecurringFrequencyLabel(setupReview.recurringItem.frequency) : undefined}
+          />
+          <SummaryCard
+            label="Included this pay period"
+            value={setupReview?.willAddToPeriod ? 'Yes' : 'Not yet'}
+            detail={draft.addRecurringBill ? 'Based on the schedule you choose below.' : 'You can add regular bills later from Bill Plan.'}
+          />
         </div>
         <p className="text-sm leading-6 text-slate-400">{setupReview?.status ?? 'Complete the steps below to see your setup review.'}</p>
       </div>
@@ -311,7 +330,7 @@ export function SetupFlowPanel({
         <span>
           <span className="block font-semibold">Save a Bill Plan item now</span>
           <span className="mt-1 block text-sm leading-6 text-slate-400">
-            Most bills repeat monthly or every pay period. Add one now, then Leftly can include it in your pay period plan.
+            Good first choices are rent, utilities, phone, or any other regular bill. You can always add more later.
           </span>
         </span>
       </label>
@@ -320,7 +339,7 @@ export function SetupFlowPanel({
         <div className="leftly-panel-section">
           <div className="grid gap-1">
             <p className="leftly-panel-label">Bill Plan item</p>
-            <p className="leftly-panel-copy">Add one repeating bill now. You can always add more later in Bill Plan.</p>
+            <p className="leftly-panel-copy">Add one regular bill now. You can always add more later in Bill Plan.</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -389,6 +408,10 @@ export function SetupFlowPanel({
               </Field>
             ) : null}
           </div>
+
+          <p className="text-sm leading-6 text-slate-400">
+            Use the bill’s usual due day for monthly items, or the most recent matching date for weekly, biweekly, and every-pay-period items.
+          </p>
         </div>
       ) : null}
 
@@ -549,6 +572,20 @@ function ErrorBanner({ message }: { message: string }) {
       {message}
     </p>
   )
+}
+
+function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="leftly-shell-faint grid gap-1 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="text-sm font-semibold text-white break-words">{value}</p>
+      {detail ? <p className="text-xs leading-5 text-slate-400">{detail}</p> : null}
+    </div>
+  )
+}
+
+function formatRecurringFrequencyLabel(frequency: RecurringFrequency) {
+  return frequencyOptions.find((option) => option.value === frequency)?.label ?? frequency
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

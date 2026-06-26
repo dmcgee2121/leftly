@@ -27,6 +27,13 @@
 - Check installed PWA icon, title, and theme color.
 - Confirm the Data tab stays readable and tappable on mobile.
 
+## Onboarding and first run
+
+- Keep setup short: pay cadence, income, pay period dates, then an optional first Bill Plan item.
+- Keep local-only trust copy visible: data stays on this device, no bank connection, backups export from Data.
+- Make new-user empty states point to the next action instead of explaining the whole app.
+- Keep demo data wording clear that it is sample data and replaces current local data on this device.
+
 ## Future app packaging
 
 - If packaged later, keep icon assets and theme metadata reusable.

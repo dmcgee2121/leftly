@@ -54,12 +54,11 @@ export function DataSection({
       <div className="leftly-shell-soft grid gap-3 border-cyan-400/15 bg-cyan-400/5 p-4">
         <p className="text-sm font-semibold text-white">Stored on this device</p>
         <p className="text-sm leading-6 text-slate-300">
-          Leftly saves your budget on this device in this browser. If you reset Leftly, clear browser data, or switch
-          devices, that data will not follow you unless you export a backup first.
+          Leftly saves your budget on this device in this browser. No bank connection is required.
         </p>
         <p className="text-sm leading-6 text-slate-300">
-          Export a JSON backup before a reset or major change. Import restores saved Leftly data from a backup file.
-          CSV exports are spreadsheet copies only and cannot be imported back into Leftly.
+          If you reset Leftly, clear browser data, or switch devices, export a JSON backup first. You can always come
+          back here to export from Data. CSV exports are spreadsheet copies only and cannot be imported back into Leftly.
         </p>
       </div>
 
@@ -148,8 +147,8 @@ export function DataSection({
       <div className="leftly-shell-soft grid gap-3 p-4">
         <p className="text-sm font-semibold text-white">Reset and demo data</p>
         <p className="text-sm leading-6 text-slate-400">
-          Reset clears the Leftly data saved on this device. Demo data is only for testing and also replaces the
-          current local data on this device.
+          Reset clears the Leftly data saved on this device. Demo data loads a sample budget so you can explore Leftly,
+          and it replaces the current local data on this device.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={onReset} className={`${buttonStyles.secondary} w-full`} disabled={isImporting}>

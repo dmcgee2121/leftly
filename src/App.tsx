@@ -829,7 +829,7 @@ function HistorySection({
           ))}
         </div>
       ) : (
-        <EmptyState title="No pay periods archived yet" text="Start a new pay period to archive your current one." />
+        <EmptyState title="No pay periods archived yet" text="When you start a new pay period, Leftly saves the current one here." />
       )}
     </div>
   )
@@ -871,9 +871,16 @@ function FirstRunPanel({
       <div className="grid gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Welcome to Leftly</p>
         <p className="text-sm leading-6 text-slate-300">
-          Set up your first pay period to see what’s left before you spend.
+          Set up your pay cadence, income, and pay period first. Then add regular bills and start tracking spending.
         </p>
       </div>
+      <div className="leftly-shell-faint grid gap-2 p-3">
+        <p className="text-sm font-medium text-white">Private and local</p>
+        <p className="text-sm leading-6 text-slate-400">
+          Leftly keeps data on this device, does not require a bank connection, and lets you export backups later from Data.
+        </p>
+      </div>
+      <FirstRunChecklist />
       <div className="grid gap-3 sm:grid-cols-2">
         <button type="button" onClick={onStartSetup} className="button-primary w-full">
           Start setup
@@ -881,6 +888,33 @@ function FirstRunPanel({
         <button type="button" onClick={onLoadDemoData} className="button-secondary w-full">
           Load demo data
         </button>
+      </div>
+      <p className="text-xs leading-5 text-slate-400">
+        Demo data is sample information for exploring the app. Loading it replaces any current data saved on this device.
+      </p>
+    </div>
+  )
+}
+
+function FirstRunChecklist() {
+  const steps = [
+    'Set income and your pay period first.',
+    'Add regular bills in Bill Plan.',
+    'Add one-time bills only when they belong to one pay period.',
+    'Use Quick Add or Manual Expense for spending.',
+    'Export backups later from Data.',
+  ]
+
+  return (
+    <div className="leftly-shell-faint grid gap-3 p-3">
+      <p className="text-sm font-medium text-white">What to do first</p>
+      <div className="grid gap-2">
+        {steps.map((step, index) => (
+          <div key={step} className="flex items-start gap-3">
+            <span className="leftly-chip leftly-chip-muted mt-0.5 px-2.5 py-1 text-[10px]">{index + 1}</span>
+            <p className="min-w-0 text-sm leading-6 text-slate-300">{step}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -1491,16 +1525,16 @@ function App() {
       const setAsideAdded = generated.expenses.some((expense) => expense.setAsideForTemplateId === recurringTemplate.id)
 
       if (billAdded && setAsideAdded) {
-        setSetupSuccess('Setup complete. Your pay period and Bill Plan are ready.')
+        setSetupSuccess('Setup complete. Your pay period, income, and first Bill Plan item are ready.')
       } else if (billAdded) {
-        setSetupSuccess('Setup complete. Your bill was added to this pay period.')
+        setSetupSuccess('Setup complete. Your first Bill Plan item was added to this pay period.')
       } else if (setAsideAdded) {
-        setSetupSuccess('Setup complete. Your Bill Plan was saved and the set-aside was added to this pay period.')
+        setSetupSuccess('Setup complete. Your first Bill Plan item was saved and the set-aside was added to this pay period.')
       } else {
-        setSetupSuccess('Setup complete. Your Bill Plan was saved, but it is not due in this pay period yet.')
+        setSetupSuccess('Setup complete. Your first Bill Plan item was saved, but it is not due in this pay period yet.')
       }
     } else {
-      setSetupSuccess('Setup complete.')
+      setSetupSuccess('Setup complete. Your pay period is ready.')
     }
     setPayPeriodError('')
     setBillError('')
@@ -1981,7 +2015,7 @@ function App() {
   function loadDemoData() {
     if (
       !window.confirm(
-        'Load demo data on this device? This replaces the current Leftly data in this browser. Export a backup first if you may want to restore your current data later.',
+        'Load demo data on this device? Demo data adds a sample pay period, bills, and expenses so you can explore Leftly. It replaces the current data saved in this browser. Export a backup first if you may want to restore your current data later.',
       )
     ) {
       return
@@ -2841,7 +2875,7 @@ function App() {
                             ) : null}
                           </>
                         ) : (
-                          <EmptyState title="No bills due soon" text="Add a One-time Bill or apply Bill Plan when something new is coming up." compact />
+                          <EmptyState title="No bills due soon" text="Add a one-time bill or apply Bill Plan when something is coming up next." compact />
                         )
                       ) : (
                         <EmptyState title="No active pay period" text="Start a pay period to see what bills are coming up next." compact />
@@ -2917,7 +2951,7 @@ function App() {
                             ) : null}
                           </>
                         ) : (
-                          <EmptyState title="No spending yet" text="Use Quick Add or Manual Expense when you spend something." compact />
+                          <EmptyState title="No spending yet" text="Use Quick Add or Manual Expense when you start logging spending." compact />
                         )
                       ) : (
                         <EmptyState title="No active pay period" text="Start a pay period to track spending by category." compact />
@@ -2987,7 +3021,7 @@ function App() {
                             )
                           })
                         ) : (
-                          <EmptyState title="No bills yet" text="Add a One-time Bill or apply Bill Plan to populate this list." compact />
+                          <EmptyState title="No bills yet" text="Add a one-time bill or apply Bill Plan to populate this list." compact />
                         )}
                       </div>
                       {bills.length > 3 ? (
@@ -3036,7 +3070,7 @@ function App() {
                             )
                           })
                         ) : (
-                          <EmptyState title="No expenses yet" text="Use Quick Add or Manual Expense to start tracking spending." compact />
+                          <EmptyState title="No expenses yet" text="Use Quick Add or Manual Expense to start tracking spending in this pay period." compact />
                         )}
                       </div>
                     </div>
@@ -3077,7 +3111,7 @@ function App() {
                         ) : (
                           <EmptyState
                             title="Nothing waiting"
-                            text="Add bills to Bill Plan and Leftly will surface them here before you apply them."
+                            text="Add regular bills to Bill Plan and Leftly will surface them here before you apply them."
                             compact
                           />
                         )}
@@ -3091,9 +3125,14 @@ function App() {
               ) : (
                   <EmptyState
                     title="No budget data yet"
-                    text="Start with setup, then add income, a bill, or an expense to turn the overview into a working budget snapshot."
+                    text="Start setup to set income and your pay period, then add regular bills in Bill Plan and log spending with Quick Add."
                   />
               )}
+              {!payPeriod && bills.length === 0 && expenses.length === 0 ? (
+                <div className="mt-4">
+                  <FirstRunChecklist />
+                </div>
+              ) : null}
             </SectionShell>
           ) : null}
 
@@ -3262,7 +3301,7 @@ function App() {
                 <div className="grid gap-4">
                   <EmptyState
                     title="Start a pay period first"
-                    text="Quick Add works from an active pay period so Leftly knows where this expense belongs."
+                    text="Run setup first, or set income and pay period in Income, so Quick Add knows where this spending belongs."
                   />
                   <div className="leftly-action-grid">
                     <button type="button" onClick={() => setActiveTab('income')} className="button-primary w-full sm:w-auto">
@@ -3320,7 +3359,7 @@ function App() {
                   <div className="mt-4">
                     <EmptyState
                       title="No active pay period yet"
-                      text="Add paycheck income and dates below to turn Income into a live pay period."
+                      text="Add your income and pay period dates below to create the paycheck Leftly should track first."
                       compact
                     />
                   </div>
@@ -3520,7 +3559,7 @@ function App() {
                     </div>
                   ) : (
                     <div className="mt-4">
-                      <EmptyState title="No one-time bills yet" text="Add an unusual bill for this pay period." compact />
+                      <EmptyState title="No one-time bills yet" text="Add an unusual bill for this pay period. Keep regular monthly bills in Bill Plan." compact />
                     </div>
                   )}
                 </div>
@@ -3693,7 +3732,7 @@ function App() {
                     <div className="mt-4">
                       <EmptyState
                         title="No manual expenses yet"
-                        text="Add spending here or use Quick Add for faster entry."
+                        text="Use Quick Add for fast spending, or add one here when you want full details."
                         compact
                       />
                     </div>
@@ -3835,7 +3874,7 @@ function App() {
                 <div className="mb-4">
                   <EmptyState
                     title="No category items yet"
-                    text="Add a bill or expense and Leftly will group it here."
+                    text="Set a pay period, add a bill, or log spending and Leftly will group it here."
                     compact
                   />
                 </div>

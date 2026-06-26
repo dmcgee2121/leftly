@@ -68,6 +68,19 @@ function getPeriodKey(period: BudgetPeriod) {
   return `${period.cadence}:${period.startDate}:${period.endDate}`
 }
 
+export function getRecurringOccurrenceKey(params: {
+  kind: RecurringPreviewItem['kind']
+  templateId: string
+  dateLabel: string
+  periodKey: string
+}) {
+  return `${params.kind}:${params.templateId}:${params.dateLabel}:${params.periodKey}`
+}
+
+export function getRecurringSetAsideKey(templateId: string, periodKey: string) {
+  return `expense:set-aside:${templateId}:${periodKey}`
+}
+
 export function normalizeRecurringPlanName(planName?: string) {
   return planName?.trim() || MAIN_BILL_PLAN
 }
@@ -390,23 +403,42 @@ export function generateRecurringItems({
 
   for (const bill of bills) {
     if (bill.source === 'recurring' && bill.templateId && bill.generatedForPeriodId === periodKey) {
-      existingKeys.add(`bill:${bill.templateId}:${bill.dueDate}:${bill.generatedForPeriodId}`)
+      existingKeys.add(
+        getRecurringOccurrenceKey({
+          kind: 'bill',
+          templateId: bill.templateId,
+          dateLabel: bill.dueDate,
+          periodKey: bill.generatedForPeriodId,
+        }),
+      )
     }
   }
 
   for (const expense of expenses) {
     if (expense.source === 'recurring' && expense.templateId && expense.generatedForPeriodId === periodKey) {
       if (expense.setAsideForTemplateId) {
-        existingKeys.add(`expense:set-aside:${expense.setAsideForTemplateId}:${expense.generatedForPeriodId}`)
+        existingKeys.add(getRecurringSetAsideKey(expense.setAsideForTemplateId, expense.generatedForPeriodId))
       }
-      existingKeys.add(`expense:${expense.templateId}:${expense.date}:${expense.generatedForPeriodId}`)
+      existingKeys.add(
+        getRecurringOccurrenceKey({
+          kind: 'planned-expense',
+          templateId: expense.templateId,
+          dateLabel: expense.date,
+          periodKey: expense.generatedForPeriodId,
+        }),
+      )
     }
   }
 
   for (const template of nextTemplates) {
     const occurrences = getOccurrences(template, period)
     for (const dateLabel of occurrences) {
-      const key = `${template.kind}:${template.id}:${dateLabel}:${periodKey}`
+      const key = getRecurringOccurrenceKey({
+        kind: template.kind,
+        templateId: template.id,
+        dateLabel,
+        periodKey,
+      })
       if (existingKeys.has(key)) {
         continue
       }
@@ -425,7 +457,7 @@ export function generateRecurringItems({
     }
 
     if (template.kind === 'bill' && template.setAsideEnabled && (template.setAsideAmount ?? 0) > 0) {
-      const setAsideKey = `expense:set-aside:${template.id}:${periodKey}`
+      const setAsideKey = getRecurringSetAsideKey(template.id, periodKey)
       if (!existingKeys.has(setAsideKey)) {
         expenses.push(createSetAsideExpense(template, period, periodKey))
         existingKeys.add(setAsideKey)

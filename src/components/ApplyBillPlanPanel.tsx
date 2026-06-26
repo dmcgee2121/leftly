@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { MAIN_BILL_PLAN } from '../lib/recurring'
+import { MAIN_BILL_PLAN, getRecurringOccurrenceKey, getRecurringSetAsideKey } from '../lib/recurring'
 import type { Bill, BudgetPeriod, Expense, RecurringItemTemplate } from '../types/budget'
 import {
   buildRecurringPreview,
@@ -93,7 +93,14 @@ export function ApplyBillPlanPanel({
     const addedBillKeys = new Set(
       bills
         .filter((bill) => bill.source === 'recurring' && bill.templateId && bill.generatedForPeriodId === periodKey)
-        .map((bill) => `${bill.templateId}:${bill.dueDate}:${bill.generatedForPeriodId}`),
+        .map((bill) =>
+          getRecurringOccurrenceKey({
+            kind: 'bill',
+            templateId: bill.templateId as string,
+            dateLabel: bill.dueDate,
+            periodKey: bill.generatedForPeriodId as string,
+          }),
+        ),
     )
     const addedPlannedExpenseKeys = new Set(
       expenses
@@ -104,7 +111,14 @@ export function ApplyBillPlanPanel({
             expense.generatedForPeriodId === periodKey &&
             !expense.setAsideForTemplateId,
         )
-        .map((expense) => `${expense.templateId}:${expense.date}:${expense.generatedForPeriodId}`),
+        .map((expense) =>
+          getRecurringOccurrenceKey({
+            kind: 'planned-expense',
+            templateId: expense.templateId as string,
+            dateLabel: expense.date,
+            periodKey: expense.generatedForPeriodId as string,
+          }),
+        ),
     )
     const addedSetAsideKeys = new Set(
       expenses
@@ -114,13 +128,18 @@ export function ApplyBillPlanPanel({
             expense.setAsideForTemplateId &&
             expense.generatedForPeriodId === periodKey,
         )
-        .map((expense) => `${expense.setAsideForTemplateId}:${expense.generatedForPeriodId}`),
+        .map((expense) => getRecurringSetAsideKey(expense.setAsideForTemplateId as string, expense.generatedForPeriodId as string)),
     )
 
     const billsToAdd: PreviewEntry[] = []
     const billsAlreadyAdded: PreviewEntry[] = []
     for (const item of recurringPreview.bills) {
-      const key = `${item.templateId}:${item.dateLabel}:${periodKey}`
+      const key = getRecurringOccurrenceKey({
+        kind: 'bill',
+        templateId: item.templateId,
+        dateLabel: item.dateLabel,
+        periodKey,
+      })
       const entry = toPreviewEntry(item)
       if (addedBillKeys.has(key)) {
         billsAlreadyAdded.push({ ...entry, status: 'Already added' })
@@ -132,7 +151,7 @@ export function ApplyBillPlanPanel({
     const setAsidesToAdd: PreviewEntry[] = []
     const setAsidesAlreadyAdded: PreviewEntry[] = []
     for (const item of recurringPreview.setAsides) {
-      const key = `${item.templateId}:${periodKey}`
+      const key = getRecurringSetAsideKey(item.templateId, periodKey)
       const entry = toPreviewEntry(item)
       if (addedSetAsideKeys.has(key)) {
         setAsidesAlreadyAdded.push({ ...entry, status: 'Already added' })
@@ -144,7 +163,12 @@ export function ApplyBillPlanPanel({
     const plannedToAdd: PreviewEntry[] = []
     const plannedAlreadyAdded: PreviewEntry[] = []
     for (const item of recurringPreview.plannedExpenses) {
-      const key = `${item.templateId}:${item.dateLabel}:${periodKey}`
+      const key = getRecurringOccurrenceKey({
+        kind: 'planned-expense',
+        templateId: item.templateId,
+        dateLabel: item.dateLabel,
+        periodKey,
+      })
       const entry = toPreviewEntry(item)
       if (addedPlannedExpenseKeys.has(key)) {
         plannedAlreadyAdded.push({ ...entry, status: 'Already added' })

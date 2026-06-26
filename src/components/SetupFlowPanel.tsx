@@ -36,6 +36,16 @@ const categoryOptions: BudgetCategory[] = [
 
 type SetupStep = 1 | 2 | 3
 
+type SetupRecurringDraft = {
+  id: string
+  name: string
+  amount: string
+  category: BudgetCategory
+  frequency: RecurringFrequency
+  monthlyDueDay: string
+  anchorDate: string
+}
+
 type SetupDraft = {
   step: SetupStep
   cadence: PayCadence
@@ -43,17 +53,21 @@ type SetupDraft = {
   startDate: string
   endDate: string
   addRecurringBill: boolean
-  recurringName: string
-  recurringAmount: string
-  recurringCategory: BudgetCategory
-  recurringFrequency: RecurringFrequency
-  monthlyDueDay: string
-  anchorDate: string
+  recurringItems: SetupRecurringDraft[]
 }
 
 type SetupResult = {
   period: BudgetPeriod
-  recurringTemplate?: RecurringItemTemplate
+  recurringTemplates?: RecurringItemTemplate[]
+}
+
+type SetupReview = {
+  templates: RecurringItemTemplate[]
+  templatesReady: number
+  skippedBlankRows: number
+  partialRows: number
+  dueThisPeriodCount: number
+  status: string
 }
 
 export function SetupFlowPanel({
@@ -75,13 +89,13 @@ export function SetupFlowPanel({
     if (draft.step === 2) {
       return 'Step 2 of 3: Pay period'
     }
-    return 'Step 3 of 3: First Bill Plan item'
+    return 'Step 3 of 3: Bill Plan items'
   }, [draft.step])
 
   const canContinue =
     draft.step === 1 ? Boolean(draft.cadence) : draft.step === 2 ? isPayPeriodStepComplete(draft) : true
 
-  const setupReview = useMemo(() => {
+  const setupReview = useMemo<SetupReview | null>(() => {
     const periodValidation = validatePayPeriodDraft(draft, false)
     if (!periodValidation.ok) {
       return null
@@ -89,34 +103,65 @@ export function SetupFlowPanel({
 
     if (!draft.addRecurringBill) {
       return {
-        recurringItem: null as RecurringItemTemplate | null,
-        willAddToPeriod: false,
-        status: 'You can skip this for now and add regular bills later from Bill Plan.',
+        templates: [],
+        templatesReady: 0,
+        skippedBlankRows: 0,
+        partialRows: 0,
+        dueThisPeriodCount: 0,
+        status: 'Skip this if you want to start with income only. You can add more later from Bill Plan.',
       }
     }
 
-    const recurringValidation = validateRecurringDraft(draft)
-    if (!recurringValidation.ok) {
-      return {
-        recurringItem: null as RecurringItemTemplate | null,
-        willAddToPeriod: false,
-        status: 'Fill in the regular bill details to see whether it will be added to this pay period.',
+    const recurringCollection = collectRecurringTemplates(draft, false)
+    if (!recurringCollection.ok) {
+      return null
+    }
+    const dueThisPeriodTemplateIds = new Set<string>()
+
+    if (recurringCollection.templates.length > 0) {
+      const preview = buildRecurringPreview({
+        templates: recurringCollection.templates,
+        period: periodValidation.period,
+      })
+
+      for (const item of [...preview.bills, ...preview.setAsides, ...preview.plannedExpenses]) {
+        dueThisPeriodTemplateIds.add(item.templateId)
       }
     }
 
-    const preview = buildRecurringPreview({
-      templates: [recurringValidation.template],
-      period: periodValidation.period,
-    })
-    const willAddToPeriod = preview.bills.length > 0 || preview.setAsides.length > 0 || preview.plannedExpenses.length > 0
-
+    if (recurringCollection.partialRows > 0) {
       return {
-        recurringItem: recurringValidation.template,
-        willAddToPeriod,
-        status: willAddToPeriod
-          ? 'This Bill Plan item will be added to your first pay period.'
-          : 'This Bill Plan item will be saved, but it is not due in this pay period yet.',
+        templates: recurringCollection.templates,
+        templatesReady: recurringCollection.templates.length,
+        skippedBlankRows: recurringCollection.blankRows,
+        partialRows: recurringCollection.partialRows,
+        dueThisPeriodCount: dueThisPeriodTemplateIds.size,
+        status: 'Finish any bill card you started, or clear it before setup can save your Bill Plan items.',
       }
+    }
+
+    if (recurringCollection.templates.length === 0) {
+      return {
+        templates: [],
+        templatesReady: 0,
+        skippedBlankRows: recurringCollection.blankRows,
+        partialRows: 0,
+        dueThisPeriodCount: 0,
+        status: 'Skip this if you want to start with income only. You can add more later from Bill Plan.',
+      }
+    }
+
+    return {
+      templates: recurringCollection.templates,
+      templatesReady: recurringCollection.templates.length,
+      skippedBlankRows: recurringCollection.blankRows,
+      partialRows: 0,
+      dueThisPeriodCount: dueThisPeriodTemplateIds.size,
+      status:
+        dueThisPeriodTemplateIds.size > 0
+          ? `${dueThisPeriodTemplateIds.size} Bill Plan item${dueThisPeriodTemplateIds.size === 1 ? '' : 's'} will be added to your first pay period.`
+          : 'Your Bill Plan items will be saved, even if none are due in this pay period yet.',
+    }
   }, [draft])
 
   function goBack() {
@@ -159,15 +204,39 @@ export function SetupFlowPanel({
       return
     }
 
-    const recurringValidation = validateRecurringDraft(draft)
-    if (!recurringValidation.ok) {
-      setError(recurringValidation.error)
+    const recurringCollection = collectRecurringTemplates(draft, true)
+    if (!recurringCollection.ok) {
+      setError(recurringCollection.error)
       return
     }
 
     onFinish({
       period: periodValidation.period,
-      recurringTemplate: recurringValidation.template,
+      recurringTemplates: recurringCollection.templates,
+    })
+  }
+
+  function updateRecurringItem(itemId: string, updates: Partial<SetupRecurringDraft>) {
+    setDraft((current) => ({
+      ...current,
+      recurringItems: current.recurringItems.map((item) => (item.id === itemId ? { ...item, ...updates } : item)),
+    }))
+  }
+
+  function addAnotherBill() {
+    setDraft((current) => ({
+      ...current,
+      recurringItems: [...current.recurringItems, createEmptyRecurringDraft()],
+    }))
+  }
+
+  function removeBill(itemId: string) {
+    setDraft((current) => {
+      const nextItems = current.recurringItems.filter((item) => item.id !== itemId)
+      return {
+        ...current,
+        recurringItems: nextItems.length > 0 ? nextItems : [createEmptyRecurringDraft()],
+      }
     })
   }
 
@@ -288,8 +357,8 @@ export function SetupFlowPanel({
   }
 
   return renderPanel(
-    'Add your first Bill Plan item',
-    'Optional: save one regular bill now so Leftly can include it in this pay period when it applies.',
+    'Add regular bills you already know about',
+    'Optional: save one or more regular bills now. You can add more later from Bill Plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
       <div className="leftly-panel-section">
         <p className="text-sm font-semibold text-white">Setup review</p>
@@ -301,20 +370,26 @@ export function SetupFlowPanel({
             value={draft.startDate && draft.endDate ? `${draft.startDate} to ${draft.endDate}` : 'Choose your dates'}
           />
           <SummaryCard
-            label="Bill Plan item"
+            label="Bill Plan items ready"
             value={
-              setupReview?.recurringItem
-                ? `${setupReview.recurringItem.name} • ${formatCurrency(setupReview.recurringItem.amount)}`
-                : draft.addRecurringBill
-                  ? 'Fill in the bill details below'
-                  : 'Skipping for now'
+              draft.addRecurringBill
+                ? setupReview?.templatesReady
+                  ? `${setupReview.templatesReady} ready`
+                  : 'None yet'
+                : 'Skipping for now'
             }
-            detail={setupReview?.recurringItem ? formatRecurringFrequencyLabel(setupReview.recurringItem.frequency) : undefined}
+            detail={
+              draft.addRecurringBill
+                ? setupReview?.skippedBlankRows
+                  ? `${setupReview.skippedBlankRows} blank row${setupReview.skippedBlankRows === 1 ? '' : 's'} will be ignored.`
+                  : 'Blank rows are ignored.'
+                : 'You can add regular bills later from Bill Plan.'
+            }
           />
           <SummaryCard
             label="Included this pay period"
-            value={setupReview?.willAddToPeriod ? 'Yes' : 'Not yet'}
-            detail={draft.addRecurringBill ? 'Based on the schedule you choose below.' : 'You can add regular bills later from Bill Plan.'}
+            value={setupReview?.dueThisPeriodCount ? `${setupReview.dueThisPeriodCount} item${setupReview.dueThisPeriodCount === 1 ? '' : 's'}` : 'Not yet'}
+            detail={draft.addRecurringBill ? 'Based on the schedule you choose below.' : 'Skip this if you want to start with income only.'}
           />
         </div>
         <p className="text-sm leading-6 text-slate-400">{setupReview?.status ?? 'Complete the steps below to see your setup review.'}</p>
@@ -328,9 +403,9 @@ export function SetupFlowPanel({
           className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
         />
         <span>
-          <span className="block font-semibold">Save a Bill Plan item now</span>
+          <span className="block font-semibold">Save Bill Plan items now</span>
           <span className="mt-1 block text-sm leading-6 text-slate-400">
-            Good first choices are rent, utilities, phone, or any other regular bill. You can always add more later.
+            Add regular bills you already know about. Skip this if you want to start with income only.
           </span>
         </span>
       </label>
@@ -338,79 +413,105 @@ export function SetupFlowPanel({
       {draft.addRecurringBill ? (
         <div className="leftly-panel-section">
           <div className="grid gap-1">
-            <p className="leftly-panel-label">Bill Plan item</p>
-            <p className="leftly-panel-copy">Add one regular bill now. You can always add more later in Bill Plan.</p>
+            <p className="leftly-panel-label">Bill Plan items</p>
+            <p className="leftly-panel-copy">You can add one or more regular bills here. You can add more later from Bill Plan.</p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Name">
-              <input
-                value={draft.recurringName}
-                onChange={(event) => setDraft((current) => ({ ...current, recurringName: event.target.value }))}
-                placeholder="Rent"
-              />
-            </Field>
-            <Field label="Amount">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.recurringAmount}
-                onChange={(event) => setDraft((current) => ({ ...current, recurringAmount: event.target.value }))}
-                placeholder="1200"
-              />
-            </Field>
-            <Field label="Category">
-              <select
-                value={draft.recurringCategory}
-                onChange={(event) => setDraft((current) => ({ ...current, recurringCategory: event.target.value as BudgetCategory }))}
-              >
-                {categoryOptions.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Frequency">
-              <select
-                value={draft.recurringFrequency}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, recurringFrequency: event.target.value as RecurringFrequency }))
-                }
-              >
-                {frequencyOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {draft.recurringFrequency === 'monthly' ? (
-              <Field label="Monthly due day">
-                <input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={draft.monthlyDueDay}
-                  onChange={(event) => setDraft((current) => ({ ...current, monthlyDueDay: event.target.value }))}
-                  placeholder="1"
-                />
-              </Field>
-            ) : null}
-            {draft.recurringFrequency !== 'monthly' ? (
-              <Field label="Anchor date">
-                <input
-                  type="date"
-                  value={draft.anchorDate}
-                  onChange={(event) => setDraft((current) => ({ ...current, anchorDate: event.target.value }))}
-                />
-              </Field>
-            ) : null}
+          <div className="grid gap-3">
+            {draft.recurringItems.map((item, index) => (
+              <article key={item.id} className="leftly-setup-bill-card">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">Bill {index + 1}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">Name and amount are required if you want to save this bill.</p>
+                  </div>
+                  {draft.recurringItems.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => removeBill(item.id)}
+                      className="button-secondary w-full sm:w-auto"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Name">
+                    <input
+                      value={item.name}
+                      onChange={(event) => updateRecurringItem(item.id, { name: event.target.value })}
+                      placeholder="Rent"
+                    />
+                  </Field>
+                  <Field label="Amount">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.amount}
+                      onChange={(event) => updateRecurringItem(item.id, { amount: event.target.value })}
+                      placeholder="1200"
+                    />
+                  </Field>
+                  <Field label="Category">
+                    <select
+                      value={item.category}
+                      onChange={(event) => updateRecurringItem(item.id, { category: event.target.value as BudgetCategory })}
+                    >
+                      {categoryOptions.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Frequency">
+                    <select
+                      value={item.frequency}
+                      onChange={(event) => updateRecurringItem(item.id, { frequency: event.target.value as RecurringFrequency })}
+                    >
+                      {frequencyOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {item.frequency === 'monthly' ? (
+                    <Field label="Monthly due day">
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={item.monthlyDueDay}
+                        onChange={(event) => updateRecurringItem(item.id, { monthlyDueDay: event.target.value })}
+                        placeholder="1"
+                      />
+                    </Field>
+                  ) : null}
+                  {item.frequency !== 'monthly' ? (
+                    <Field label="Anchor date">
+                      <input
+                        type="date"
+                        value={item.anchorDate}
+                        onChange={(event) => updateRecurringItem(item.id, { anchorDate: event.target.value })}
+                      />
+                    </Field>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="leftly-action-grid">
+            <button type="button" onClick={addAnotherBill} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+              Add another bill
+            </button>
           </div>
 
           <p className="text-sm leading-6 text-slate-400">
-            Use the bill’s usual due day for monthly items, or the most recent matching date for weekly, biweekly, and every-pay-period items.
+            Use the bill&apos;s usual due day for monthly items, or the most recent matching date for weekly, biweekly, and every-pay-period items.
           </p>
         </div>
       ) : null}
@@ -496,40 +597,84 @@ function validatePayPeriodDraft(draft: SetupDraft, strict: boolean): { ok: true;
   }
 }
 
-function validateRecurringDraft(
+function collectRecurringTemplates(
   draft: SetupDraft,
-): { ok: true; template: RecurringItemTemplate } | { ok: false; error: string } {
-  const amount = Number(draft.recurringAmount)
-  if (!draft.recurringName.trim()) {
-    return { ok: false, error: 'Bill Plan item name is required.' }
+  strict: boolean,
+): { ok: true; templates: RecurringItemTemplate[]; blankRows: number; partialRows: number } | { ok: false; error: string } {
+  const templates: RecurringItemTemplate[] = []
+  let blankRows = 0
+  let partialRows = 0
+
+  for (let index = 0; index < draft.recurringItems.length; index += 1) {
+    const item = draft.recurringItems[index]
+    const validation = validateRecurringDraft(item)
+
+    if (validation.kind === 'blank') {
+      blankRows += 1
+      continue
+    }
+
+    if (validation.kind === 'partial') {
+      partialRows += 1
+      if (strict) {
+        return { ok: false, error: `Bill ${index + 1}: ${validation.error}` }
+      }
+      continue
+    }
+
+    templates.push(validation.template)
   }
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return { ok: false, error: 'Bill Plan item amount must be greater than 0.' }
+
+  return { ok: true, templates, blankRows, partialRows }
+}
+
+function validateRecurringDraft(
+  draft: SetupRecurringDraft,
+):
+  | { kind: 'blank' }
+  | { kind: 'partial'; error: string }
+  | { kind: 'complete'; template: RecurringItemTemplate } {
+  const hasName = draft.name.trim().length > 0
+  const hasAmount = draft.amount.trim().length > 0
+  const hasMonthlyDueDay = draft.monthlyDueDay.trim().length > 0
+  const hasAnchorDate = draft.anchorDate.trim().length > 0
+  const hasContent = hasName || hasAmount || hasMonthlyDueDay || (draft.frequency !== 'monthly' && hasAnchorDate)
+
+  if (!hasContent) {
+    return { kind: 'blank' }
   }
-  if (!draft.recurringCategory) {
-    return { ok: false, error: 'Bill Plan item category is required.' }
+
+  const amount = Number(draft.amount)
+  if (!hasName) {
+    return { kind: 'partial', error: 'Bill Plan item name is required.' }
   }
-  if (draft.recurringFrequency === 'monthly') {
+  if (!hasAmount || !Number.isFinite(amount) || amount <= 0) {
+    return { kind: 'partial', error: 'Bill Plan item amount must be greater than 0.' }
+  }
+  if (!draft.category) {
+    return { kind: 'partial', error: 'Bill Plan item category is required.' }
+  }
+  if (draft.frequency === 'monthly') {
     const dueDay = Number(draft.monthlyDueDay)
     if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 31) {
-      return { ok: false, error: 'Monthly due day must be between 1 and 31.' }
+      return { kind: 'partial', error: 'Monthly due day must be between 1 and 31.' }
     }
   } else if (!draft.anchorDate) {
-    return { ok: false, error: 'Anchor date is required.' }
+    return { kind: 'partial', error: 'Anchor date is required.' }
   }
 
   return {
-    ok: true,
+    kind: 'complete',
     template: {
       id: crypto.randomUUID(),
-      name: draft.recurringName.trim(),
+      name: draft.name.trim(),
       amount,
-      category: draft.recurringCategory,
+      category: draft.category,
       kind: 'bill',
       planName: MAIN_BILL_PLAN,
-      frequency: draft.recurringFrequency,
-      dueDay: draft.recurringFrequency === 'monthly' ? Number(draft.monthlyDueDay) : undefined,
-      anchorDate: draft.recurringFrequency === 'monthly' ? undefined : draft.anchorDate,
+      frequency: draft.frequency,
+      dueDay: draft.frequency === 'monthly' ? Number(draft.monthlyDueDay) : undefined,
+      anchorDate: draft.frequency === 'monthly' ? undefined : draft.anchorDate,
       isActive: true,
       createdAt: new Date().toISOString(),
     },
@@ -557,12 +702,20 @@ function getInitialDraft(defaultPayCadence: PayCadence): SetupDraft {
     startDate: today.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10),
     addRecurringBill: false,
-    recurringName: '',
-    recurringAmount: '',
-    recurringCategory: 'Housing',
-    recurringFrequency: 'monthly',
+    recurringItems: [createEmptyRecurringDraft()],
+  }
+}
+
+function createEmptyRecurringDraft(): SetupRecurringDraft {
+  const today = new Date().toISOString().slice(0, 10)
+  return {
+    id: crypto.randomUUID(),
+    name: '',
+    amount: '',
+    category: 'Housing',
+    frequency: 'monthly',
     monthlyDueDay: '1',
-    anchorDate: today.toISOString().slice(0, 10),
+    anchorDate: today,
   }
 }
 
@@ -582,10 +735,6 @@ function SummaryCard({ label, value, detail }: { label: string; value: string; d
       {detail ? <p className="text-xs leading-5 text-slate-400">{detail}</p> : null}
     </div>
   )
-}
-
-function formatRecurringFrequencyLabel(frequency: RecurringFrequency) {
-  return frequencyOptions.find((option) => option.value === frequency)?.label ?? frequency
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

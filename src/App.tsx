@@ -1502,9 +1502,9 @@ function App() {
     downloadCsv(`leftly-history-${getCsvDateSuffix()}.csv`, csv)
   }
 
-  function handleFinishSetup(result: { period: BudgetPeriod; recurringTemplate?: RecurringItemTemplate }) {
-    const recurringTemplate = result.recurringTemplate
-    const templatesToGenerate = recurringTemplate ? [recurringTemplate, ...recurringTemplates] : recurringTemplates
+  function handleFinishSetup(result: { period: BudgetPeriod; recurringTemplates?: RecurringItemTemplate[] }) {
+    const setupTemplates = result.recurringTemplates ?? []
+    const templatesToGenerate = setupTemplates.length > 0 ? [...setupTemplates, ...recurringTemplates] : recurringTemplates
     const generated = generateRecurringItems({
       templates: templatesToGenerate,
       period: result.period,
@@ -1520,18 +1520,25 @@ function App() {
     setExpandedCategories(getExpandedCategoriesFromItems(generated.bills, generated.expenses))
     setActiveTab('overview')
     setIsSetupOpen(false)
-    if (recurringTemplate) {
-      const billAdded = generated.bills.some((bill) => bill.templateId === recurringTemplate.id)
-      const setAsideAdded = generated.expenses.some((expense) => expense.setAsideForTemplateId === recurringTemplate.id)
+    if (setupTemplates.length > 0) {
+      const setupTemplateIds = new Set(setupTemplates.map((template) => template.id))
+      const billAddedCount = generated.bills.filter((bill) => bill.templateId && setupTemplateIds.has(bill.templateId)).length
+      const setAsideAddedCount = generated.expenses.filter(
+        (expense) => expense.setAsideForTemplateId && setupTemplateIds.has(expense.setAsideForTemplateId),
+      ).length
 
-      if (billAdded && setAsideAdded) {
-        setSetupSuccess('Setup complete. Your pay period, income, and first Bill Plan item are ready.')
-      } else if (billAdded) {
-        setSetupSuccess('Setup complete. Your first Bill Plan item was added to this pay period.')
-      } else if (setAsideAdded) {
-        setSetupSuccess('Setup complete. Your first Bill Plan item was saved and the set-aside was added to this pay period.')
+      if (billAddedCount > 0 || setAsideAddedCount > 0) {
+        setSetupSuccess(
+          `Setup complete. Your pay period is ready and ${setupTemplates.length} Bill Plan item${
+            setupTemplates.length === 1 ? '' : 's'
+          } were saved.`,
+        )
       } else {
-        setSetupSuccess('Setup complete. Your first Bill Plan item was saved, but it is not due in this pay period yet.')
+        setSetupSuccess(
+          `Setup complete. Your pay period is ready and ${setupTemplates.length} Bill Plan item${
+            setupTemplates.length === 1 ? '' : 's'
+          } were saved for later.`,
+        )
       }
     } else {
       setSetupSuccess('Setup complete. Your pay period is ready.')

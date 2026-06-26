@@ -268,7 +268,7 @@ export function ApplyBillPlanPanel({
           <PreviewGroup title="Planned spending" toAdd={preview.plannedToAdd} alreadyAdded={preview.plannedAlreadyAdded} />
         </div>
 
-        <div className="leftly-sheet-footer">
+        <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
           <div className="flex items-center justify-between gap-3 border-b border-slate-800/70 pb-3 sm:hidden">
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Ready now</p>

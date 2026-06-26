@@ -302,7 +302,7 @@ export function StartFromHistoryPanel({
             </p>
           ) : null}
 
-          <div className="leftly-sheet-footer">
+          <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
             <div className="leftly-action-grid">
               <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
                 Close
@@ -363,7 +363,7 @@ export function StartFromHistoryPanel({
             </div>
           </div>
 
-          <div className="leftly-sheet-footer">
+          <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
             <div className="leftly-action-grid">
               <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
                 Back to edit

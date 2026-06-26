@@ -286,7 +286,7 @@ export function SetupFlowPanel({
 
         {error ? <ErrorBanner message={error} /> : null}
 
-        <div className="leftly-sheet-footer">
+        <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
           <div className="leftly-action-grid">
             <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
               Close
@@ -340,7 +340,7 @@ export function SetupFlowPanel({
 
         {error ? <ErrorBanner message={error} /> : null}
 
-        <div className="leftly-sheet-footer">
+        <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
           <div className="leftly-action-grid">
             <button type="button" onClick={goBack} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
               Back
@@ -518,7 +518,7 @@ export function SetupFlowPanel({
 
       {error ? <ErrorBanner message={error} /> : null}
 
-      <div className="leftly-sheet-footer">
+      <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
         <div className="leftly-action-grid">
           <button type="button" onClick={goBack} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
             Back

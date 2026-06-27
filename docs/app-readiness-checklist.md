@@ -40,11 +40,13 @@
 - Manual release check still recommended before a public checkpoint for: Apply Bill Plan preview/apply, Start New Pay Period rollover + unpaid carryover, Weekly/Biweekly Bill Plan schedule review, and History snapshot review after closing a live period.
 - Manual release check still recommended before a public checkpoint for: one full export/import/restore round-trip using a saved JSON backup in a clean browser profile.
 - Pass 5 status on `2026-06-26`: closeout copy now calls out the closed period, leftover rollover, unpaid carryover, next pay period summary, and the History save before confirm.
+- Pass 6 status on `2026-06-27`: local JSON backup/import/reset round-trip was rechecked with live data, and the Data screen copy now calls out device-only storage, JSON restore, spreadsheet-only CSV export, and destructive reset behavior more explicitly.
 
 ## Onboarding and first run
 
 - Keep setup short: pay cadence, income, pay period dates, then an optional first Bill Plan item.
 - Keep local-only trust copy visible: data stays on this device, no bank connection, backups export from Data.
+- Keep a visible restore-backup path on first-run so a fresh profile or reset can recover without hunting for Data.
 - Make new-user empty states point to the next action instead of explaining the whole app.
 - Keep demo data wording clear that it is sample data and replaces current local data on this device.
 

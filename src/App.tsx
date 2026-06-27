@@ -505,6 +505,8 @@ function formatBackupSummary(summary: LeftlyBackupSummary) {
     `${summary.expenseCount} expense${summary.expenseCount === 1 ? '' : 's'}`,
     `${summary.recurringTemplateCount} Bill Plan item${summary.recurringTemplateCount === 1 ? '' : 's'}`,
     `${summary.historySnapshotCount} history snapshot${summary.historySnapshotCount === 1 ? '' : 's'}`,
+    `${summary.categoryCount} categor${summary.categoryCount === 1 ? 'y' : 'ies'} in saved order`,
+    summary.displaySettingsIncluded ? 'display settings included' : 'display settings not included',
     summary.preferencesIncluded ? 'preferences included' : 'preferences not included',
   ]
 }
@@ -862,9 +864,11 @@ function MiniStat({
 function FirstRunPanel({
   onStartSetup,
   onLoadDemoData,
+  onOpenData,
 }: {
   onStartSetup: () => void
   onLoadDemoData: () => void
+  onOpenData: () => void
 }) {
   return (
     <div className="leftly-shell leftly-shell-accent grid gap-4 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 sm:p-5">
@@ -877,13 +881,16 @@ function FirstRunPanel({
       <div className="leftly-shell-faint grid gap-2 p-3">
         <p className="text-sm font-medium text-white">Private and local</p>
         <p className="text-sm leading-6 text-slate-400">
-          Leftly keeps data on this device, does not require a bank connection, and lets you export backups later from Data.
+          Leftly keeps data on this device, does not require a bank connection, and lets you restore or export backups later from Data.
         </p>
       </div>
       <FirstRunChecklist />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <button type="button" onClick={onStartSetup} className="button-primary w-full">
           Start setup
+        </button>
+        <button type="button" onClick={onOpenData} className="button-secondary w-full">
+          Restore backup
         </button>
         <button type="button" onClick={onLoadDemoData} className="button-secondary w-full">
           Load demo data
@@ -902,7 +909,7 @@ function FirstRunChecklist() {
     'Add regular bills in Bill Plan.',
     'Add one-time bills only when they belong to one pay period.',
     'Use Quick Add or Manual Expense for spending.',
-    'Export backups later from Data.',
+    'Restore or export backups later from Data.',
   ]
 
   return (
@@ -2682,7 +2689,7 @@ function App() {
                     onFinish={handleFinishSetup}
                   />
                 ) : (
-                  <FirstRunPanel onStartSetup={openSetup} onLoadDemoData={loadDemoData} />
+                  <FirstRunPanel onStartSetup={openSetup} onLoadDemoData={loadDemoData} onOpenData={() => setActiveTab('data')} />
                 )
               ) : hasAnyData ? (
                 <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">

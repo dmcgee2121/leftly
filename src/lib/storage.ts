@@ -36,6 +36,7 @@ export type LeftlyBackupSummary = {
   recurringTemplateCount: number
   historySnapshotCount: number
   categoryCount: number
+  displaySettingsIncluded: boolean
   preferencesIncluded: boolean
 }
 
@@ -51,9 +52,9 @@ export type LeftlyBackup = {
   expenses: Expense[]
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
-  categoryOrder: BudgetCategory[]
-  categoryOrderMode: CategoryOrderMode
-  sortMode: SortMode
+  categoryOrder?: BudgetCategory[]
+  categoryOrderMode?: CategoryOrderMode
+  sortMode?: SortMode
   preferences?: LeftlyPreferences
 }
 
@@ -63,7 +64,9 @@ export function getLeftlyBackupSummary(params: {
   expenses: Expense[]
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
-  categoryOrder: BudgetCategory[]
+  categoryOrder?: BudgetCategory[]
+  categoryOrderMode?: CategoryOrderMode
+  sortMode?: SortMode
   preferences?: LeftlyPreferences
 }): LeftlyBackupSummary {
   return {
@@ -72,7 +75,8 @@ export function getLeftlyBackupSummary(params: {
     expenseCount: params.expenses.length,
     recurringTemplateCount: params.recurringTemplates.length,
     historySnapshotCount: params.payPeriodHistory.length,
-    categoryCount: params.categoryOrder.length,
+    categoryCount: params.categoryOrder?.length ?? 0,
+    displaySettingsIncluded: params.categoryOrderMode !== undefined && params.sortMode !== undefined,
     preferencesIncluded: params.preferences !== undefined,
   }
 }
@@ -232,9 +236,9 @@ function isLeftlyBackup(value: unknown): value is LeftlyBackup {
     Array.isArray(backup.expenses) &&
     Array.isArray(backup.recurringTemplates) &&
     Array.isArray(backup.payPeriodHistory) &&
-    Array.isArray(backup.categoryOrder) &&
-    (backup.categoryOrderMode === 'total-desc' || backup.categoryOrderMode === 'custom') &&
-    (backup.sortMode === 'amount-desc' || backup.sortMode === 'amount-asc' || backup.sortMode === 'date' || backup.sortMode === 'name') &&
+    (backup.categoryOrder === undefined || Array.isArray(backup.categoryOrder)) &&
+    (backup.categoryOrderMode === undefined || backup.categoryOrderMode === 'total-desc' || backup.categoryOrderMode === 'custom') &&
+    (backup.sortMode === undefined || backup.sortMode === 'amount-desc' || backup.sortMode === 'amount-asc' || backup.sortMode === 'date' || backup.sortMode === 'name') &&
     (backup.preferences === undefined || isLeftlyPreferences(backup.preferences))
   )
 }
@@ -258,9 +262,9 @@ export function saveLeftlyBackup(backup: LeftlyBackup) {
   saveExpenses(backup.expenses)
   saveRecurringTemplates(backup.recurringTemplates)
   savePayPeriodHistory(backup.payPeriodHistory)
-  saveCategoryOrder(backup.categoryOrder)
-  saveCategoryOrderMode(backup.categoryOrderMode)
-  saveSortMode(backup.sortMode)
+  saveCategoryOrder(backup.categoryOrder ?? [...DEFAULT_CATEGORIES])
+  saveCategoryOrderMode(backup.categoryOrderMode ?? DEFAULT_CATEGORY_ORDER)
+  saveSortMode(backup.sortMode ?? DEFAULT_SORT_MODE)
   savePreferences(backup.preferences ?? DEFAULT_PREFERENCES)
 }
 

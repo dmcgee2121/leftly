@@ -2515,7 +2515,7 @@ function App() {
   const compactHeaderHelper = isMoreSubScreen
     ? moreMenuHelpers[activeTab]
     : isMoreMenuScreen
-      ? 'Open the extra Leftly screens without a large repeated hero.'
+      ? 'Open the extra Leftly screens that do not fit in the main bottom navigation.'
       : 'Focused workspace with local-only data and no bank connection.'
 
   return (

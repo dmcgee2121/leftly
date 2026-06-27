@@ -194,7 +194,7 @@
   }
 
   .leftly-sheet-footer-sticky {
-    @apply sticky bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-10 -mx-4 mt-2 border-t border-slate-800/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.7),rgba(5,9,20,0.97))] px-4 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-3 backdrop-blur sm:static sm:mx-0 sm:bottom-auto sm:border-t-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0 sm:backdrop-blur-none;
+    @apply sticky bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-10 -mx-4 mb-[calc(env(safe-area-inset-bottom)+5rem)] mt-2 border-t border-slate-800/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.7),rgba(5,9,20,0.97))] px-4 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-3 backdrop-blur sm:static sm:mx-0 sm:mb-0 sm:bottom-auto sm:border-t-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0 sm:backdrop-blur-none;
   }
 
   .leftly-action-grid {

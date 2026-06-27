@@ -31,6 +31,9 @@
 - Pass 4 status on `2026-06-26`: `360px` and `390px` were checked in the local Vite app with no horizontal scrolling on first-run, setup, Overview, Bill Plan, or Data.
 - Pass 4 status on `2026-06-26`: first-run setup still completed with zero Bill Plan items, one item, multiple items, checked-but-blank rows, ignored extra blank rows, targeted name-only and amount-only validation, and extra-row removal.
 - Pass 4 status on `2026-06-26`: mobile bottom nav, More entry points, local backup export buttons, and the compact first-run / setup card layout remained readable on phone widths.
+- Pass 7 status on `2026-06-27`: `360px` and `390px` Playwright QA covered fresh load, first-run setup entry, restore-from-first-run, Data backup/export/import/reset, Overview, Quick Add, Income, Bill Plan, Apply Bill Plan, One-time Bill, Manual Expense, edit bill/expense panels, Start New Pay Period closeout, History, More navigation, bottom nav, and sticky action footers with no horizontal scrolling.
+- Pass 7 status on `2026-06-27`: PWA metadata, manifest link, favicon SVG/PNG fallback, Apple touch icon, theme/background colors, app name/short name, standalone display, start URL, and referenced icon files were verified locally.
+- Physical iPhone and Android browser checks are still recommended before a public mobile checkpoint for add-to-home-screen prompts, installed icon/splash rendering, and browser-specific PWA chrome.
 
 ## Release prep
 

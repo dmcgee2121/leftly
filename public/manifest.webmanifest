@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Leftly",
   "short_name": "Leftly",
-  "description": "Manual budget tracker. Know what\u2019s left.",
+  "description": "Manual paycheck budget tracker. Know what's left.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

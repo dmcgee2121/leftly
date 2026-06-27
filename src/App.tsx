@@ -2508,6 +2508,15 @@ function App() {
 
   const hasAnyData = payPeriod || bills.length > 0 || expenses.length > 0
   const isFirstRun = !payPeriod && bills.length === 0 && expenses.length === 0 && recurringTemplates.length === 0 && payPeriodHistory.length === 0
+  const isOverviewTab = activeTab === 'overview'
+  const isMoreMenuScreen = activeTab === 'more'
+  const isMoreSubScreen = isMoreMenuKey(activeTab)
+  const compactHeaderGroupLabel = isMoreMenuScreen || isMoreSubScreen ? 'More' : 'Leftly'
+  const compactHeaderHelper = isMoreSubScreen
+    ? moreMenuHelpers[activeTab]
+    : isMoreMenuScreen
+      ? 'Open the extra Leftly screens without a large repeated hero.'
+      : 'Focused workspace with local-only data and no bank connection.'
 
   return (
     <main className="leftly-page">
@@ -2515,36 +2524,56 @@ function App() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-slate-950/80 to-transparent" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-3 pb-32 sm:px-6 sm:py-5 sm:pb-6 lg:px-8 lg:py-6">
-        <header className="leftly-page-header">
-          <div className="flex flex-col gap-4 sm:items-center sm:text-center">
-            <div className="flex flex-col gap-4 sm:items-center">
-              <div className="flex flex-col gap-3 sm:items-center">
-                <p className="leftly-chip leftly-chip-default w-fit px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
-                  Manual budget tracker
-                </p>
-                <div className="space-y-1 sm:space-y-2">
-                  <h1 className="text-[2.15rem] font-semibold tracking-[-0.04em] text-white sm:text-6xl">Leftly</h1>
-                  <p className="text-[0.98rem] text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
+        {isOverviewTab ? (
+          <header className="leftly-page-header">
+            <div className="flex flex-col gap-4 sm:items-center sm:text-center">
+              <div className="flex flex-col gap-4 sm:items-center">
+                <div className="flex flex-col gap-3 sm:items-center">
+                  <p className="leftly-chip leftly-chip-default w-fit px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
+                    Manual budget tracker
+                  </p>
+                  <div className="space-y-1 sm:space-y-2">
+                    <h1 className="text-[2.15rem] font-semibold tracking-[-0.04em] text-white sm:text-6xl">Leftly</h1>
+                    <p className="text-[0.98rem] text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
+                  </div>
+                </div>
+
+                <div className="leftly-shell-soft grid gap-2 px-3 py-3 text-left sm:max-w-md sm:grid-cols-2 sm:gap-3 sm:px-4 sm:text-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Active screen</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{activeScreenLabel}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Storage</p>
+                    <p className="mt-1 text-sm font-semibold text-white">Local only</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="leftly-shell-soft grid gap-2 px-3 py-3 text-left sm:max-w-md sm:grid-cols-2 sm:gap-3 sm:px-4 sm:text-center">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Active screen</p>
-                  <p className="mt-1 text-sm font-semibold text-white">{activeScreenLabel}</p>
+              <p className="max-w-2xl text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
+                Track a single pay period, your bills, and your spending without connecting a bank.
+              </p>
+            </div>
+          </header>
+        ) : (
+          <header className="leftly-page-header px-4 py-3 sm:px-5 sm:py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold tracking-[-0.02em] text-white sm:text-base">Leftly</p>
+                  <span className="leftly-chip leftly-chip-muted px-2 py-0.5 text-[9px] tracking-[0.18em]">Local only</span>
                 </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Storage</p>
-                  <p className="mt-1 text-sm font-semibold text-white">Local only</p>
-                </div>
+                <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  {compactHeaderGroupLabel}
+                </p>
+                <p className="mt-1 text-[1.25rem] font-semibold tracking-[-0.04em] text-white sm:text-[1.4rem]">
+                  {activeScreenLabel}
+                </p>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">{compactHeaderHelper}</p>
               </div>
             </div>
-
-            <p className="max-w-2xl text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
-              Track a single pay period, your bills, and your spending without connecting a bank.
-            </p>
-          </div>
-        </header>
+          </header>
+        )}
 
         <section className="mt-4 md:hidden">
           {activeTab === 'overview' ? (

@@ -596,8 +596,6 @@ function HistorySection({
     const topExpenseCategories = getSnapshotTopExpenseCategories(expenseItems)
     const rolloverAmount = typeof selectedSnapshot.rolloverAmount === 'number' && selectedSnapshot.rolloverAmount > 0 ? selectedSnapshot.rolloverAmount : 0
     const rolloverApplied = typeof selectedSnapshot.rolloverApplied === 'boolean' ? selectedSnapshot.rolloverApplied : null
-    const startingIncome = getSnapshotStartingIncome(selectedSnapshot)
-    const finalLeftly = selectedSnapshot.totals.leftover
     const visibleExpenses = showAllExpenses || expenseItems.length <= 5 ? expenseItems : expenseItems.slice(0, 5)
 
     return (
@@ -633,39 +631,6 @@ function HistorySection({
             >
               Delete snapshot
             </button>
-          </div>
-        </div>
-
-        <div className="leftly-shell p-3 sm:p-4">
-          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-white sm:text-base">Pay period review</p>
-              <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-slate-500 sm:text-xs">What happened in this paycheck</p>
-            </div>
-            <p className="text-xs font-medium text-slate-300 sm:text-sm">Final Leftly {formatCurrency(finalLeftly)}</p>
-          </div>
-
-          <div className="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MiniStat label="Starting income" value={formatCurrency(startingIncome)} />
-            <MiniStat label="Total bills" value={formatCurrency(selectedSnapshot.totals.totalBills)} />
-            <MiniStat label="Paid bills" value={formatCurrency(selectedSnapshot.totals.paidBills)} />
-            <MiniStat label="Unpaid bills" value={formatCurrency(selectedSnapshot.totals.unpaidBills)} />
-            <MiniStat label="Total expenses" value={formatCurrency(selectedSnapshot.totals.totalExpenses)} />
-            {selectedSnapshot.totals.totalSetAsides > 0 ? <MiniStat label="Set-asides" value={formatCurrency(selectedSnapshot.totals.totalSetAsides)} /> : null}
-            {rolloverAmount > 0 ? (
-              <MiniStat
-                label="Rollover"
-                value={formatCurrency(rolloverAmount)}
-                detail={rolloverApplied !== null ? (rolloverApplied ? 'Applied to next pay period' : 'Not applied to next pay period') : undefined}
-              />
-            ) : null}
-            {carriedOverSummary.count > 0 ? <MiniStat label="Carried over" value={`${carriedOverSummary.count}`} detail={formatCurrency(carriedOverSummary.amount)} /> : null}
-            <MiniStat label="Final Leftly" value={formatCurrency(finalLeftly)} tone="highlight" />
-            <MiniStat
-              label="Top spending category"
-              value={topExpenseCategories[0] ? topExpenseCategories[0].category : 'None'}
-              detail={topExpenseCategories[0] ? formatCurrency(topExpenseCategories[0].total) : 'No expenses logged'}
-            />
           </div>
         </div>
 
@@ -2575,8 +2540,8 @@ function App() {
           </header>
         )}
 
-        <section className="mt-4 md:hidden">
-          {activeTab === 'overview' ? (
+        {activeTab === 'overview' ? (
+          <section className="mt-4 md:hidden">
             <div className="leftly-shell leftly-shell-accent overflow-hidden p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -2608,60 +2573,8 @@ function App() {
                 <MetricCard label="Expenses" value={formatCurrency(totals.totalExpenses)} />
               </div>
             </div>
-          ) : activeTab === 'more' ? (
-            <div className="leftly-shell-soft px-4 py-4 shadow-lg shadow-slate-950/25">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">More</p>
-                  <p className="mt-1 text-[1.45rem] font-semibold tracking-[-0.05em] text-white">More menu</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">
-                    Open Leftly screens that do not fit in the main bottom navigation.
-                  </p>
-                </div>
-                <Badge muted>{moreMenuItems.length} items</Badge>
-              </div>
-            </div>
-          ) : isMoreMenuKey(activeTab) ? (
-            <div className="leftly-shell-soft px-4 py-4 shadow-lg shadow-slate-950/25">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">More</p>
-                  <p className="mt-1 text-[1.45rem] font-semibold tracking-[-0.05em] text-white">{activeScreenLabel}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">{moreMenuHelpers[activeTab]}</p>
-                </div>
-                <Badge muted>More screen</Badge>
-              </div>
-            </div>
-          ) : (
-            <div className="leftly-shell-soft px-4 py-3.5 shadow-lg shadow-slate-950/25">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{activeScreenLabel}</p>
-                  <p className="mt-1 text-[1.9rem] font-semibold tracking-[-0.05em] text-white">{formatCurrency(totals.leftover)}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">Leftly amount</p>
-                </div>
-                <div className="min-w-0 max-w-[10rem] text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Safe to spend</p>
-                  <p className="mt-1 text-sm font-semibold text-white">{formatCurrency(totals.safeToSpend)}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">
-                    {payPeriod ? `${payPeriod.startDate} to ${payPeriod.endDate}` : 'No active pay period'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {payPeriod ? (
-                  <>
-                    <Badge>{payPeriod.cadence}</Badge>
-                    <Badge muted>{formatCurrency(totals.income)} income</Badge>
-                  </>
-                ) : (
-                  <Badge muted>Add a pay period to begin tracking</Badge>
-                )}
-              </div>
-            </div>
-          )}
-        </section>
+          </section>
+        ) : null}
 
         <section className="leftly-shell leftly-shell-accent mt-4 hidden overflow-hidden p-4 md:block sm:mt-5 sm:p-5">
           <div className="flex flex-col items-center gap-2 text-center">
@@ -3177,32 +3090,6 @@ function App() {
             <SectionShell title="Quick Add" description="Log a manual expense fast without leaving your current pay period.">
               {payPeriod ? (
                 <div className="grid gap-4">
-                  <div className="leftly-shell leftly-shell-accent p-4 sm:p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/75">Quick Add</p>
-                        <p className="mt-2 text-lg font-semibold text-white">Add spending in a few taps.</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-300">
-                          New manual expenses go straight into this pay period.
-                        </p>
-                      </div>
-                      <Badge muted>{quickAddDateBehaviorLabels[preferences.quickAddDateBehavior]}</Badge>
-                    </div>
-
-                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                      <div className="leftly-shell-soft px-3 py-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Pay period</p>
-                        <p className="mt-1 text-sm font-semibold text-white">
-                          {payPeriod.startDate} to {payPeriod.endDate}
-                        </p>
-                      </div>
-                      <div className="leftly-shell-soft px-3 py-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Default category</p>
-                        <p className="mt-1 text-sm font-semibold text-white">{preferences.defaultCategory}</p>
-                      </div>
-                    </div>
-                  </div>
-
                   {recentManualExpenses.length > 0 ? (
                     <div className="leftly-panel-section">
                       <div className="grid gap-1">
@@ -3236,6 +3123,12 @@ function App() {
                       <div className="grid gap-1">
                         <p className="leftly-panel-label">Quick expense</p>
                         <p className="leftly-panel-copy">Name, amount, category, then add it to this pay period.</p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                        <Badge muted>{quickAddDateBehaviorLabels[preferences.quickAddDateBehavior]}</Badge>
+                        <span>{payPeriod.startDate} to {payPeriod.endDate}</span>
+                        <span>Default: {preferences.defaultCategory}</span>
                       </div>
 
                       {quickAddCategorySuggestions.length > 0 ? (
@@ -3364,49 +3257,15 @@ function App() {
                 onSubmit={handleStartNewPayPeriod}
               />
 
-              <div className="mb-4 leftly-shell-soft p-4 sm:p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">Current pay period</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      {payPeriod
-                        ? 'This is the paycheck Leftly is tracking right now.'
-                        : 'Set a paycheck below to begin tracking this period.'}
-                    </p>
-                  </div>
-                  {payPeriod ? <Badge muted>{payPeriod.cadence}</Badge> : <Badge muted>No active pay period</Badge>}
-                </div>
-
-                {payPeriod ? (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="leftly-shell-soft px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Pay period</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{currentPayPeriodReview?.periodLabel ?? 'Current period'}</p>
-                    </div>
-                    <div className="leftly-shell-soft px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Income</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{formatCurrency(payPeriod.income)}</p>
-                    </div>
-                    <div className="leftly-shell-soft px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Cadence</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{payPeriod.cadence}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-4">
-                    <EmptyState
-                      title="No active pay period yet"
-                      text="Add your income and pay period dates below to create the paycheck Leftly should track first."
-                      compact
-                    />
-                  </div>
-                )}
-
-                <div className="mt-4 flex">
-                  <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
-                    Start new pay period
-                  </button>
-                </div>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm leading-6 text-slate-400">
+                  {payPeriod
+                    ? 'Set the paycheck Leftly is tracking right now, or start the next pay period when you are ready.'
+                    : 'Add your income and pay period dates below to create the paycheck Leftly should track first.'}
+                </p>
+                <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
+                  Start new pay period
+                </button>
               </div>
 
               <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
@@ -3494,28 +3353,14 @@ function App() {
             <SectionShell title="One-time Bill" description="Review and manage unusual bills that belong only to the current pay period.">
               <MoreBackBar onBack={openMoreMenu} />
               <div className="grid gap-4">
-                <div className="leftly-shell-soft p-4 sm:p-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Current pay period bills</p>
-                      <p className="mt-2 text-lg font-semibold text-white">Keep unusual bills separate from Bill Plan.</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-400">
-                        {payPeriod
-                          ? `These one-time bills apply to ${payPeriod.startDate} to ${payPeriod.endDate}.`
-                          : 'Review unusual bills here, then start a pay period in Income when you are ready.'}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
-                      <Badge muted>{oneTimeBills.length} bill{oneTimeBills.length === 1 ? '' : 's'}</Badge>
-                      {oneTimeBills.length > 0 ? <Badge muted>{formatCurrency(oneTimeBillSummary.total)}</Badge> : null}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm leading-6 text-slate-400">
-                      Recurring bills still belong in Bill Plan. Use this screen for unusual charges that only belong to this pay period once.
-                    </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-slate-400">
+                    Use this screen for unusual charges that belong only to the current pay period.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
+                    <Badge muted>{oneTimeBills.length} bill{oneTimeBills.length === 1 ? '' : 's'}</Badge>
+                    {oneTimeBills.length > 0 ? <Badge muted>{formatCurrency(oneTimeBillSummary.total)}</Badge> : null}
                     <button type="button" onClick={() => setActiveTab('recurring')} className="button-secondary w-full sm:w-auto">
                       Open Bill Plan
                     </button>
@@ -3683,28 +3528,14 @@ function App() {
             <SectionShell title="Manual Expense" description="Review and manage spending logged during the current pay period.">
               <MoreBackBar onBack={openMoreMenu} />
               <div className="grid gap-4">
-                <div className="leftly-shell-soft p-4 sm:p-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Current pay period spending</p>
-                      <p className="mt-2 text-lg font-semibold text-white">Review manual expenses in one place.</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-400">
-                        {payPeriod
-                          ? `These expenses count toward ${payPeriod.startDate} to ${payPeriod.endDate}.`
-                          : 'Add or review manual spending here, then start a pay period in Income when you are ready.'}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
-                      <Badge muted>{manualExpenses.length} item{manualExpenses.length === 1 ? '' : 's'}</Badge>
-                      {manualExpenses.length > 0 ? <Badge muted>{formatCurrency(manualExpenseTotal)}</Badge> : null}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm leading-6 text-slate-400">
-                      Quick Add stays the fastest way to log spending. Use this screen when you want to review, edit, or clean up entries.
-                    </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-slate-400">
+                    Quick Add stays the fastest way to log spending. Use this screen when you want to review, edit, or clean up entries.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
+                    <Badge muted>{manualExpenses.length} item{manualExpenses.length === 1 ? '' : 's'}</Badge>
+                    {manualExpenses.length > 0 ? <Badge muted>{formatCurrency(manualExpenseTotal)}</Badge> : null}
                     <button type="button" onClick={openQuickAddExpense} disabled={!payPeriod} className="button-secondary w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50">
                       Open Quick Add
                     </button>
@@ -3865,19 +3696,14 @@ function App() {
           {activeTab === 'categories' ? (
             <SectionShell title="Categories" description="See where bills and spending are grouped for this pay period.">
               <MoreBackBar onBack={openMoreMenu} />
-              <div className="mb-4 leftly-shell-soft p-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">Category overview</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      Tap a category to expand its bills and expenses. Use the controls below to change how the list is ordered.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge muted>{categorySummaries.filter((summary) => summary.total > 0).length} active</Badge>
-                    <Badge muted>{categorySummaries.reduce((sum, summary) => sum + summary.billCount, 0)} bills</Badge>
-                    <Badge muted>{categorySummaries.reduce((sum, summary) => sum + summary.expenseCount, 0)} expenses</Badge>
-                  </div>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm leading-6 text-slate-400">
+                  Tap a category to expand its bills and expenses, then sort the list however you want.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge muted>{categorySummaries.filter((summary) => summary.total > 0).length} active</Badge>
+                  <Badge muted>{categorySummaries.reduce((sum, summary) => sum + summary.billCount, 0)} bills</Badge>
+                  <Badge muted>{categorySummaries.reduce((sum, summary) => sum + summary.expenseCount, 0)} expenses</Badge>
                 </div>
               </div>
 
@@ -4021,7 +3847,7 @@ function App() {
           ) : null}
 
           {activeTab === 'more' ? (
-            <SectionShell title="More" description="Open the parts of Leftly that do not fit in the main bottom nav.">
+            <SectionShell title="Choose a screen" description="Open the parts of Leftly that do not fit in the main bottom nav.">
               <div className="grid gap-3">
                 {moreMenuItems.map((item) => (
                   <button
@@ -4345,11 +4171,7 @@ function SectionShell({
 
 function MoreBackBar({ onBack }: { onBack: () => void }) {
   return (
-    <div className="mb-4 flex flex-col gap-3 rounded-[1.3rem] border border-cyan-400/15 bg-cyan-400/5 p-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="text-sm font-medium text-white">More</p>
-        <p className="mt-1 text-sm leading-6 text-slate-400">Return to the More screen when you are done here.</p>
-      </div>
+    <div className="mb-4 flex">
       <button type="button" onClick={onBack} className="button-secondary w-full sm:w-auto">
         Back to More
       </button>

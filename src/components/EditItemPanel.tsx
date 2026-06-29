@@ -149,7 +149,7 @@ export function EditItemPanel({
       <section className="leftly-sheet max-w-2xl">
         <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Edit {target.kind}</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Edit details</p>
             <h3 className="mt-1 text-lg font-semibold text-white">{target.item.name}</h3>
             <p className="mt-1 text-sm leading-6 text-slate-400">
               Update the details below, then save to keep this pay period accurate.

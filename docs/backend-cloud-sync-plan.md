@@ -138,6 +138,7 @@ Start with **Option B: optional account + backup-style cloud restore**. Treat it
 - Keep the feature flag off by default.
 - Do not sync app data yet.
 - Verify account creation and session persistence in isolation.
+- Optional auth shell implementation begins here, but backup/restore remains a placeholder until backend tables exist.
 
 ### Phase 3: Cloud backup/restore, not live sync
 

@@ -2,6 +2,8 @@ import { useRef } from 'react'
 import { DEFAULT_CATEGORIES } from '../types/budget'
 import type { LeftlyBackupSummary } from '../lib/storage'
 import type { BudgetCategory, LeftlyPreferences, PayCadence, QuickAddDateBehavior } from '../types/budget'
+import { getLeftlyCloudConfig } from '../lib/cloudConfig'
+import { CloudBackupSection } from './CloudBackupSection'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -48,6 +50,7 @@ export function DataSection({
   isImporting: boolean
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const cloudConfig = getLeftlyCloudConfig()
 
   return (
     <div className="grid gap-4">
@@ -178,6 +181,8 @@ export function DataSection({
           an app.
         </p>
       </div>
+
+      <CloudBackupSection cloudConfig={cloudConfig} backupSummary={backupSummary} />
 
       <input
         ref={fileInputRef}

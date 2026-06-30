@@ -26,6 +26,7 @@ export function DataSection({
   backupSummary,
   preferences,
   onPreferencesChange,
+  onLocalDataReloaded,
   onExport,
   onImportFile,
   onExportCurrentPeriodCsv,
@@ -39,6 +40,7 @@ export function DataSection({
   backupSummary: LeftlyBackupSummary
   preferences: LeftlyPreferences
   onPreferencesChange: (preferences: LeftlyPreferences) => void
+  onLocalDataReloaded: () => void
   onExport: () => void
   onImportFile: (file: File | null) => void
   onExportCurrentPeriodCsv: () => void
@@ -182,7 +184,11 @@ export function DataSection({
         </p>
       </div>
 
-      <CloudBackupSection cloudConfig={cloudConfig} backupSummary={backupSummary} />
+      <CloudBackupSection
+        cloudConfig={cloudConfig}
+        backupSummary={backupSummary}
+        onLocalDataReloaded={onLocalDataReloaded}
+      />
 
       <input
         ref={fileInputRef}

@@ -66,4 +66,4 @@
 
 - If sync is added later, migrate intentionally rather than mutating local-only assumptions in place.
 - Backend planning has begun in `docs/backend-cloud-sync-plan.md`; keep implementation phased and feature-flagged.
-- Optional cloud auth shell and backup/restore scaffolding now live behind the feature flag; keep local-first as the default path until a real backend milestone is ready.
+- Optional cloud auth shell plus real cloud snapshot upload/restore now live behind the feature flag; keep local-first as the default path until a broader backend milestone is ready.

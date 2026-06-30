@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { getLeftlyCloudConfig } from '../lib/cloudConfig'
+import { fetchLatestCloudBackup, uploadCurrentLocalBackup, type CloudBackupSnapshot } from '../lib/cloudBackups'
 import { getLeftlySupabaseClient } from '../lib/supabaseClient'
-import type { LeftlyCloudConfig } from '../lib/cloudConfig'
-import type { LeftlyBackupSummary } from '../lib/storage'
+import { saveLeftlyBackup, type LeftlyBackupSummary } from '../lib/storage'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -13,11 +14,12 @@ const buttonStyles = {
 type CloudNoticeTone = 'info' | 'success' | 'warning' | 'danger'
 
 type CloudBackupSectionProps = {
-  cloudConfig: LeftlyCloudConfig
+  cloudConfig: ReturnType<typeof getLeftlyCloudConfig>
   backupSummary: LeftlyBackupSummary
+  onLocalDataReloaded: () => void
 }
 
-export function CloudBackupSection({ cloudConfig, backupSummary }: CloudBackupSectionProps) {
+export function CloudBackupSection({ cloudConfig, backupSummary, onLocalDataReloaded }: CloudBackupSectionProps) {
   if (!cloudConfig.enabled) {
     return null
   }
@@ -34,16 +36,22 @@ export function CloudBackupSection({ cloudConfig, backupSummary }: CloudBackupSe
           until those values are configured.
         </p>
         <p className="text-sm leading-6 text-slate-300">
-          Cloud backup is optional. JSON backup, CSV export, and local reset still work exactly as before.
+          JSON backup, CSV export, and local reset still work exactly as before.
         </p>
       </div>
     )
   }
 
-  return <CloudBackupShell backupSummary={backupSummary} />
+  return <CloudBackupShell backupSummary={backupSummary} onLocalDataReloaded={onLocalDataReloaded} />
 }
 
-function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummary }) {
+function CloudBackupShell({
+  backupSummary,
+  onLocalDataReloaded,
+}: {
+  backupSummary: LeftlyBackupSummary
+  onLocalDataReloaded: () => void
+}) {
   const [session, setSession] = useState<Session | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [authError, setAuthError] = useState('')
@@ -51,10 +59,15 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
   const [email, setEmail] = useState('')
   const [isSendingLink, setIsSendingLink] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [cloudError, setCloudError] = useState('')
   const [cloudNotice, setCloudNotice] = useState('')
   const [cloudNoticeTone, setCloudNoticeTone] = useState<CloudNoticeTone>('info')
+  const [isLoadingCloudBackup, setIsLoadingCloudBackup] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
   const [isUploadConfirmOpen, setIsUploadConfirmOpen] = useState(false)
   const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false)
+  const [latestCloudBackup, setLatestCloudBackup] = useState<CloudBackupSnapshot | null>(null)
 
   const supabase = getLeftlySupabaseClient()
   const signedInUserEmail = session?.user.email ?? session?.user.phone ?? ''
@@ -65,7 +78,6 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
     }
 
     let mounted = true
-    let subscription: { unsubscribe: () => void } | null = null
 
     supabase.auth
       .getSession()
@@ -100,18 +112,52 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
       }
 
       setSession(nextSession)
+      if (!nextSession) {
+        setLatestCloudBackup(null)
+      }
       setAuthError('')
       setAuthNotice('')
+      setCloudError('')
+      setCloudNotice('')
+      setCloudNoticeTone('info')
       setAuthLoading(false)
     })
 
-    subscription = data.subscription
+    return () => {
+      mounted = false
+      data.subscription.unsubscribe()
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    if (!session) {
+      return
+    }
+
+    let mounted = true
+
+    fetchLatestCloudBackup()
+      .then((snapshot) => {
+        if (!mounted) {
+          return
+        }
+
+        setLatestCloudBackup(snapshot)
+        setCloudError('')
+      })
+      .catch((error: unknown) => {
+        if (!mounted) {
+          return
+        }
+
+        setCloudError(error instanceof Error ? error.message : 'Unable to load the saved cloud snapshot.')
+        setLatestCloudBackup(null)
+      })
 
     return () => {
       mounted = false
-      subscription?.unsubscribe()
     }
-  }, [supabase])
+  }, [session])
 
   if (!supabase) {
     return (
@@ -121,8 +167,8 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
           <Badge muted>Unavailable</Badge>
         </div>
         <p className="text-sm leading-6 text-slate-300">
-          Supabase is not configured, so cloud auth and backup remain hidden behind the feature flag without breaking
-          local-first budgeting.
+          Supabase is not configured, so cloud backup remains hidden behind the feature flag without changing the
+          local-first app.
         </p>
       </div>
     )
@@ -130,7 +176,7 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
 
   async function handleSendSignInLink() {
     if (!supabase) {
-      setAuthError('Cloud auth is not available because Supabase is not configured.')
+      setAuthError('Cloud backup is unavailable because Supabase is not configured.')
       return
     }
 
@@ -155,7 +201,7 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
     if (error) {
       setAuthError(error.message)
     } else {
-      setAuthNotice(`Sign-in link sent to ${nextEmail}. Check email to finish sign-in.`)
+      setAuthNotice(`Sign-in link sent to ${nextEmail}.`)
       setEmail('')
     }
 
@@ -164,7 +210,7 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
 
   async function handleSignOut() {
     if (!supabase) {
-      setAuthError('Cloud auth is not available because Supabase is not configured.')
+      setAuthError('Cloud backup is unavailable because Supabase is not configured.')
       return
     }
 
@@ -176,52 +222,104 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
       setAuthError(error.message)
     } else {
       setAuthNotice('Signed out of cloud backup.')
+      setLatestCloudBackup(null)
     }
 
     setIsSigningOut(false)
   }
 
-  function openCloudUploadFlow() {
+  function openUploadConfirm() {
     setIsUploadConfirmOpen(true)
     setIsRestoreConfirmOpen(false)
+    setCloudError('')
     setCloudNotice('')
     setCloudNoticeTone('info')
   }
 
-  function openCloudRestoreFlow() {
+  function openRestoreConfirm() {
     setIsRestoreConfirmOpen(true)
     setIsUploadConfirmOpen(false)
+    setCloudError('')
     setCloudNotice('')
     setCloudNoticeTone('info')
   }
 
-  function confirmUploadFlow() {
+  async function refreshLatestCloudBackup() {
+    setIsLoadingCloudBackup(true)
+    try {
+      const snapshot = await fetchLatestCloudBackup()
+      setLatestCloudBackup(snapshot)
+      return snapshot
+    } finally {
+      setIsLoadingCloudBackup(false)
+    }
+  }
+
+  async function confirmUploadFlow() {
     setIsUploadConfirmOpen(false)
-    setCloudNotice('Cloud upload is scaffolded but not wired to backend tables yet. This step is ready for the next issue.')
-    setCloudNoticeTone('warning')
+    setCloudError('')
+    setCloudNotice('')
+    setIsUploading(true)
+
+    try {
+      const result = await uploadCurrentLocalBackup()
+      setLatestCloudBackup(result)
+      setCloudNotice('Current device snapshot uploaded to cloud backup.')
+      setCloudNoticeTone('success')
+      await refreshLatestCloudBackup()
+    } catch (error) {
+      setCloudError(error instanceof Error ? error.message : 'Unable to upload the cloud snapshot.')
+      setCloudNoticeTone('danger')
+    } finally {
+      setIsUploading(false)
+    }
   }
 
-  function confirmRestoreFlow() {
+  async function confirmRestoreFlow() {
     setIsRestoreConfirmOpen(false)
-    setCloudNotice(
-      'Cloud restore is scaffolded but not wired to backend tables yet. The confirmation flow is in place for the next backend milestone.',
-    )
-    setCloudNoticeTone('warning')
+    setCloudError('')
+    setCloudNotice('')
+    setIsRestoring(true)
+
+    try {
+      const snapshot = latestCloudBackup ?? (await refreshLatestCloudBackup())
+      if (!snapshot) {
+        setCloudError('No cloud snapshot has been saved yet.')
+        return
+      }
+
+      saveLeftlyBackup(snapshot.backup)
+      onLocalDataReloaded()
+      setCloudNotice('Cloud snapshot restored to this device.')
+      setCloudNoticeTone('success')
+      await refreshLatestCloudBackup()
+    } catch (error) {
+      setCloudError(error instanceof Error ? error.message : 'Unable to restore the cloud snapshot.')
+      setCloudNoticeTone('danger')
+    } finally {
+      setIsRestoring(false)
+    }
   }
 
-  const lastCloudBackup = null as { exportedAt: string } | null
+  const cloudBackupDate = latestCloudBackup ? formatCloudDate(latestCloudBackup.row.updated_at) : 'No cloud snapshot yet'
+  const cloudBackupSummary = latestCloudBackup?.summary ?? null
+  const cloudBackupState = latestCloudBackup
+    ? 'Ready to restore'
+    : session
+      ? 'Sign in and upload your first snapshot'
+      : 'Sign in to manage cloud snapshots'
 
   return (
     <div className="leftly-shell-soft grid gap-4 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-semibold text-white">Cloud backup</p>
         <Badge muted>Optional</Badge>
-        <Badge muted>Beta</Badge>
+        <Badge muted>Latest snapshot</Badge>
       </div>
 
       <p className="text-sm leading-6 text-slate-300">
-        Leftly still works locally without an account. Cloud backup is an optional shell for future restore flows, not
-        live sync. No bank connection is required.
+        Cloud backup stores a single latest snapshot for your account. Leftly still works locally without cloud sync,
+        and no bank connection is required.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -235,9 +333,15 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-white">Account</p>
-            <p className="mt-1 text-sm leading-6 text-slate-400">Magic-link sign-in keeps the account shell simple.</p>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Magic-link sign-in keeps the cloud path simple.</p>
           </div>
-          {authLoading ? <Badge muted>Loading</Badge> : session ? <Badge success>Signed in</Badge> : <Badge muted>Signed out</Badge>}
+          {authLoading ? (
+            <Badge muted>Loading</Badge>
+          ) : session ? (
+            <Badge success>Signed in</Badge>
+          ) : (
+            <Badge muted>Signed out</Badge>
+          )}
         </div>
 
         {authError ? <CloudMessage tone="danger">{authError}</CloudMessage> : null}
@@ -251,16 +355,21 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Signed in as</p>
               <p className="text-sm font-semibold text-white">{signedInUserEmail || 'Cloud user'}</p>
               <p className="text-sm leading-6 text-slate-400">
-                Signed-in status is real, but cloud backup upload and restore remain placeholders until the backend
-                tables are added.
+                Cloud backup uses your signed-in account only. It does not change budgeting data until you choose
+                upload or restore.
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={openCloudUploadFlow} className={`${buttonStyles.primary} w-full`}>
-                Upload current snapshot
+              <button type="button" onClick={openUploadConfirm} className={`${buttonStyles.primary} w-full`}>
+                {isUploading ? 'Uploading...' : 'Upload current snapshot'}
               </button>
-              <button type="button" onClick={handleSignOut} className={`${buttonStyles.secondary} w-full`} disabled={isSigningOut}>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className={`${buttonStyles.secondary} w-full`}
+                disabled={isSigningOut}
+              >
                 {isSigningOut ? 'Signing out...' : 'Sign out'}
               </button>
             </div>
@@ -270,7 +379,7 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
             <div className="leftly-shell-soft grid gap-2 p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Signed out</p>
               <p className="text-sm leading-6 text-slate-400">
-                Leftly stays local-first by default. Sign in only if you want to prepare for cloud backup later.
+                Leftly stays local-first by default. Sign in only if you want cloud backup later.
               </p>
             </div>
 
@@ -288,7 +397,12 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
             </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={handleSendSignInLink} className={`${buttonStyles.primary} w-full`} disabled={isSendingLink}>
+              <button
+                type="button"
+                onClick={handleSendSignInLink}
+                className={`${buttonStyles.primary} w-full`}
+                disabled={isSendingLink}
+              >
                 {isSendingLink ? 'Sending link...' : 'Send sign-in link'}
               </button>
               <button type="button" onClick={() => setEmail('')} className={`${buttonStyles.secondary} w-full`}>
@@ -297,8 +411,7 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
             </div>
 
             <p className="text-xs leading-5 text-slate-500">
-              This uses a magic-link flow. Leftly does not need your password, and local budgeting still works if cloud
-              sign-in is unavailable.
+              This uses a magic-link flow. Leftly does not need your password.
             </p>
           </div>
         )}
@@ -307,47 +420,66 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
       <div className="leftly-shell-soft grid gap-3 p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-white">Cloud backup status</p>
+            <p className="text-sm font-semibold text-white">Cloud snapshot</p>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              The backend tables are not wired yet, so this section is a safe shell for the next implementation issue.
+              One latest row per account keeps the cloud path simple and avoids live-sync conflicts.
             </p>
           </div>
-          <Badge muted>Preview only</Badge>
+          <Badge muted>{isLoadingCloudBackup ? 'Loading' : cloudBackupState}</Badge>
         </div>
+
+        {cloudError ? <CloudMessage tone="danger">{cloudError}</CloudMessage> : null}
+        {cloudNotice ? <CloudMessage tone={cloudNoticeTone}>{cloudNotice}</CloudMessage> : null}
 
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="leftly-data-stat">
             <p className="leftly-data-stat-label">Last cloud backup</p>
-            <p className="leftly-data-stat-value">{lastCloudBackup ? lastCloudBackup.exportedAt : 'None yet'}</p>
+            <p className="leftly-data-stat-value">{cloudBackupDate}</p>
           </div>
           <div className="leftly-data-stat">
-            <p className="leftly-data-stat-label">Cloud restore</p>
-            <p className="leftly-data-stat-value">{session ? 'Ready for backend tables' : 'Sign in first'}</p>
+            <p className="leftly-data-stat-label">Restore status</p>
+            <p className="leftly-data-stat-value">{session ? 'Manual restore only' : 'Sign in first'}</p>
           </div>
         </div>
 
+        {cloudBackupSummary ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Stat label="Cloud bills" value={`${cloudBackupSummary.billCount}`} />
+            <Stat label="Cloud expenses" value={`${cloudBackupSummary.expenseCount}`} />
+            <Stat label="Cloud history" value={`${cloudBackupSummary.historySnapshotCount}`} />
+            <Stat label="Cloud categories" value={`${cloudBackupSummary.categoryCount}`} />
+          </div>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={openCloudRestoreFlow} className={`${buttonStyles.secondary} w-full`} disabled={!session}>
-            Restore from cloud
+          <button
+            type="button"
+            onClick={openRestoreConfirm}
+            className={`${buttonStyles.secondary} w-full`}
+            disabled={!session || isLoadingCloudBackup || isRestoring || !latestCloudBackup}
+          >
+            {isRestoring ? 'Restoring...' : 'Restore latest snapshot'}
           </button>
-          <button type="button" onClick={openCloudUploadFlow} className={`${buttonStyles.secondary} w-full`} disabled={!session}>
-            Upload snapshot shell
+          <button
+            type="button"
+            onClick={openUploadConfirm}
+            className={`${buttonStyles.secondary} w-full`}
+            disabled={!session || isLoadingCloudBackup || isUploading}
+          >
+            {isUploading ? 'Uploading...' : 'Upload current snapshot'}
           </button>
         </div>
 
         <p className="text-xs leading-5 text-slate-500">
-          Upload and restore are placeholders until the next backend issue adds tables and storage paths. They do not
-          write cloud data yet.
+          Cloud backup remains optional. JSON backup/export/import still works and remains the portable restore path.
         </p>
       </div>
 
-      {cloudNotice ? <CloudMessage tone={cloudNoticeTone}>{cloudNotice}</CloudMessage> : null}
-
       {isUploadConfirmOpen ? (
         <ConfirmSheet
-          title="Upload snapshot shell"
-          description="This confirms the intended upload flow, but no cloud write happens yet because backend tables are not wired."
-          confirmLabel="Confirm upload shell"
+          title="Upload current snapshot"
+          description="This saves one latest backup row for your signed-in account. It does not change any local data."
+          confirmLabel={isUploading ? 'Uploading...' : 'Confirm upload'}
           onConfirm={confirmUploadFlow}
           onCancel={() => setIsUploadConfirmOpen(false)}
         />
@@ -355,15 +487,34 @@ function CloudBackupShell({ backupSummary }: { backupSummary: LeftlyBackupSummar
 
       {isRestoreConfirmOpen ? (
         <ConfirmSheet
-          title="Restore from cloud shell"
-          description="This confirms the intended restore flow, but no cloud restore happens yet because backend tables are not wired."
-          confirmLabel="Confirm restore shell"
+          title="Restore latest snapshot"
+          description={
+            latestCloudBackup
+              ? `This replaces the current local data with the cloud snapshot saved on ${cloudBackupDate}.`
+              : 'No cloud snapshot is loaded yet. Load or upload one before restoring.'
+          }
+          confirmLabel={isRestoring ? 'Restoring...' : 'Confirm restore'}
           onConfirm={confirmRestoreFlow}
           onCancel={() => setIsRestoreConfirmOpen(false)}
         />
       ) : null}
     </div>
   )
+}
+
+function formatCloudDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
 }
 
 function ConfirmSheet({

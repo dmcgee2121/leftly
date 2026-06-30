@@ -1,6 +1,6 @@
 # Leftly Cloud Backup Setup
 
-This document explains the optional cloud-auth shell that is currently behind a feature flag.
+This document explains the optional cloud backup path that is currently behind a feature flag.
 
 ## Required environment variables
 
@@ -29,8 +29,23 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 - Optional cloud UI gating behind a feature flag.
 - Supabase client setup using the public publishable key only.
 - Magic-link email auth shell with signed-out, loading, signed-in, and sign-out states.
-- Cloud backup/restore UI shell in the Data screen.
-- Clear placeholder handling for upload and restore until backend tables exist.
+- Real cloud snapshot upload and restore in the Data screen.
+- Local snapshot upload uses the same Leftly backup shape as JSON export.
+- Restore reuses the JSON backup validation/safe-save path so imported cloud data lands through the same local rules.
+
+## Supabase table model
+
+Use the documentation-only SQL in `docs/supabase-cloud-backups.sql`.
+
+The current model stores one latest snapshot per authenticated user:
+
+- `cloud_backups.user_id` owns the row.
+- `backup_json` stores the full Leftly backup object as `jsonb`.
+- `summary_json` stores counts and metadata for quick display.
+- `content_hash` helps with future integrity checks.
+- `updated_at` moves forward on every overwrite.
+
+This keeps the initial backend small and avoids live-sync conflicts.
 
 ## What is intentionally deferred
 
@@ -44,10 +59,9 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 ## What Supabase setup is still needed later
 
 - Auth configuration for the project.
-- Storage or table design for snapshots and metadata.
 - Row Level Security policies for user-owned records.
-- A real upload path for current local snapshots.
-- A real restore path for cloud snapshots.
+- The documentation-only SQL needs to be applied to a Supabase project.
+- Later phases may add more tables if live sync is introduced.
 
 ## Why local-first remains the default
 

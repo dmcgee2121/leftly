@@ -58,6 +58,43 @@ export type LeftlyBackup = {
   preferences?: LeftlyPreferences
 }
 
+export function buildLeftlyBackup(params: {
+  activeBudgetPeriod: BudgetPeriod | null
+  bills: Bill[]
+  expenses: Expense[]
+  recurringTemplates: RecurringItemTemplate[]
+  payPeriodHistory: PayPeriodSnapshot[]
+  categoryOrder?: BudgetCategory[]
+  categoryOrderMode?: CategoryOrderMode
+  sortMode?: SortMode
+  preferences?: LeftlyPreferences
+}): LeftlyBackup {
+  const exportedAt = new Date().toISOString()
+  const summary = getLeftlyBackupSummary(params)
+
+  return {
+    version: 1 as const,
+    app: 'leftly' as const,
+    appName: 'Leftly' as const,
+    backupVersion: 1 as const,
+    exportedAt,
+    summary,
+    activeBudgetPeriod: params.activeBudgetPeriod,
+    bills: params.bills,
+    expenses: params.expenses,
+    recurringTemplates: params.recurringTemplates,
+    payPeriodHistory: params.payPeriodHistory,
+    categoryOrder: params.categoryOrder,
+    categoryOrderMode: params.categoryOrderMode,
+    sortMode: params.sortMode,
+    preferences: params.preferences,
+  }
+}
+
+export function serializeLeftlyBackup(backup: LeftlyBackup) {
+  return JSON.stringify(backup, null, 2)
+}
+
 export function getLeftlyBackupSummary(params: {
   activeBudgetPeriod: BudgetPeriod | null
   bills: Bill[]
@@ -243,14 +280,18 @@ function isLeftlyBackup(value: unknown): value is LeftlyBackup {
   )
 }
 
+export function parseLeftlyBackupValue(value: unknown): { ok: true; backup: LeftlyBackup } | { ok: false; error: string } {
+  if (!isLeftlyBackup(value)) {
+    return { ok: false, error: 'That file does not look like a Leftly backup.' }
+  }
+
+  return { ok: true, backup: value }
+}
+
 export function parseLeftlyBackupJson(text: string): { ok: true; backup: LeftlyBackup } | { ok: false; error: string } {
   try {
     const parsed = JSON.parse(text) as unknown
-    if (!isLeftlyBackup(parsed)) {
-      return { ok: false, error: 'That file does not look like a Leftly backup.' }
-    }
-
-    return { ok: true, backup: parsed }
+    return parseLeftlyBackupValue(parsed)
   } catch {
     return { ok: false, error: 'That file is not valid JSON.' }
   }

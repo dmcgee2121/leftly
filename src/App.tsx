@@ -4,6 +4,7 @@ import {
   clearAllAppData,
   addPayPeriodSnapshot,
   deletePayPeriodSnapshot,
+  buildLeftlyBackup,
   getLeftlyBackupSummary,
   parseLeftlyBackupJson,
   loadActiveBudgetPeriod,
@@ -25,6 +26,7 @@ import {
   saveLeftlyBackup,
   saveRecurringTemplates,
   saveSortMode,
+  serializeLeftlyBackup,
   DEFAULT_PREFERENCES,
 } from './lib/storage'
 import type { LeftlyBackupSummary } from './lib/storage'
@@ -449,40 +451,6 @@ function getExpandedCategoriesFromItems(bills: Bill[], expenses: Expense[]) {
   }
 
   return seeded
-}
-
-function buildLeftlyBackup(params: {
-  activeBudgetPeriod: BudgetPeriod | null
-  bills: Bill[]
-  expenses: Expense[]
-  recurringTemplates: RecurringItemTemplate[]
-  payPeriodHistory: PayPeriodSnapshot[]
-  categoryOrder: BudgetCategory[]
-  categoryOrderMode: CategoryOrderMode
-  sortMode: SortMode
-  preferences: LeftlyPreferences
-}): string {
-  const exportedAt = new Date().toISOString()
-  const summary = getLeftlyBackupSummary(params)
-  const backup = {
-    version: 1 as const,
-    app: 'leftly' as const,
-    appName: 'Leftly' as const,
-    backupVersion: 1 as const,
-    exportedAt,
-    summary,
-    activeBudgetPeriod: params.activeBudgetPeriod,
-    bills: params.bills,
-    expenses: params.expenses,
-    recurringTemplates: params.recurringTemplates,
-    payPeriodHistory: params.payPeriodHistory,
-    categoryOrder: params.categoryOrder,
-    categoryOrderMode: params.categoryOrderMode,
-    sortMode: params.sortMode,
-    preferences: params.preferences,
-  }
-
-  return JSON.stringify(backup, null, 2)
 }
 
 function formatBackupSummary(summary: LeftlyBackupSummary) {
@@ -1501,7 +1469,7 @@ function App() {
     setDataError('')
     setDataMessage('')
 
-    const json = buildLeftlyBackup({
+    const backup = buildLeftlyBackup({
       activeBudgetPeriod: payPeriod,
       bills,
       expenses,
@@ -1513,7 +1481,7 @@ function App() {
       preferences,
     })
 
-    const blob = new Blob([json], { type: 'application/json' })
+    const blob = new Blob([serializeLeftlyBackup(backup)], { type: 'application/json' })
     const url = window.URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
@@ -1560,34 +1528,7 @@ function App() {
       }
 
       saveLeftlyBackup(parsed.backup)
-
-      const nextPayPeriod = loadActiveBudgetPeriod()
-      const nextBills = loadBills()
-      const nextExpenses = loadExpenses()
-      const nextRecurringTemplates = loadRecurringTemplates()
-      const nextHistory = loadPayPeriodHistory()
-      const nextCategoryOrder = loadCategoryOrder()
-      const nextCategoryOrderMode = loadCategoryOrderMode()
-      const nextSortMode = loadSortMode()
-      const nextPreferences = loadPreferences()
-
-      setPayPeriod(nextPayPeriod)
-      setBills(nextBills)
-      setExpenses(nextExpenses)
-      setRecurringTemplates(nextRecurringTemplates)
-      setPayPeriodHistory(nextHistory)
-      setPreferences(nextPreferences)
-      setCategoryOrder(nextCategoryOrder)
-      setCategoryOrderMode(nextCategoryOrderMode)
-      setSortMode(nextSortMode)
-      setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses))
-      resetDrafts(nextPreferences)
-      setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod, nextPreferences.defaultPayCadence))
-      setActiveTab('overview')
-      setIsStartNewPayPeriodOpen(false)
-      setHistoryStartSnapshot(null)
-      setSelectedHistoryId(null)
-      setEditingItem(null)
+      reloadLocalStateFromStorage()
       setPayPeriodError('')
       setBillError('')
       setExpenseError('')
@@ -1781,6 +1722,36 @@ function App() {
         ? current
         : { ...current, category: nextPreferences.defaultCategory },
     )
+  }
+
+  function reloadLocalStateFromStorage() {
+    const nextPayPeriod = loadActiveBudgetPeriod()
+    const nextBills = loadBills()
+    const nextExpenses = loadExpenses()
+    const nextRecurringTemplates = loadRecurringTemplates()
+    const nextHistory = loadPayPeriodHistory()
+    const nextCategoryOrder = loadCategoryOrder()
+    const nextCategoryOrderMode = loadCategoryOrderMode()
+    const nextSortMode = loadSortMode()
+    const nextPreferences = loadPreferences()
+
+    setPayPeriod(nextPayPeriod)
+    setBills(nextBills)
+    setExpenses(nextExpenses)
+    setRecurringTemplates(nextRecurringTemplates)
+    setPayPeriodHistory(nextHistory)
+    setPreferences(nextPreferences)
+    setCategoryOrder(nextCategoryOrder)
+    setCategoryOrderMode(nextCategoryOrderMode)
+    setSortMode(nextSortMode)
+    setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses))
+    resetDrafts(nextPreferences)
+    setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod, nextPreferences.defaultPayCadence))
+    setActiveTab('overview')
+    setIsStartNewPayPeriodOpen(false)
+    setHistoryStartSnapshot(null)
+    setSelectedHistoryId(null)
+    setEditingItem(null)
   }
 
   function closeQuickAddExpense() {
@@ -3802,6 +3773,7 @@ function App() {
                 backupSummary={backupSummary}
                 preferences={preferences}
                 onPreferencesChange={handlePreferencesChange}
+                onLocalDataReloaded={reloadLocalStateFromStorage}
                 onExport={exportBackup}
                 onImportFile={importBackupFile}
                 onExportCurrentPeriodCsv={exportCurrentPeriodCsv}

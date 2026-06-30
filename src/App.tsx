@@ -248,19 +248,6 @@ const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> 
   },
 ]
 
-const moreMenuKeys: MoreMenuKey[] = ['income', 'bill', 'expense', 'categories', 'data']
-
-const moreMenuHelpers: Record<MoreMenuKey, string> = {
-  income: 'Update paycheck income and pay period details.',
-  bill: 'Add an unusual bill for this pay period.',
-  expense: 'Log spending that happened during this pay period.',
-  categories: 'Review where bills and spending are grouped.',
-  data: 'Back up, import, reset, and manage local preferences.',
-}
-
-function isMoreMenuKey(value: TabKey): value is MoreMenuKey {
-  return moreMenuKeys.includes(value as MoreMenuKey)
-}
 const quickAddDateBehaviorLabels: Record<LeftlyPreferences['quickAddDateBehavior'], string> = {
   today: 'Today',
   'pay-period-start': 'Pay period start',
@@ -2466,21 +2453,17 @@ function App() {
   const hasAnyData = payPeriod || bills.length > 0 || expenses.length > 0
   const isFirstRun = !payPeriod && bills.length === 0 && expenses.length === 0 && recurringTemplates.length === 0 && payPeriodHistory.length === 0
   const isOverviewTab = activeTab === 'overview'
-  const isMoreMenuScreen = activeTab === 'more'
-  const isMoreSubScreen = isMoreMenuKey(activeTab)
-  const compactHeaderGroupLabel = isMoreMenuScreen || isMoreSubScreen ? 'More' : 'Leftly'
-  const compactHeaderHelper = isMoreSubScreen
-    ? moreMenuHelpers[activeTab]
-    : isMoreMenuScreen
-      ? 'Open the extra Leftly screens that do not fit in the main bottom navigation.'
-      : 'Focused workspace with local-only data and no bank connection.'
 
   return (
     <main className="leftly-page">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.08),_transparent_32%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-slate-950/80 to-transparent" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-3 pb-32 sm:px-6 sm:py-5 sm:pb-6 lg:px-8 lg:py-6">
+      <div
+        className={`relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 pb-32 sm:px-6 sm:pb-6 lg:px-8 ${
+          isOverviewTab ? 'py-3 sm:py-5 lg:py-6' : 'py-2.5 sm:py-4 lg:py-5'
+        }`}
+      >
         {isOverviewTab ? (
           <header className="leftly-page-header">
             <div className="flex flex-col gap-4 sm:items-center sm:text-center">
@@ -2513,21 +2496,10 @@ function App() {
             </div>
           </header>
         ) : (
-          <header className="leftly-page-header px-4 py-3 sm:px-5 sm:py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold tracking-[-0.02em] text-white sm:text-base">Leftly</p>
-                  <span className="leftly-chip leftly-chip-muted px-2 py-0.5 text-[9px] tracking-[0.18em]">Local only</span>
-                </div>
-                <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  {compactHeaderGroupLabel}
-                </p>
-                <p className="mt-1 text-[1.25rem] font-semibold tracking-[-0.04em] text-white sm:text-[1.4rem]">
-                  {activeScreenLabel}
-                </p>
-                <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">{compactHeaderHelper}</p>
-              </div>
+          <header className="px-1 pb-2 pt-1 sm:px-1 sm:pb-3 sm:pt-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[0.95rem] font-semibold tracking-[-0.02em] text-white sm:text-base">Leftly</p>
+              <span className="leftly-chip leftly-chip-muted px-2 py-0.5 text-[9px] tracking-[0.18em]">Local only</span>
             </div>
           </header>
         )}

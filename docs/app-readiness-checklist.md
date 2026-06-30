@@ -65,3 +65,4 @@
 ## Backend later
 
 - If sync is added later, migrate intentionally rather than mutating local-only assumptions in place.
+- Backend planning has begun in `docs/backend-cloud-sync-plan.md`; keep implementation phased and feature-flagged.

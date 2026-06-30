@@ -585,10 +585,6 @@ function HistorySection({
 }) {
   const [showAllExpenses, setShowAllExpenses] = useState(false)
 
-  useEffect(() => {
-    setShowAllExpenses(false)
-  }, [selectedSnapshot?.id])
-
   if (selectedSnapshot) {
     const billItems = selectedSnapshot.bills
     const expenseItems = selectedSnapshot.expenses
@@ -976,29 +972,6 @@ function App() {
   useEffect(() => {
     saveCategoryOrderMode(categoryOrderMode)
   }, [categoryOrderMode])
-
-  useEffect(() => {
-    if (!payPeriod) {
-      setPayPeriodDraft((current) =>
-        current.cadence === preferences.defaultPayCadence ? current : { ...current, cadence: preferences.defaultPayCadence },
-      )
-    }
-
-    setBillDraft((current) =>
-      current.name || current.amount || current.dueDate
-        ? current
-        : current.category === preferences.defaultCategory
-          ? current
-          : { ...current, category: preferences.defaultCategory },
-    )
-    setExpenseDraft((current) =>
-      current.name || current.amount || current.date
-        ? current
-        : current.category === preferences.defaultCategory
-          ? current
-          : { ...current, category: preferences.defaultCategory },
-    )
-  }, [payPeriod, preferences.defaultCategory, preferences.defaultPayCadence])
 
   useEffect(() => {
     if (!incomeSuccess) {
@@ -1802,6 +1775,25 @@ function App() {
 
   function openMoreScreen(key: MoreMenuKey) {
     setActiveTab(key)
+  }
+
+  function handlePreferencesChange(nextPreferences: LeftlyPreferences) {
+    setPreferences(nextPreferences)
+
+    if (!payPeriod) {
+      setPayPeriodDraft((current) => ({ ...current, cadence: nextPreferences.defaultPayCadence }))
+    }
+
+    setBillDraft((current) =>
+      current.name || current.amount || current.dueDate || current.category === nextPreferences.defaultCategory
+        ? current
+        : { ...current, category: nextPreferences.defaultCategory },
+    )
+    setExpenseDraft((current) =>
+      current.name || current.amount || current.date || current.category === nextPreferences.defaultCategory
+        ? current
+        : { ...current, category: nextPreferences.defaultCategory },
+    )
   }
 
   function closeQuickAddExpense() {
@@ -2912,6 +2904,7 @@ function App() {
                   {payPeriod ? (
                     <div className="lg:col-span-2">
                       <PayPeriodCalendar
+                        key={`${payPeriod.startDate}:${payPeriod.endDate}`}
                         payPeriod={payPeriod}
                         bills={bills}
                         expenses={expenses}
@@ -3247,15 +3240,17 @@ function App() {
             <SectionShell title="Income" description="Update paycheck income and pay period dates.">
               <MoreBackBar onBack={openMoreMenu} />
 
-              <StartNewPayPeriodPanel
-                currentPayPeriod={payPeriod}
-                currentReview={currentPayPeriodReview}
-                templates={recurringTemplates}
-                isOpen={isStartNewPayPeriodOpen}
-                defaultPayCadence={preferences.defaultPayCadence}
-                onClose={() => setIsStartNewPayPeriodOpen(false)}
-                onSubmit={handleStartNewPayPeriod}
-              />
+              {isStartNewPayPeriodOpen ? (
+                <StartNewPayPeriodPanel
+                  currentPayPeriod={payPeriod}
+                  currentReview={currentPayPeriodReview}
+                  templates={recurringTemplates}
+                  isOpen={isStartNewPayPeriodOpen}
+                  defaultPayCadence={preferences.defaultPayCadence}
+                  onClose={() => setIsStartNewPayPeriodOpen(false)}
+                  onSubmit={handleStartNewPayPeriod}
+                />
+              ) : null}
 
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm leading-6 text-slate-400">
@@ -3806,6 +3801,7 @@ function App() {
               {historyStartSnapshot ? (
                 <div className="mb-5">
                   <StartFromHistoryPanel
+                    key={historyStartSnapshot.id}
                     snapshot={historyStartSnapshot}
                     isOpen={Boolean(historyStartSnapshot)}
                     onClose={() => setHistoryStartSnapshot(null)}
@@ -3814,6 +3810,7 @@ function App() {
                 </div>
               ) : null}
               <HistorySection
+                key={selectedHistorySnapshot?.id ?? 'history-list'}
                 snapshots={payPeriodHistory}
                 selectedSnapshot={selectedHistorySnapshot}
                 onSelectSnapshot={setSelectedHistoryId}
@@ -3832,7 +3829,7 @@ function App() {
               <DataSection
                 backupSummary={backupSummary}
                 preferences={preferences}
-                onPreferencesChange={setPreferences}
+                onPreferencesChange={handlePreferencesChange}
                 onExport={exportBackup}
                 onImportFile={importBackupFile}
                 onExportCurrentPeriodCsv={exportCurrentPeriodCsv}
@@ -3867,13 +3864,16 @@ function App() {
             </SectionShell>
           ) : null}
 
-          <EditItemPanel
-            target={editingItem}
-            isOpen={Boolean(editingItem)}
-            onClose={() => setEditingItem(null)}
-            onSaveBill={saveEditedBill}
-            onSaveExpense={saveEditedExpense}
-          />
+          {editingItem ? (
+            <EditItemPanel
+              key={`${editingItem.kind}:${editingItem.item.id}`}
+              target={editingItem}
+              isOpen={Boolean(editingItem)}
+              onClose={() => setEditingItem(null)}
+              onSaveBill={saveEditedBill}
+              onSaveExpense={saveEditedExpense}
+            />
+          ) : null}
           <ApplyBillPlanPanel
             activePayPeriod={payPeriod}
             templates={recurringTemplates}

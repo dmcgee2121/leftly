@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bill, BudgetCategory, Expense } from '../types/budget'
 
@@ -39,42 +39,35 @@ export function EditItemPanel({
   onSaveBill: (bill: Bill) => void
   onSaveExpense: (expense: Expense) => void
 }) {
-  const [draft, setDraft] = useState<EditDraft>({
-    name: '',
-    amount: '',
-    category: 'Other / Misc',
-    dueDate: '',
-    date: '',
-    isPaid: false,
-  })
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!isOpen || !target) {
-      return
-    }
-
-    if (target.kind === 'bill') {
-      setDraft({
-        name: target.item.name,
-        amount: String(target.item.amount),
-        category: target.item.category,
-        dueDate: target.item.dueDate,
-        date: '',
-        isPaid: target.item.isPaid,
-      })
-    } else {
-      setDraft({
-        name: target.item.name,
-        amount: String(target.item.amount),
-        category: target.item.category,
+  const initialDraft: EditDraft = target
+    ? target.kind === 'bill'
+      ? {
+          name: target.item.name,
+          amount: String(target.item.amount),
+          category: target.item.category,
+          dueDate: target.item.dueDate,
+          date: '',
+          isPaid: target.item.isPaid,
+        }
+      : {
+          name: target.item.name,
+          amount: String(target.item.amount),
+          category: target.item.category,
+          dueDate: '',
+          date: target.item.date,
+          isPaid: false,
+        }
+    : {
+        name: '',
+        amount: '',
+        category: 'Other / Misc',
         dueDate: '',
-        date: target.item.date,
+        date: '',
         isPaid: false,
-      })
-    }
-    setError('')
-  }, [isOpen, target])
+      }
+
+  const [draft, setDraft] = useState<EditDraft>(initialDraft)
+  const [error, setError] = useState('')
 
   function validateDraft() {
     const amount = Number(draft.amount)

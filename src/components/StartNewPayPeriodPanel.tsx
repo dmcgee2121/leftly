@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bill, BudgetPeriod, PayCadence, RecurringItemTemplate } from '../types/budget'
 import { buildRecurringPreview } from '../lib/recurring'
@@ -77,45 +77,18 @@ export function StartNewPayPeriodPanel({
   onClose: () => void
   onSubmit: (period: BudgetPeriod, options: { generateRecurring: boolean; carryoverBills: Bill[] }) => void
 }) {
-  const [draft, setDraft] = useState<StartNewPeriodDraft>({
+  const [draft, setDraft] = useState<StartNewPeriodDraft>(() => ({
     income: currentPayPeriod ? String(currentPayPeriod.income) : '',
     cadence: currentPayPeriod?.cadence ?? defaultPayCadence,
     startDate: currentPayPeriod?.startDate ?? '',
     endDate: currentPayPeriod?.endDate ?? '',
     generateRecurring: templates.length > 0,
-  })
+  }))
   const [mode, setMode] = useState<PanelMode>('edit')
   const [error, setError] = useState('')
   const [applyRollover, setApplyRollover] = useState(false)
   const [carryoverMode, setCarryoverMode] = useState<CarryoverMode>('skip')
   const [selectedCarryoverBillIds, setSelectedCarryoverBillIds] = useState<string[]>([])
-
-  useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
-    setDraft({
-      income: currentPayPeriod ? String(currentPayPeriod.income) : '',
-      cadence: currentPayPeriod?.cadence ?? defaultPayCadence,
-      startDate: '',
-      endDate: '',
-      generateRecurring: templates.length > 0,
-    })
-    setMode('edit')
-    setError('')
-    setApplyRollover(false)
-    setCarryoverMode('skip')
-    setSelectedCarryoverBillIds([])
-  }, [currentPayPeriod, defaultPayCadence, isOpen, templates.length])
-
-  useEffect(() => {
-    if (carryoverMode !== 'choose' || !currentReview || selectedCarryoverBillIds.length > 0) {
-      return
-    }
-
-    setSelectedCarryoverBillIds(currentReview.unpaidBills.map((bill) => bill.id))
-  }, [carryoverMode, currentReview, selectedCarryoverBillIds.length])
 
   const preview = useMemo(() => {
     if (!draft.generateRecurring || !draft.startDate || !draft.endDate) {
@@ -214,6 +187,13 @@ export function StartNewPayPeriodPanel({
     }
 
     setMode('review')
+  }
+
+  function setCarryoverSelectionMode(nextMode: CarryoverMode) {
+    setCarryoverMode(nextMode)
+    if (nextMode === 'choose' && currentReview && selectedCarryoverBillIds.length === 0) {
+      setSelectedCarryoverBillIds(currentReview.unpaidBills.map((bill) => bill.id))
+    }
   }
 
   function handleSubmit(event?: FormEvent<HTMLFormElement>) {
@@ -387,7 +367,7 @@ export function StartNewPayPeriodPanel({
                         type="radio"
                         name="carryover"
                         checked={carryoverMode === 'all'}
-                        onChange={() => setCarryoverMode('all')}
+                        onChange={() => setCarryoverSelectionMode('all')}
                         className="mt-1 h-4 w-4 border-slate-700 text-cyan-400 focus:ring-cyan-400"
                       />
                       <span>
@@ -401,7 +381,7 @@ export function StartNewPayPeriodPanel({
                         type="radio"
                         name="carryover"
                         checked={carryoverMode === 'choose'}
-                        onChange={() => setCarryoverMode('choose')}
+                        onChange={() => setCarryoverSelectionMode('choose')}
                         className="mt-1 h-4 w-4 border-slate-700 text-cyan-400 focus:ring-cyan-400"
                       />
                       <span>
@@ -415,7 +395,7 @@ export function StartNewPayPeriodPanel({
                         type="radio"
                         name="carryover"
                         checked={carryoverMode === 'skip'}
-                        onChange={() => setCarryoverMode('skip')}
+                        onChange={() => setCarryoverSelectionMode('skip')}
                         className="mt-1 h-4 w-4 border-slate-700 text-cyan-400 focus:ring-cyan-400"
                       />
                       <span>

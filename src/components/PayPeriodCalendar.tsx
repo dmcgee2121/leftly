@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { formatRecurringScheduleLabel, normalizeRecurringPlanName } from '../lib/recurring'
 import type { Bill, BudgetPeriod, Expense, RecurringItemTemplate } from '../types/budget'
 
@@ -530,26 +530,14 @@ export function PayPeriodCalendar({
     return activeMatch?.isoDate ?? days[0].isoDate
   }, [days])
 
-  const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(selectedDefault)
-  const [viewMode, setViewMode] = useState<'agenda' | 'calendar'>('agenda')
+  const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(() => selectedDefault)
+  const [viewMode, setViewMode] = useState<'agenda' | 'calendar'>(() =>
+    window.matchMedia('(min-width: 1024px)').matches ? 'calendar' : 'agenda',
+  )
   const [agendaExpandedIsoDate, setAgendaExpandedIsoDate] = useState<string | null>(null)
   const [showAllSelectedItems, setShowAllSelectedItems] = useState(false)
 
-  useEffect(() => {
-    if (window.matchMedia('(min-width: 1024px)').matches) {
-      setViewMode('calendar')
-    }
-  }, [])
-
-  useEffect(() => {
-    setSelectedIsoDate(selectedDefault)
-  }, [selectedDefault, payPeriod?.startDate, payPeriod?.endDate])
-
   const selectedDay = days.find((day) => day.isoDate === selectedIsoDate) ?? days[0] ?? null
-
-  useEffect(() => {
-    setShowAllSelectedItems(false)
-  }, [selectedDay?.isoDate])
 
   const agendaEntries = useMemo(() => {
     const importantIndexes = days
@@ -576,10 +564,6 @@ export function PayPeriodCalendar({
 
     return entries
   }, [days])
-
-  useEffect(() => {
-    setAgendaExpandedIsoDate(null)
-  }, [payPeriod?.startDate, payPeriod?.endDate])
 
   if (!payPeriod || !start || !end) {
     return null

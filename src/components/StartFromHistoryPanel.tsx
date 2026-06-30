@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bill, BudgetPeriod, Expense, PayCadence, PayPeriodSnapshot } from '../types/budget'
 
@@ -60,26 +60,6 @@ export function StartFromHistoryPanel({
   })
   const [mode, setMode] = useState<PanelMode>('edit')
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!isOpen || !snapshot) {
-      return
-    }
-
-    setDraft({
-      income: String(snapshot.income),
-      cadence: snapshot.cadence,
-      startDate: '',
-      endDate: '',
-      copyBills: true,
-      resetCopiedBillsToUnpaid: true,
-      clearPaidDates: true,
-      copyPlannedExpenses: true,
-      copyManualExpenses: false,
-    })
-    setMode('edit')
-    setError('')
-  }, [isOpen, snapshot])
 
   const preview = useMemo(() => {
     if (!snapshot || !draft.startDate || !draft.endDate) {

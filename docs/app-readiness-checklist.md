@@ -44,6 +44,10 @@
 - Manual release check still recommended before a public checkpoint for: one full export/import/restore round-trip using a saved JSON backup in a clean browser profile.
 - Pass 5 status on `2026-06-26`: closeout copy now calls out the closed period, leftover rollover, unpaid carryover, next pay period summary, and the History save before confirm.
 - Pass 6 status on `2026-06-27`: local JSON backup/import/reset round-trip was rechecked with live data, and the Data screen copy now calls out device-only storage, JSON restore, spreadsheet-only CSV export, and destructive reset behavior more explicitly.
+- Pass 8 status on `2026-06-29`: release-candidate cleanup removed effect-based draft resets from History, Edit, Start New Pay Period, and PayPeriodCalendar state handling so panel state now resets by remount or direct handlers instead of synchronous effects.
+- Pass 8 status on `2026-06-29`: `npm run lint` and `npm run build` both passed after the cleanup.
+- Pass 8 status on `2026-06-29`: manifest links and referenced icon assets still resolve from `index.html` and `public/manifest.webmanifest`.
+- Interactive 360px / 390px browser QA was not rerun in this session; the latest recorded mobile browser pass remains `2026-06-27`.
 
 ## Onboarding and first run
 

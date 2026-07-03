@@ -4,6 +4,8 @@
 
 Leftly should keep its local-first feel as the default product experience. Accounts and cloud sync should be added only as an optional extension for users who need device-to-device continuity, disaster recovery, or shared access to the same budget across devices.
 
+Current status: the app now has an optional Supabase-backed cloud backup/restore path behind a feature flag, and it has passed an initial manual smoke test. Keep treating it as backup/restore only until restore-safety hardening is complete and live-sync work is explicitly planned.
+
 The safest path is:
 
 - Keep the current local-only app as the baseline.

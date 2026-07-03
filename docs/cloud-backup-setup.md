@@ -2,6 +2,8 @@
 
 This document explains the optional cloud backup path that is currently behind a feature flag.
 
+Status note: the real Supabase-backed upload/restore flow has passed an initial manual smoke test, but it still needs restore-safety hardening before any live-sync planning.
+
 ## Required environment variables
 
 Use Vite public client env vars only:
@@ -32,6 +34,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 - Real cloud snapshot upload and restore in the Data screen.
 - Local snapshot upload uses the same Leftly backup shape as JSON export.
 - Restore reuses the JSON backup validation/safe-save path so imported cloud data lands through the same local rules.
+- Restore is explicit, confirmed, and still separate from any future live-sync or conflict handling.
 
 ## Supabase table model
 

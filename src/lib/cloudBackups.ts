@@ -156,7 +156,9 @@ export async function fetchLatestCloudBackup() {
   const row = data as CloudBackupRow
   const parsed = parseLeftlyBackupValue(row.backup_json)
   if (!parsed.ok) {
-    throw new Error('The saved cloud backup no longer matches a valid Leftly backup.')
+    throw new Error(
+      'The saved cloud snapshot is invalid and cannot be restored. Local data was not changed. Export JSON or upload a fresh snapshot after fixing the cloud row.',
+    )
   }
 
   return {

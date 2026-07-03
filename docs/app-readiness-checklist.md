@@ -13,6 +13,7 @@
 - Treat reset wording as destructive and explicit.
 - Keep backup metadata optional and backward-compatible so older JSON backups still restore cleanly.
 - Keep future cloud sync out of scope until a dedicated backend phase.
+- Optional cloud backup/restore is now smoke-tested, but it still needs restore-safety QA and copy hardening before any live-sync work.
 
 ## Backup and import
 
@@ -67,3 +68,4 @@
 - If sync is added later, migrate intentionally rather than mutating local-only assumptions in place.
 - Backend planning has begun in `docs/backend-cloud-sync-plan.md`; keep implementation phased and feature-flagged.
 - Optional cloud auth shell plus real cloud snapshot upload/restore now live behind the feature flag; keep local-first as the default path until a broader backend milestone is ready.
+- Do not treat the current cloud path as live sync. It is still a single latest snapshot flow with explicit restore.

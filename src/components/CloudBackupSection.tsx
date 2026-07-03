@@ -303,11 +303,13 @@ function CloudBackupShell({
 
   const cloudBackupDate = latestCloudBackup ? formatCloudDate(latestCloudBackup.row.updated_at) : 'No cloud snapshot yet'
   const cloudBackupSummary = latestCloudBackup?.summary ?? null
+  const hasCloudBackup = Boolean(latestCloudBackup)
   const cloudBackupState = latestCloudBackup
     ? 'Ready to restore'
     : session
-      ? 'Sign in and upload your first snapshot'
+      ? 'No cloud snapshot yet'
       : 'Sign in to manage cloud snapshots'
+  const cloudRestoreSummary = cloudBackupSummary ? formatCloudBackupSummary(cloudBackupSummary) : ''
 
   return (
     <div className="leftly-shell-soft grid gap-4 p-4">
@@ -318,8 +320,13 @@ function CloudBackupShell({
       </div>
 
       <p className="text-sm leading-6 text-slate-300">
-        Cloud backup stores a single latest snapshot for your account. Leftly still works locally without cloud sync,
-        and no bank connection is required.
+        Cloud backup is optional and stores a single latest snapshot for your account. It is not live sync, Leftly
+        still works locally without cloud sync, and no bank connection is required.
+      </p>
+      <p className="text-sm leading-6 text-slate-300">
+        Upload saves one cloud snapshot. Restore replaces the local data on this device, but it does not delete the
+        cloud copy. Export JSON first if you want the safest portable recovery file before a restore, reset, or demo
+        test.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -431,6 +438,16 @@ function CloudBackupShell({
         {cloudError ? <CloudMessage tone="danger">{cloudError}</CloudMessage> : null}
         {cloudNotice ? <CloudMessage tone={cloudNoticeTone}>{cloudNotice}</CloudMessage> : null}
 
+        {session && !hasCloudBackup ? (
+          <div className="leftly-shell-faint grid gap-2 p-3">
+            <p className="text-sm font-medium text-white">No cloud snapshot yet</p>
+            <p className="text-sm leading-6 text-slate-400">
+              Upload current snapshot to create the first cloud backup. Restore stays disabled until one exists. Keep
+              using JSON backup if you want a portable safety copy before testing restore or reset.
+            </p>
+          </div>
+        ) : null}
+
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="leftly-data-stat">
             <p className="leftly-data-stat-label">Last cloud backup</p>
@@ -438,7 +455,17 @@ function CloudBackupShell({
           </div>
           <div className="leftly-data-stat">
             <p className="leftly-data-stat-label">Restore status</p>
-            <p className="leftly-data-stat-value">{session ? 'Manual restore only' : 'Sign in first'}</p>
+            <p className="leftly-data-stat-value">
+              {session ? (hasCloudBackup ? 'Ready after confirmation' : 'Waiting for first upload') : 'Sign in first'}
+            </p>
+          </div>
+          <div className="leftly-data-stat">
+            <p className="leftly-data-stat-label">Cloud backups</p>
+            <p className="leftly-data-stat-value">{hasCloudBackup ? '1 latest snapshot' : 'None saved yet'}</p>
+          </div>
+          <div className="leftly-data-stat">
+            <p className="leftly-data-stat-label">Portable recovery</p>
+            <p className="leftly-data-stat-value">Export JSON first</p>
           </div>
         </div>
 
@@ -456,7 +483,7 @@ function CloudBackupShell({
             type="button"
             onClick={openRestoreConfirm}
             className={`${buttonStyles.secondary} w-full`}
-            disabled={!session || isLoadingCloudBackup || isRestoring || !latestCloudBackup}
+            disabled={!session || isLoadingCloudBackup || isRestoring || !hasCloudBackup}
           >
             {isRestoring ? 'Restoring...' : 'Restore latest snapshot'}
           </button>
@@ -471,7 +498,8 @@ function CloudBackupShell({
         </div>
 
         <p className="text-xs leading-5 text-slate-500">
-          Cloud backup remains optional. JSON backup/export/import still works and remains the portable restore path.
+          Cloud backup remains optional. JSON backup/export/import still works and remains the safest portable restore
+          path.
         </p>
       </div>
 
@@ -490,8 +518,13 @@ function CloudBackupShell({
           title="Restore latest snapshot"
           description={
             latestCloudBackup
-              ? `This replaces the current local data with the cloud snapshot saved on ${cloudBackupDate}.`
-              : 'No cloud snapshot is loaded yet. Load or upload one before restoring.'
+              ? `This replaces the local data on this device with the cloud snapshot saved on ${cloudBackupDate}.`
+              : 'No cloud snapshot is loaded yet. Upload one before restoring.'
+          }
+          secondaryDescription={
+            latestCloudBackup
+              ? `The cloud copy stays in Supabase. ${cloudRestoreSummary ? `Snapshot contents: ${cloudRestoreSummary}. ` : ''}Export JSON first if you want a portable safety copy before overwriting this device.`
+              : 'Restore stays disabled until a snapshot exists.'
           }
           confirmLabel={isRestoring ? 'Restoring...' : 'Confirm restore'}
           onConfirm={confirmRestoreFlow}
@@ -517,15 +550,28 @@ function formatCloudDate(value: string) {
   }).format(date)
 }
 
+function formatCloudBackupSummary(summary: LeftlyBackupSummary) {
+  const parts = [
+    `${summary.billCount} bill${summary.billCount === 1 ? '' : 's'}`,
+    `${summary.expenseCount} expense${summary.expenseCount === 1 ? '' : 's'}`,
+    `${summary.historySnapshotCount} history snapshot${summary.historySnapshotCount === 1 ? '' : 's'}`,
+    `${summary.categoryCount} categor${summary.categoryCount === 1 ? 'y' : 'ies'}`,
+  ]
+
+  return parts.join(', ')
+}
+
 function ConfirmSheet({
   title,
   description,
+  secondaryDescription,
   confirmLabel,
   onConfirm,
   onCancel,
 }: {
   title: string
   description: string
+  secondaryDescription?: string
   confirmLabel: string
   onConfirm: () => void
   onCancel: () => void
@@ -534,6 +580,7 @@ function ConfirmSheet({
     <div className="rounded-[1.2rem] border border-amber-500/20 bg-amber-500/10 p-4">
       <p className="text-sm font-semibold text-white">{title}</p>
       <p className="mt-1 text-sm leading-6 text-slate-300">{description}</p>
+      {secondaryDescription ? <p className="mt-2 text-sm leading-6 text-slate-400">{secondaryDescription}</p> : null}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <button type="button" onClick={onConfirm} className={`${buttonStyles.primary} w-full`}>
           {confirmLabel}

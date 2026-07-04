@@ -20,6 +20,7 @@ const PAY_PERIOD_HISTORY_KEY = 'leftly.payPeriodHistory'
 const SORT_MODE_KEY = 'leftly.sortMode'
 const CATEGORY_ORDER_KEY = 'leftly.categoryOrder'
 const PREFERENCES_KEY = 'leftly.preferences'
+const ACTIVE_TAB_KEY = 'leftly.activeTab'
 
 const DEFAULT_SORT_MODE: SortMode = 'amount-desc'
 const DEFAULT_CATEGORY_ORDER: CategoryOrderMode = 'total-desc'
@@ -419,6 +420,23 @@ export function savePreferences(preferences: LeftlyPreferences) {
   writeJson(PREFERENCES_KEY, normalizePreferences(preferences))
 }
 
+export function loadActiveTab() {
+  try {
+    const value = window.localStorage.getItem(ACTIVE_TAB_KEY)
+    return value && value.length > 0 ? value : null
+  } catch {
+    return null
+  }
+}
+
+export function saveActiveTab(tab: string) {
+  try {
+    window.localStorage.setItem(ACTIVE_TAB_KEY, tab)
+  } catch {
+    // Ignore storage failures so the app keeps running.
+  }
+}
+
 function normalizeCategoryOrder(order: unknown): BudgetCategory[] {
   if (!Array.isArray(order)) {
     return [...DEFAULT_CATEGORIES]
@@ -459,6 +477,7 @@ export function clearAllAppData() {
     window.localStorage.removeItem(CATEGORY_ORDER_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY + '.mode')
     window.localStorage.removeItem(PREFERENCES_KEY)
+    window.localStorage.removeItem(ACTIVE_TAB_KEY)
   } catch {
     // Ignore storage failures so the app keeps running.
   }

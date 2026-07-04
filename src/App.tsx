@@ -8,6 +8,7 @@ import {
   getLeftlyBackupSummary,
   parseLeftlyBackupJson,
   loadActiveBudgetPeriod,
+  loadActiveTab,
   loadBills,
   loadCategoryOrder,
   loadCategoryOrderMode,
@@ -18,6 +19,7 @@ import {
   loadRecurringTemplates,
   savePreferences,
   saveActiveBudgetPeriod,
+  saveActiveTab,
   saveBills,
   saveCategoryOrder,
   saveCategoryOrderMode,
@@ -265,6 +267,25 @@ const initialSortMode = loadSortMode()
 const initialCategoryOrder = loadCategoryOrder()
 const initialCategoryOrderMode = loadCategoryOrderMode()
 const initialPreferences = loadPreferences()
+const initialHasAnyData =
+  initialPayPeriod !== null ||
+  initialBills.length > 0 ||
+  initialExpenses.length > 0 ||
+  initialRecurringTemplates.length > 0 ||
+  initialPayPeriodHistory.length > 0
+
+function isValidTabKey(tab: string | null): tab is TabKey {
+  return tab !== null && tabLabels.some((item) => item.key === tab)
+}
+
+function getInitialActiveTab(): TabKey {
+  if (!initialHasAnyData) {
+    return 'overview'
+  }
+
+  const savedTab = loadActiveTab()
+  return isValidTabKey(savedTab) ? savedTab : 'overview'
+}
 
 function getDraftFromPeriod(period: BudgetPeriod | null, defaultCadence: PayCadence = DEFAULT_PREFERENCES.defaultPayCadence): PayPeriodDraft {
   return {
@@ -844,7 +865,7 @@ function FirstRunChecklist() {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [activeTab, setActiveTab] = useState<TabKey>(getInitialActiveTab)
   const [payPeriod, setPayPeriod] = useState<BudgetPeriod | null>(initialPayPeriod)
   const [bills, setBills] = useState<Bill[]>(initialBills)
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
@@ -895,6 +916,10 @@ function App() {
   useEffect(() => {
     saveActiveBudgetPeriod(payPeriod)
   }, [payPeriod])
+
+  useEffect(() => {
+    saveActiveTab(activeTab)
+  }, [activeTab])
 
   useEffect(() => {
     savePreferences(preferences)

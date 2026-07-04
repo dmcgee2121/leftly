@@ -63,9 +63,10 @@ import { SetupFlowPanel } from './components/SetupFlowPanel'
 import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { PayPeriodCalendar } from './components/PayPeriodCalendar'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
+import { HelpAboutFeedbackSection } from './components/HelpAboutFeedbackSection'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
-type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data'
+type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
 type TabKey = MainTabKey | MoreMenuKey
 type PayPeriodDraft = {
   cadence: PayCadence
@@ -250,7 +251,26 @@ const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> 
     label: 'Data',
     helper: 'Back up, import, reset, and manage local preferences.',
   },
+  {
+    key: 'help',
+    label: 'Help / About / Feedback',
+    helper: 'Learn what Leftly does and how to use it safely.',
+  },
 ]
+
+const tabScreenLabels: Record<TabKey, string> = {
+  overview: 'Overview',
+  'quick-add': 'Quick Add',
+  income: 'Income',
+  bill: 'One-time Bill',
+  expense: 'Manual Expense',
+  categories: 'Categories',
+  recurring: 'Bill Plan',
+  history: 'History',
+  more: 'More',
+  data: 'Data',
+  help: 'Help / About / Feedback',
+}
 
 const quickAddDateBehaviorLabels: Record<LeftlyPreferences['quickAddDateBehavior'], string> = {
   today: 'Today',
@@ -275,7 +295,7 @@ const initialHasAnyData =
   initialPayPeriodHistory.length > 0
 
 function isValidTabKey(tab: string | null): tab is TabKey {
-  return tab !== null && tabLabels.some((item) => item.key === tab)
+  return tab !== null && Object.prototype.hasOwnProperty.call(tabScreenLabels, tab)
 }
 
 function getInitialActiveTab(): TabKey {
@@ -1372,11 +1392,16 @@ function App() {
   )
 
   const activeBottomNavTab: MainTabKey =
-    activeTab === 'income' || activeTab === 'bill' || activeTab === 'expense' || activeTab === 'categories' || activeTab === 'data'
+    activeTab === 'income' ||
+    activeTab === 'bill' ||
+    activeTab === 'expense' ||
+    activeTab === 'categories' ||
+    activeTab === 'data' ||
+    activeTab === 'help'
       ? 'more'
       : activeTab
 
-  const activeScreenLabel = tabLabels.find((tab) => tab.key === activeTab)?.label ?? 'Leftly'
+  const activeScreenLabel = tabScreenLabels[activeTab] ?? 'Leftly'
 
   function formatCurrency(value: number) {
     return currencyFormatter.format(value)
@@ -3809,6 +3834,16 @@ function App() {
                 errorMessage={dataError}
                 isImporting={isImportingBackup}
               />
+            </SectionShell>
+          ) : null}
+
+          {activeTab === 'help' ? (
+            <SectionShell
+              title="Help / About / Feedback"
+              description="A quick guide to what Leftly does, how backups work, and who to contact with feedback."
+            >
+              <MoreBackBar onBack={openMoreMenu} />
+              <HelpAboutFeedbackSection />
             </SectionShell>
           ) : null}
 

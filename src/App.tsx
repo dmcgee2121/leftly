@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   clearAllAppData,
@@ -57,6 +57,7 @@ import {
 import type { EditTarget } from './components/EditItemPanel'
 import { EditItemPanel } from './components/EditItemPanel'
 import { DataSection } from './components/DataSection'
+import { LandingScreen } from './components/LandingScreen'
 import { ApplyBillPlanPanel } from './components/ApplyBillPlanPanel'
 import { RecurringSection } from './components/RecurringSection'
 import { SetupFlowPanel } from './components/SetupFlowPanel'
@@ -64,6 +65,7 @@ import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { PayPeriodCalendar } from './components/PayPeriodCalendar'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 import { HelpAboutFeedbackSection } from './components/HelpAboutFeedbackSection'
+import { getLeftlyCloudConfig } from './lib/cloudConfig'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
@@ -287,19 +289,28 @@ const initialSortMode = loadSortMode()
 const initialCategoryOrder = loadCategoryOrder()
 const initialCategoryOrderMode = loadCategoryOrderMode()
 const initialPreferences = loadPreferences()
-const initialHasAnyData =
+const initialHasMeaningfulLocalData =
   initialPayPeriod !== null ||
   initialBills.length > 0 ||
   initialExpenses.length > 0 ||
   initialRecurringTemplates.length > 0 ||
-  initialPayPeriodHistory.length > 0
+  initialPayPeriodHistory.length > 0 ||
+  initialSortMode !== 'amount-desc' ||
+  initialCategoryOrderMode !== 'total-desc' ||
+  initialCategoryOrder.length !== DEFAULT_CATEGORIES.length ||
+  initialCategoryOrder.some((category, index) => category !== DEFAULT_CATEGORIES[index]) ||
+  initialPreferences.defaultPayCadence !== DEFAULT_PREFERENCES.defaultPayCadence ||
+  initialPreferences.defaultCategory !== DEFAULT_PREFERENCES.defaultCategory ||
+  initialPreferences.quickAddDateBehavior !== DEFAULT_PREFERENCES.quickAddDateBehavior
+
+const cloudConfig = getLeftlyCloudConfig()
 
 function isValidTabKey(tab: string | null): tab is TabKey {
   return tab !== null && Object.prototype.hasOwnProperty.call(tabScreenLabels, tab)
 }
 
 function getInitialActiveTab(): TabKey {
-  if (!initialHasAnyData) {
+  if (!initialHasMeaningfulLocalData) {
     return 'overview'
   }
 
@@ -818,73 +829,8 @@ function MiniStat({
   )
 }
 
-function FirstRunPanel({
-  onStartSetup,
-  onLoadDemoData,
-  onOpenData,
-}: {
-  onStartSetup: () => void
-  onLoadDemoData: () => void
-  onOpenData: () => void
-}) {
-  return (
-    <div className="leftly-shell leftly-shell-accent grid gap-4 bg-[linear-gradient(180deg,rgba(7,19,14,0.96),rgba(6,11,18,0.92))] p-4 sm:p-5">
-      <div className="grid gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Welcome to Leftly</p>
-        <p className="text-sm leading-6 text-slate-300">
-          Set up your pay cadence, income, and pay period first. Then add regular bills and start tracking spending.
-        </p>
-      </div>
-      <div className="leftly-shell-faint grid gap-2 p-3">
-        <p className="text-sm font-medium text-white">Private and local</p>
-        <p className="text-sm leading-6 text-slate-400">
-          Leftly keeps data on this device, does not require a bank connection, and lets you restore or export backups later from Data.
-        </p>
-      </div>
-      <FirstRunChecklist />
-      <div className="grid gap-3 sm:grid-cols-3">
-        <button type="button" onClick={onStartSetup} className="button-primary w-full">
-          Start setup
-        </button>
-        <button type="button" onClick={onOpenData} className="button-secondary w-full">
-          Restore backup
-        </button>
-        <button type="button" onClick={onLoadDemoData} className="button-secondary w-full">
-          Load demo data
-        </button>
-      </div>
-      <p className="text-xs leading-5 text-slate-400">
-        Demo data is sample information for exploring the app. Loading it replaces any current data saved on this device.
-      </p>
-    </div>
-  )
-}
-
-function FirstRunChecklist() {
-  const steps = [
-    'Set income and your pay period first.',
-    'Add regular bills in Bill Plan.',
-    'Add one-time bills only when they belong to one pay period.',
-    'Use Quick Add or Manual Expense for spending.',
-    'Restore or export backups later from Data.',
-  ]
-
-  return (
-    <div className="leftly-shell-faint grid gap-3 p-3">
-      <p className="text-sm font-medium text-white">What to do first</p>
-      <div className="grid gap-2">
-        {steps.map((step, index) => (
-          <div key={step} className="flex items-start gap-3">
-            <span className="leftly-chip leftly-chip-muted mt-0.5 px-2.5 py-1 text-[10px]">{index + 1}</span>
-            <p className="min-w-0 text-sm leading-6 text-slate-300">{step}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function App() {
+  const landingBackupInputRef = useRef<HTMLInputElement | null>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(getInitialActiveTab)
   const [payPeriod, setPayPeriod] = useState<BudgetPeriod | null>(initialPayPeriod)
   const [bills, setBills] = useState<Bill[]>(initialBills)
@@ -2471,8 +2417,21 @@ function App() {
     })
   }
 
-  const hasAnyData = payPeriod || bills.length > 0 || expenses.length > 0
-  const isFirstRun = !payPeriod && bills.length === 0 && expenses.length === 0 && recurringTemplates.length === 0 && payPeriodHistory.length === 0
+  const hasAnyData =
+    payPeriod !== null ||
+    bills.length > 0 ||
+    expenses.length > 0 ||
+    recurringTemplates.length > 0 ||
+    payPeriodHistory.length > 0 ||
+    sortMode !== 'amount-desc' ||
+    categoryOrderMode !== 'total-desc' ||
+    categoryOrder.length !== DEFAULT_CATEGORIES.length ||
+    categoryOrder.some((category, index) => category !== DEFAULT_CATEGORIES[index]) ||
+    preferences.defaultPayCadence !== DEFAULT_PREFERENCES.defaultPayCadence ||
+    preferences.defaultCategory !== DEFAULT_PREFERENCES.defaultCategory ||
+    preferences.quickAddDateBehavior !== DEFAULT_PREFERENCES.quickAddDateBehavior
+  const isTrueEmptyNewUserState = !hasAnyData
+  const isFirstRun = isTrueEmptyNewUserState
   const isOverviewTab = activeTab === 'overview'
 
   return (
@@ -2644,7 +2603,16 @@ function App() {
                     onFinish={handleFinishSetup}
                   />
                 ) : (
-                  <FirstRunPanel onStartSetup={openSetup} onLoadDemoData={loadDemoData} onOpenData={() => setActiveTab('data')} />
+                  <LandingScreen
+                    onStartBudgetingLocally={openSetup}
+                    onRestoreFromBackup={() => landingBackupInputRef.current?.click()}
+                    onOpenCloudBackup={
+                      cloudConfig.enabled && cloudConfig.mode === 'ready'
+                        ? () => setActiveTab('data')
+                        : undefined
+                    }
+                    showCloudBackupAction={cloudConfig.enabled && cloudConfig.mode === 'ready'}
+                  />
                 )
               ) : hasAnyData ? (
                 <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
@@ -3092,11 +3060,6 @@ function App() {
                     text="Start setup to set income and your pay period, then add regular bills in Bill Plan and log spending with Quick Add."
                   />
               )}
-              {!payPeriod && bills.length === 0 && expenses.length === 0 ? (
-                <div className="mt-4">
-                  <FirstRunChecklist />
-                </div>
-              ) : null}
             </SectionShell>
           ) : null}
 
@@ -3988,6 +3951,16 @@ function App() {
           </div>
         </div>
       </div>
+      <input
+        ref={landingBackupInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(event) => {
+          importBackupFile(event.target.files?.[0] ?? null)
+          event.currentTarget.value = ''
+        }}
+      />
     </main>
   )
 }

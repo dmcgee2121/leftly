@@ -2652,7 +2652,7 @@ function App() {
                           <p className="text-sm font-semibold text-white">{nextOverviewAction.label}</p>
                           <p className="mt-1 text-[11px] leading-5 text-slate-400">{nextOverviewAction.helper}</p>
                         </div>
-                        <button type="button" onClick={nextOverviewAction.onClick} className="button-primary !min-h-0 shrink-0 !px-3 !py-2 !text-xs">
+                        <button type="button" onClick={nextOverviewAction.onClick} className="button-primary !min-h-11 shrink-0 !px-3 !py-2 !text-xs">
                           Open
                         </button>
                       </div>

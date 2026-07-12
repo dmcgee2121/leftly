@@ -622,7 +622,7 @@ export function PayPeriodCalendar({
               type="button"
               aria-pressed={agendaIsActive}
               onClick={() => toggleViewMode('agenda')}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${agendaIsActive ? 'bg-cyan-400/10 text-cyan-100' : 'text-slate-400 hover:text-white'}`}
+              className={`min-h-11 rounded-full px-3 py-2 text-xs font-semibold transition ${agendaIsActive ? 'bg-cyan-400/10 text-cyan-100' : 'text-slate-400 hover:text-white'}`}
             >
               Agenda
             </button>
@@ -630,7 +630,7 @@ export function PayPeriodCalendar({
               type="button"
               aria-pressed={!agendaIsActive}
               onClick={() => toggleViewMode('calendar')}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${!agendaIsActive ? 'bg-cyan-400/10 text-cyan-100' : 'text-slate-400 hover:text-white'}`}
+              className={`min-h-11 rounded-full px-3 py-2 text-xs font-semibold transition ${!agendaIsActive ? 'bg-cyan-400/10 text-cyan-100' : 'text-slate-400 hover:text-white'}`}
             >
               Calendar
             </button>

@@ -2,6 +2,16 @@
 
 Use this file for small release checkpoint commits that intentionally trigger a Netlify deploy after several `[skip netlify]` polish commits.
 
+## 2026-07-12 — Mobile and PWA polish
+
+Release checkpoint for recent polish work:
+
+- Mobile comfort pass for core flows.
+- PWA installability basics.
+- Manifest, metadata, and optional browser-install Help/About copy.
+
+This checkpoint intentionally does not include `[skip netlify]` so Netlify can deploy the latest `main` branch.
+
 ## 2026-07-12 — Landing and wording polish
 
 Release checkpoint for recent polish work:

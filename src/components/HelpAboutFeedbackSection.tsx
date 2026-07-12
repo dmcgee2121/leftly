@@ -5,7 +5,7 @@ export function HelpAboutFeedbackSection() {
         <p className="text-sm font-semibold text-white">What Leftly does</p>
         <p className="text-sm leading-6 text-slate-300">
           Leftly helps you see what is left from a paycheck after bills, set-asides, and spending. It focuses on one
-          pay period—the dates covered by the paycheck you are planning—at a time.
+          pay period - the dates covered by the paycheck you are planning - at a time.
         </p>
       </div>
 
@@ -44,9 +44,10 @@ export function HelpAboutFeedbackSection() {
 
       <div className="leftly-shell-soft grid gap-2 p-4">
         <p className="text-sm font-semibold text-white">Feedback</p>
-        <p className="text-sm leading-6 text-slate-300">
-          Send feedback to the person who shared Leftly with you.
-        </p>
+        <div className="grid gap-2 text-sm leading-6 text-slate-300">
+          <p>Send feedback to the person who shared Leftly with you.</p>
+          <p>On supported browsers, you may also be able to install Leftly from the browser menu. It is optional.</p>
+        </div>
       </div>
     </div>
   )

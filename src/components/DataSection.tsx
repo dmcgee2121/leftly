@@ -72,9 +72,9 @@ export function DataSection({
         <div className="grid gap-1">
           <p className="text-sm font-semibold text-white">Backup and restore</p>
           <p className="text-sm leading-6 text-slate-400">
-            Export creates a JSON backup file you can save somewhere safe. Import restores saved Leftly data from a
-            backup file and replaces what is currently stored on this device. Export JSON first before restore, reset,
-            or demo testing if you want a portable safety copy.
+            Export creates a complete JSON backup you can save somewhere safe and import back into Leftly. Import
+            replaces the Leftly data currently saved on this device. Export JSON first before restore, reset, or demo
+            testing if you want to keep a recovery copy.
           </p>
         </div>
 
@@ -96,7 +96,7 @@ export function DataSection({
             <p className="leftly-data-stat-value">{backupSummary.recurringTemplateCount}</p>
           </div>
           <div className="leftly-data-stat">
-            <p className="leftly-data-stat-label">History snapshots</p>
+            <p className="leftly-data-stat-label">Saved pay periods</p>
             <p className="leftly-data-stat-value">{backupSummary.historySnapshotCount}</p>
           </div>
           <div className="leftly-data-stat">
@@ -128,11 +128,10 @@ export function DataSection({
         </div>
 
         <div className="leftly-shell-faint grid gap-2 p-3">
-          <p className="text-sm font-medium text-white">What new backups include</p>
+          <p className="text-sm font-medium text-white">What a JSON backup includes</p>
           <p className="text-sm leading-6 text-slate-400">
-            New Leftly backups include export time plus optional summary metadata for counts, categories, display
-            settings, and preferences. Older Leftly backups still import safely even if they do not include newer
-            fields.
+            A JSON backup includes your pay period, bills, expenses, Bill Plan, saved history, categories, display
+            settings, and preferences. Older Leftly backups can still be imported.
           </p>
         </div>
       </div>
@@ -153,7 +152,7 @@ export function DataSection({
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={onExportCurrentPeriodCsv} className={`${buttonStyles.secondary} w-full`}>
-            Export current period CSV
+            Export current pay period CSV
           </button>
           <button type="button" onClick={onExportAllHistoryCsv} className={`${buttonStyles.secondary} w-full`}>
             Export all history CSV
@@ -206,12 +205,11 @@ export function DataSection({
       <div className="leftly-banner-warning">
         <p className="text-sm font-semibold text-amber-100">Import warning</p>
         <p className="text-sm leading-6 text-amber-50/80">
-          Importing this JSON backup will replace the current Leftly data on this device with the data saved in that
-          file.
+          Importing a JSON backup replaces all Leftly data currently saved on this device with the data in that file.
         </p>
         <p className="text-sm leading-6 text-slate-300">
-          Export a fresh backup first if you may want to keep what is currently saved here. Older Leftly backups still
-          work even if they do not include newer metadata fields.
+          Export a fresh JSON backup first if you may want to keep what is currently saved here. Older Leftly backups
+          still work.
         </p>
         <p className="text-sm leading-6 text-slate-300">
           Only import files that came from Leftly.

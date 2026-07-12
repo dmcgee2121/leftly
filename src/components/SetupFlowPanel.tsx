@@ -278,9 +278,9 @@ export function SetupFlowPanel({
         </div>
 
         <div className="leftly-shell-faint grid gap-2 p-3">
-          <p className="text-sm font-medium text-white">Local-only and simple</p>
+          <p className="text-sm font-medium text-white">Saved on this device</p>
           <p className="text-sm leading-6 text-slate-400">
-            Leftly stores your budget on this device. No bank connection is needed, and you can export a backup later from Data.
+            Leftly saves your budget in this browser. No account or bank connection is needed. You can export a JSON backup later from Data.
           </p>
         </div>
 

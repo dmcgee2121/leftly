@@ -251,7 +251,7 @@ const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> 
   {
     key: 'data',
     label: 'Data',
-    helper: 'Back up, import, reset, and manage local preferences.',
+    helper: 'Back up, restore, export spreadsheets, reset, and manage preferences.',
   },
   {
     key: 'help',
@@ -3064,7 +3064,7 @@ function App() {
           ) : null}
 
           {activeTab === 'quick-add' ? (
-            <SectionShell title="Quick Add" description="Log a manual expense fast without leaving your current pay period.">
+            <SectionShell title="Quick Add" description="Log everyday spending quickly in your current pay period.">
               {payPeriod ? (
                 <div className="grid gap-4">
                   {recentManualExpenses.length > 0 ? (
@@ -3504,7 +3504,7 @@ function App() {
           ) : null}
 
           {activeTab === 'expense' ? (
-            <SectionShell title="Manual Expense" description="Review and manage spending logged during the current pay period.">
+            <SectionShell title="Manual Expense" description="Review, edit, or add spending in the current pay period.">
               <MoreBackBar onBack={openMoreMenu} />
               <div className="grid gap-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -38,15 +38,15 @@ export function LandingScreen({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="leftly-shell-faint grid gap-2 p-4">
-            <p className="text-sm font-semibold text-white">Start local</p>
+            <p className="text-sm font-semibold text-white">Start without an account</p>
             <p className="text-sm leading-6 text-slate-400">
-              Your budget stays on this device unless you export it or use a backup.
+              Your budget is saved in this browser. It stays on this device unless you export or manually back it up.
             </p>
           </div>
           <div className="leftly-shell-faint grid gap-2 p-4">
-            <p className="text-sm font-semibold text-white">Restore fast</p>
+            <p className="text-sm font-semibold text-white">Already have a backup?</p>
             <p className="text-sm leading-6 text-slate-400">
-              Import a JSON backup to recover a saved Leftly snapshot on this device.
+              Import a Leftly JSON backup to restore your saved budget on this device.
             </p>
           </div>
         </div>
@@ -71,7 +71,7 @@ export function LandingScreen({
           {showCloudBackupAction && onOpenCloudBackup ? (
             <div className="grid gap-3 border-t border-slate-800/70 pt-3">
               <p className="text-sm leading-6 text-slate-300">
-                Optional account sign-in is only for cloud backup and restore.
+                Sign-in is optional and only used for manual cloud backup and restore. It is not live sync.
               </p>
               <button type="button" onClick={onOpenCloudBackup} className={`${buttonStyles.secondary} w-full sm:w-fit`}>
                 Sign in for cloud backup

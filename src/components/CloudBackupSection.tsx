@@ -320,13 +320,13 @@ function CloudBackupShell({
       </div>
 
       <p className="text-sm leading-6 text-slate-300">
-        Cloud backup is optional and stores a single latest snapshot for your account. It is not live sync, Leftly
-        still works locally without cloud sync, and no bank connection is required.
+        Cloud backup is optional and keeps one latest backup for your account. It is not live sync: your changes stay
+        on this device until you choose Upload. Leftly still works without signing in, and no bank connection is required.
       </p>
       <p className="text-sm leading-6 text-slate-300">
-        Upload saves one cloud snapshot. Restore replaces the local data on this device, but it does not delete the
-        cloud copy. Export JSON first if you want the safest portable recovery file before a restore, reset, or demo
-        test.
+        Upload manually replaces your previous cloud backup. Restore replaces the Leftly data on this device, but it
+        does not delete the cloud copy. Export JSON first if you want a portable recovery file before a restore, reset,
+        or demo test.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -340,7 +340,7 @@ function CloudBackupShell({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-white">Account</p>
-            <p className="mt-1 text-sm leading-6 text-slate-400">Magic-link sign-in keeps the cloud path simple.</p>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Sign in by email only if you want to use cloud backup.</p>
           </div>
           {authLoading ? (
             <Badge muted>Loading</Badge>
@@ -429,7 +429,7 @@ function CloudBackupShell({
           <div>
             <p className="text-sm font-semibold text-white">Cloud snapshot</p>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              One latest row per account keeps the cloud path simple and avoids live-sync conflicts.
+              This is a manual backup, not live sync. Upload when you want to update the cloud copy.
             </p>
           </div>
           <Badge muted>{isLoadingCloudBackup ? 'Loading' : cloudBackupState}</Badge>
@@ -442,7 +442,7 @@ function CloudBackupShell({
           <div className="leftly-shell-faint grid gap-2 p-3">
             <p className="text-sm font-medium text-white">No cloud snapshot yet</p>
             <p className="text-sm leading-6 text-slate-400">
-              Upload current snapshot to create the first cloud backup. Restore stays disabled until one exists. Keep
+              Upload the data on this device to create your first cloud backup. Restore stays disabled until one exists. Keep
               using JSON backup if you want a portable safety copy before testing restore or reset.
             </p>
           </div>
@@ -498,15 +498,14 @@ function CloudBackupShell({
         </div>
 
         <p className="text-xs leading-5 text-slate-500">
-          Cloud backup remains optional. JSON backup/export/import still works and remains the safest portable restore
-          path.
+          Cloud backup remains optional. A JSON backup is the portable file you can save and import yourself.
         </p>
       </div>
 
       {isUploadConfirmOpen ? (
         <ConfirmSheet
           title="Upload current snapshot"
-          description="This saves one latest backup row for your signed-in account. It does not change any local data."
+          description="This replaces the latest cloud backup for your signed-in account. It does not change the data on this device."
           confirmLabel={isUploading ? 'Uploading...' : 'Confirm upload'}
           onConfirm={confirmUploadFlow}
           onCancel={() => setIsUploadConfirmOpen(false)}
@@ -523,7 +522,7 @@ function CloudBackupShell({
           }
           secondaryDescription={
             latestCloudBackup
-              ? `The cloud copy stays in Supabase. ${cloudRestoreSummary ? `Snapshot contents: ${cloudRestoreSummary}. ` : ''}Export JSON first if you want a portable safety copy before overwriting this device.`
+              ? `The cloud copy stays saved online. ${cloudRestoreSummary ? `Backup contents: ${cloudRestoreSummary}. ` : ''}Export JSON first if you want a portable safety copy before overwriting this device.`
               : 'Restore stays disabled until a snapshot exists.'
           }
           confirmLabel={isRestoring ? 'Restoring...' : 'Confirm restore'}

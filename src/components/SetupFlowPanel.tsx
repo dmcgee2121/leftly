@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { BudgetCategory, BudgetPeriod, PayCadence, RecurringFrequency, RecurringItemTemplate } from '../types/budget'
 import { MAIN_BILL_PLAN, buildRecurringPreview } from '../lib/recurring'
+import { clearSetupDraft, loadSetupDraft, saveSetupDraft } from '../lib/storage'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -72,15 +73,32 @@ type SetupReview = {
 
 export function SetupFlowPanel({
   defaultPayCadence,
+  activeBudgetPeriod,
   onClose,
   onFinish,
 }: {
   defaultPayCadence: PayCadence
+  activeBudgetPeriod: BudgetPeriod | null
   onClose: () => void
   onFinish: (result: SetupResult) => void
 }) {
-  const [draft, setDraft] = useState<SetupDraft>(() => getInitialDraft(defaultPayCadence))
+  const [draft, setDraft] = useState<SetupDraft>(() => loadOrCreateDraft(activeBudgetPeriod, defaultPayCadence))
   const [error, setError] = useState('')
+  const [clearedDraftMarker, setClearedDraftMarker] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (activeBudgetPeriod) {
+      clearSetupDraft()
+      return
+    }
+
+    if (clearedDraftMarker && clearedDraftMarker === getSetupDraftMarker(draft)) {
+      clearSetupDraft()
+      return
+    }
+
+    saveSetupDraft(draft)
+  }, [activeBudgetPeriod, clearedDraftMarker, draft])
 
   const stepTitle = useMemo(() => {
     if (draft.step === 1) {
@@ -240,6 +258,18 @@ export function SetupFlowPanel({
     })
   }
 
+  function clearDraft() {
+    if (!window.confirm('Clear only the saved setup draft? This does not change your active pay period or any saved budget data.')) {
+      return
+    }
+
+    clearSetupDraft()
+    setError('')
+    const nextDraft = getInitialDraft(defaultPayCadence)
+    setClearedDraftMarker(getSetupDraftMarker(nextDraft))
+    setDraft(nextDraft)
+  }
+
   if (draft.step === 1) {
     return renderPanel(
       'Welcome to Leftly',
@@ -278,9 +308,9 @@ export function SetupFlowPanel({
         </div>
 
         <div className="leftly-shell-faint grid gap-2 p-3">
-          <p className="text-sm font-medium text-white">Saved on this device</p>
+          <p className="text-sm font-medium text-white">Setup draft saved on this device.</p>
           <p className="text-sm leading-6 text-slate-400">
-            Leftly saves your budget in this browser. No account or bank connection is needed. You can export a JSON backup later from Data.
+            Leftly saves your setup draft in this browser. No account or bank connection is needed. You can export a JSON backup later from Data.
           </p>
         </div>
 
@@ -298,7 +328,7 @@ export function SetupFlowPanel({
         </div>
       </>,
       stepTitle,
-      onClose,
+      clearDraft,
     )
   }
 
@@ -352,7 +382,7 @@ export function SetupFlowPanel({
         </div>
       </>,
       stepTitle,
-      onClose,
+      clearDraft,
     )
   }
 
@@ -360,6 +390,10 @@ export function SetupFlowPanel({
     'Add regular bills you already know about',
     'Optional: save one or more regular bills now. You can add more later from Bill Plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
+      <div className="leftly-shell-faint flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm leading-6 text-slate-400">Setup draft saved on this device.</p>
+      </div>
+
       <div className="leftly-panel-section">
         <p className="text-sm font-semibold text-white">Setup review</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -546,11 +580,17 @@ export function SetupFlowPanel({
       </div>
     </form>,
     stepTitle,
-    onClose,
+    clearDraft,
   )
 }
 
-function renderPanel(title: string, description: string, content: ReactNode, stepTitle: string, onClose: () => void) {
+function renderPanel(
+  title: string,
+  description: string,
+  content: ReactNode,
+  stepTitle: string,
+  onClearDraft: () => void,
+) {
   return (
     <section className="leftly-shell leftly-shell-accent overflow-hidden p-4 sm:p-5">
       <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -559,9 +599,11 @@ function renderPanel(title: string, description: string, content: ReactNode, ste
           <h3 className="mt-1 text-lg font-semibold text-white">{title}</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
         </div>
-        <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-          Close
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto">
+          <button type="button" onClick={onClearDraft} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+            Clear setup draft
+          </button>
+        </div>
       </div>
       <div className="mt-4">{content}</div>
     </section>
@@ -705,6 +747,78 @@ function getInitialDraft(defaultPayCadence: PayCadence): SetupDraft {
     endDate: end.toISOString().slice(0, 10),
     addRecurringBill: false,
     recurringItems: [createEmptyRecurringDraft()],
+  }
+}
+
+function loadOrCreateDraft(activeBudgetPeriod: BudgetPeriod | null, defaultPayCadence: PayCadence): SetupDraft {
+  const storedDraft = loadSetupDraft(activeBudgetPeriod)
+  if (storedDraft) {
+    return normalizeSetupDraft(storedDraft, defaultPayCadence)
+  }
+
+  return getInitialDraft(defaultPayCadence)
+}
+
+function normalizeSetupDraft(value: unknown, defaultPayCadence: PayCadence): SetupDraft {
+  const draft = value as Partial<SetupDraft> | null
+  const recurringItems = Array.isArray(draft?.recurringItems)
+    ? draft.recurringItems.map((item) => normalizeSetupRecurringDraft(item))
+    : [createEmptyRecurringDraft()]
+
+  return {
+    step: draft?.step === 2 || draft?.step === 3 ? draft.step : 1,
+    cadence:
+      draft?.cadence === 'weekly' || draft?.cadence === 'biweekly' || draft?.cadence === 'monthly'
+        ? draft.cadence
+        : defaultPayCadence,
+    income: typeof draft?.income === 'string' ? draft.income : '',
+    startDate: typeof draft?.startDate === 'string' ? draft.startDate : '',
+    endDate: typeof draft?.endDate === 'string' ? draft.endDate : '',
+    addRecurringBill: typeof draft?.addRecurringBill === 'boolean' ? draft.addRecurringBill : false,
+    recurringItems: recurringItems.length > 0 ? recurringItems : [createEmptyRecurringDraft()],
+  }
+}
+
+function getSetupDraftMarker(draft: SetupDraft) {
+  return JSON.stringify({
+    step: draft.step,
+    cadence: draft.cadence,
+    income: draft.income,
+    startDate: draft.startDate,
+    endDate: draft.endDate,
+    addRecurringBill: draft.addRecurringBill,
+    recurringItems: draft.recurringItems,
+  })
+}
+
+function normalizeSetupRecurringDraft(value: unknown): SetupRecurringDraft {
+  const item = value as Partial<SetupRecurringDraft> | null
+  return {
+    id: typeof item?.id === 'string' ? item.id : crypto.randomUUID(),
+    name: typeof item?.name === 'string' ? item.name : '',
+    amount: typeof item?.amount === 'string' ? item.amount : '',
+    category:
+      item?.category === 'Housing' ||
+      item?.category === 'Utilities' ||
+      item?.category === 'Subscriptions' ||
+      item?.category === 'Transportation' ||
+      item?.category === 'Food' ||
+      item?.category === 'Debt' ||
+      item?.category === 'Insurance' ||
+      item?.category === 'Personal' ||
+      item?.category === 'Other / Misc'
+        ? item.category
+        : 'Housing',
+    frequency:
+      item?.frequency === 'monthly' ||
+      item?.frequency === 'weekly' ||
+      item?.frequency === 'biweekly' ||
+      item?.frequency === 'every-pay-period' ||
+      item?.frequency === 'one-time'
+        ? item.frequency
+        : 'monthly',
+    monthlyDueDay: typeof item?.monthlyDueDay === 'string' ? item.monthlyDueDay : '1',
+    anchorDate: typeof item?.anchorDate === 'string' ? item.anchorDate : '',
   }
 }
 

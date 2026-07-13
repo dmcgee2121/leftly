@@ -5,6 +5,7 @@ import {
   addPayPeriodSnapshot,
   deletePayPeriodSnapshot,
   buildLeftlyBackup,
+  clearSetupDraft,
   getLeftlyBackupSummary,
   parseLeftlyBackupJson,
   loadActiveBudgetPeriod,
@@ -884,6 +885,12 @@ function App() {
   }, [payPeriod])
 
   useEffect(() => {
+    if (payPeriod) {
+      clearSetupDraft()
+    }
+  }, [payPeriod])
+
+  useEffect(() => {
     saveActiveTab(activeTab)
   }, [activeTab])
 
@@ -1408,6 +1415,7 @@ function App() {
       existingExpenses: [],
     })
 
+    clearSetupDraft()
     setPayPeriod(result.period)
     setPayPeriodDraft(getDraftFromPeriod(result.period))
     setBills(generated.bills)
@@ -1524,6 +1532,7 @@ function App() {
       }
 
       saveLeftlyBackup(parsed.backup)
+      clearSetupDraft()
       reloadLocalStateFromStorage()
       setPayPeriodError('')
       setBillError('')
@@ -2599,6 +2608,7 @@ function App() {
                 isSetupOpen ? (
                   <SetupFlowPanel
                     defaultPayCadence={preferences.defaultPayCadence}
+                    activeBudgetPeriod={payPeriod}
                     onClose={() => setIsSetupOpen(false)}
                     onFinish={handleFinishSetup}
                   />

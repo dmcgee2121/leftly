@@ -21,6 +21,7 @@ const SORT_MODE_KEY = 'leftly.sortMode'
 const CATEGORY_ORDER_KEY = 'leftly.categoryOrder'
 const PREFERENCES_KEY = 'leftly.preferences'
 const ACTIVE_TAB_KEY = 'leftly.activeTab'
+const SETUP_DRAFT_KEY = 'leftly.setupDraft'
 
 const DEFAULT_SORT_MODE: SortMode = 'amount-desc'
 const DEFAULT_CATEGORY_ORDER: CategoryOrderMode = 'total-desc'
@@ -254,6 +255,20 @@ function writeJson(key: string, value: unknown) {
   }
 }
 
+type SetupDraftEnvelope = {
+  version: 1
+  draft: unknown
+}
+
+function isSetupDraftEnvelope(value: unknown): value is SetupDraftEnvelope {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const envelope = value as Record<string, unknown>
+  return envelope.version === 1 && Object.prototype.hasOwnProperty.call(envelope, 'draft')
+}
+
 function isBudgetPeriod(value: unknown): value is BudgetPeriod {
   const period = value as Record<string, unknown> | null
   return !!period && typeof period.cadence === 'string' && typeof period.startDate === 'string' && typeof period.endDate === 'string' && typeof period.income === 'number'
@@ -437,6 +452,35 @@ export function saveActiveTab(tab: string) {
   }
 }
 
+export function loadSetupDraft(activeBudgetPeriod: BudgetPeriod | null): unknown | null {
+  if (activeBudgetPeriod) {
+    clearSetupDraft()
+    return null
+  }
+
+  const value = readJson<unknown>(SETUP_DRAFT_KEY, null)
+  if (!isSetupDraftEnvelope(value)) {
+    if (value !== null) {
+      clearSetupDraft()
+    }
+    return null
+  }
+
+  return value.draft
+}
+
+export function saveSetupDraft(draft: unknown) {
+  writeJson(SETUP_DRAFT_KEY, { version: 1 as const, draft })
+}
+
+export function clearSetupDraft() {
+  try {
+    window.localStorage.removeItem(SETUP_DRAFT_KEY)
+  } catch {
+    // Ignore storage failures so the app keeps running.
+  }
+}
+
 function normalizeCategoryOrder(order: unknown): BudgetCategory[] {
   if (!Array.isArray(order)) {
     return [...DEFAULT_CATEGORIES]
@@ -478,6 +522,7 @@ export function clearAllAppData() {
     window.localStorage.removeItem(CATEGORY_ORDER_KEY + '.mode')
     window.localStorage.removeItem(PREFERENCES_KEY)
     window.localStorage.removeItem(ACTIVE_TAB_KEY)
+    window.localStorage.removeItem(SETUP_DRAFT_KEY)
   } catch {
     // Ignore storage failures so the app keeps running.
   }

@@ -259,7 +259,7 @@ export function SetupFlowPanel({
   }
 
   function clearDraft() {
-    if (!window.confirm('Clear only the saved setup draft? This does not change your active pay period or any saved budget data.')) {
+    if (!window.confirm('Restart only the saved setup draft? This clears the draft and does not change your active pay period or any saved budget data.')) {
       return
     }
 
@@ -318,9 +318,6 @@ export function SetupFlowPanel({
 
         <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
           <div className="leftly-action-grid">
-            <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-              Close
-            </button>
             <button type="button" onClick={goNext} className={`${buttonStyles.primary} w-full sm:w-auto`}>
               Continue
             </button>
@@ -328,6 +325,7 @@ export function SetupFlowPanel({
         </div>
       </>,
       stepTitle,
+      onClose,
       clearDraft,
     )
   }
@@ -382,6 +380,7 @@ export function SetupFlowPanel({
         </div>
       </>,
       stepTitle,
+      onClose,
       clearDraft,
     )
   }
@@ -580,6 +579,7 @@ export function SetupFlowPanel({
       </div>
     </form>,
     stepTitle,
+    onClose,
     clearDraft,
   )
 }
@@ -589,6 +589,7 @@ function renderPanel(
   description: string,
   content: ReactNode,
   stepTitle: string,
+  onClose: () => void,
   onClearDraft: () => void,
 ) {
   return (
@@ -601,7 +602,10 @@ function renderPanel(
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto">
           <button type="button" onClick={onClearDraft} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-            Clear setup draft
+            Restart setup draft
+          </button>
+          <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+            Close
           </button>
         </div>
       </div>

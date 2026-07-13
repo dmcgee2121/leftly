@@ -601,11 +601,11 @@ function renderPanel(
           <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto">
-          <button type="button" onClick={onClearDraft} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-            Restart setup draft
-          </button>
           <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
             Close
+          </button>
+          <button type="button" onClick={onClearDraft} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
+            Restart setup draft
           </button>
         </div>
       </div>

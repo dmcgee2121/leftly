@@ -2,6 +2,16 @@
 
 Use this file for small release checkpoint commits that intentionally trigger a Netlify deploy after several `[skip netlify]` polish commits.
 
+## 2026-07-13 — Beta readiness guidance
+
+Release checkpoint for recent polish work:
+
+- Beta privacy and feedback guidance in Help / About / Feedback.
+- Data screen copy clarifying local data, JSON backup, CSV export, sample numbers, and optional cloud backup.
+- Copy-only beta readiness update after setup draft release.
+
+This checkpoint intentionally does not include `[skip netlify]` so Netlify can deploy the latest `main` branch.
+
 ## 2026-07-12 — Setup draft polish
 
 Release checkpoint for recent polish work:

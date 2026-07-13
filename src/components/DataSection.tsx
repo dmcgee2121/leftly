@@ -62,9 +62,9 @@ export function DataSection({
           Leftly saves your budget on this device in this browser. No account or bank connection is required.
         </p>
         <p className="text-sm leading-6 text-slate-300">
-          If you reset Leftly, clear browser data, switch devices, or test cloud restore, export a JSON backup first.
-          JSON is the restore format and the safest portable recovery copy. CSV exports are spreadsheet copies only
-          and cannot be imported back into Leftly.
+          Your data stays here unless you export a backup or manually use optional cloud backup. If you reset Leftly,
+          clear browser data, switch devices, or test cloud restore, export a JSON backup first. JSON is the restore
+          format. CSV exports are spreadsheet-style copies only and cannot be imported back into Leftly.
         </p>
       </div>
 
@@ -73,8 +73,8 @@ export function DataSection({
           <p className="text-sm font-semibold text-white">Backup and restore</p>
           <p className="text-sm leading-6 text-slate-400">
             Export creates a complete JSON backup you can save somewhere safe and import back into Leftly. Import
-            replaces the Leftly data currently saved on this device. Export JSON first before restore, reset, or demo
-            testing if you want to keep a recovery copy.
+            replaces the Leftly data currently saved on this device. Export JSON first before restore, reset, demo
+            testing, or cloud restore if you want to keep a recovery copy.
           </p>
         </div>
 
@@ -164,8 +164,8 @@ export function DataSection({
         <p className="text-sm font-semibold text-white">Reset and demo data</p>
         <p className="text-sm leading-6 text-slate-400">
           Reset permanently clears the Leftly data saved on this device. Export a backup first if you might want to
-          restore it later. Demo data loads a sample budget so you can explore Leftly, and it replaces the current
-          local data on this device. Neither action touches any cloud snapshot.
+          restore it later. Demo data loads sample numbers so you can explore Leftly without using real numbers yet,
+          and it replaces the current local data on this device. Neither action touches any cloud snapshot.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={onReset} className={`${buttonStyles.secondary} w-full`} disabled={isImporting}>
@@ -181,7 +181,7 @@ export function DataSection({
         <p className="text-sm font-semibold text-white">Add Leftly to your phone</p>
         <p className="text-sm leading-6 text-slate-400">
           Open Leftly in your mobile browser, then use the browser menu to add it to your home screen or install it as
-          an app.
+          an app if your browser offers that option.
         </p>
       </div>
 

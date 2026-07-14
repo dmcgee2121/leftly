@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { DEFAULT_CATEGORIES, type RecurringItemTemplate, type RecurringScheduleType } from '../types/budget'
+import { FALLBACK_CATEGORY } from '../lib/categories'
+import type { BudgetCategory, RecurringItemTemplate, RecurringScheduleType } from '../types/budget'
 import {
   MAIN_BILL_PLAN,
   alignIsoDateToWeekdayOnOrAfter,
@@ -54,18 +55,20 @@ function createBulkRows(): BulkRecurringDraft[] {
   return Array.from({ length: 3 }, () => ({
     name: '',
     amount: '',
-    category: 'Other / Misc',
+    category: FALLBACK_CATEGORY,
     frequency: 'monthly',
     dueDay: '',
   }))
 }
 
 export function RecurringSection({
+  categories,
   templates,
   onAddTemplate,
   onUpdateTemplate,
   onDeleteTemplate,
 }: {
+  categories: BudgetCategory[]
   templates: RecurringItemTemplate[]
   onAddTemplate: (template: RecurringItemTemplate) => void
   onUpdateTemplate: (template: RecurringItemTemplate) => void
@@ -74,7 +77,7 @@ export function RecurringSection({
   const [draft, setDraft] = useState<RecurringDraft>({
     name: '',
     amount: '',
-    category: 'Other / Misc',
+    category: FALLBACK_CATEGORY,
     kind: 'bill',
     planName: MAIN_BILL_PLAN,
     scheduleType: 'monthly',
@@ -155,7 +158,7 @@ export function RecurringSection({
   }, [planFilter, searchQuery, sortedTemplates, statusFilter])
 
   const groupedTemplates = useMemo(() => {
-    const order = [...DEFAULT_CATEGORIES, 'Other / Misc', 'Other']
+    const order = [...categories, 'Other']
     const buckets = new Map<string, RecurringItemTemplate[]>()
 
     for (const category of order) {
@@ -163,7 +166,7 @@ export function RecurringSection({
     }
 
     for (const template of filteredTemplates) {
-      const category = template.category || 'Other / Misc'
+      const category = template.category || FALLBACK_CATEGORY
       const bucket = buckets.get(category) ?? []
       bucket.push(template)
       buckets.set(category, bucket)
@@ -172,14 +175,14 @@ export function RecurringSection({
     return order
       .map((category) => ({ category, items: buckets.get(category) ?? [] }))
       .filter((group) => group.items.length > 0)
-  }, [filteredTemplates])
+  }, [categories, filteredTemplates])
 
   function resetForm() {
     setEditingTemplateId(null)
     setDraft({
       name: '',
       amount: '',
-      category: 'Other / Misc',
+      category: FALLBACK_CATEGORY,
       kind: 'bill',
       planName: MAIN_BILL_PLAN,
       scheduleType: 'monthly',
@@ -205,7 +208,7 @@ export function RecurringSection({
       {
         name: '',
         amount: '',
-        category: 'Other / Misc',
+        category: FALLBACK_CATEGORY,
         frequency: 'monthly',
         dueDay: '',
       },
@@ -538,7 +541,7 @@ export function RecurringSection({
                         value={row.category}
                         onChange={(event) => updateBulkRow(index, { category: event.target.value as RecurringItemTemplate['category'] })}
                       >
-                        {DEFAULT_CATEGORIES.map((category) => (
+                        {categories.map((category) => (
                           <option key={category} value={category}>
                             {category}
                           </option>
@@ -646,7 +649,7 @@ export function RecurringSection({
 
           <Field label="Category">
             <select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value as RecurringItemTemplate['category'] })}>
-              {DEFAULT_CATEGORIES.map((category) => (
+              {categories.map((category) => (
                 <option key={category} value={category}>
                   {category}
                 </option>

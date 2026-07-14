@@ -13,9 +13,11 @@ import {
   loadBills,
   loadCategoryOrder,
   loadCategoryOrderMode,
+  loadCustomCategories,
   loadExpenses,
   loadPreferences,
   loadPayPeriodHistory,
+  loadRawSetupDraft,
   loadSortMode,
   loadRecurringTemplates,
   savePreferences,
@@ -24,15 +26,27 @@ import {
   saveBills,
   saveCategoryOrder,
   saveCategoryOrderMode,
+  saveCustomCategories,
   saveExpenses,
   savePayPeriodHistory,
   saveLeftlyBackup,
   saveRecurringTemplates,
+  saveSetupDraft,
   saveSortMode,
   serializeLeftlyBackup,
   DEFAULT_PREFERENCES,
 } from './lib/storage'
 import type { LeftlyBackupSummary } from './lib/storage'
+import {
+  FALLBACK_CATEGORY,
+  getAllCategories,
+  getCategoryReferenceCounts,
+  isBuiltInCategory,
+  reconcileCategoryOrder,
+  removeCategoryFromCustomList,
+  replaceCategoryAcrossData,
+  validateCategoryName,
+} from './lib/categories'
 import {
   MAIN_BILL_PLAN,
   formatRecurringScheduleLabel,
@@ -323,19 +337,22 @@ const initialExpenses = loadExpenses()
 const initialRecurringTemplates = loadRecurringTemplates()
 const initialPayPeriodHistory = loadPayPeriodHistory()
 const initialSortMode = loadSortMode()
-const initialCategoryOrder = loadCategoryOrder()
-const initialCategoryOrderMode = loadCategoryOrderMode()
 const initialPreferences = loadPreferences()
+const initialCustomCategories = loadCustomCategories()
+const initialCategoryOrder = loadCategoryOrder(initialCustomCategories)
+const initialCategoryOrderMode = loadCategoryOrderMode()
+const initialAllCategories = getAllCategories(initialCustomCategories)
 const initialHasMeaningfulLocalData =
   initialPayPeriod !== null ||
   initialBills.length > 0 ||
   initialExpenses.length > 0 ||
   initialRecurringTemplates.length > 0 ||
   initialPayPeriodHistory.length > 0 ||
+  initialCustomCategories.length > 0 ||
   initialSortMode !== 'amount-desc' ||
   initialCategoryOrderMode !== 'total-desc' ||
-  initialCategoryOrder.length !== DEFAULT_CATEGORIES.length ||
-  initialCategoryOrder.some((category, index) => category !== DEFAULT_CATEGORIES[index]) ||
+  initialCategoryOrder.length !== initialAllCategories.length ||
+  initialCategoryOrder.some((category, index) => category !== initialAllCategories[index]) ||
   initialPreferences.defaultPayCadence !== DEFAULT_PREFERENCES.defaultPayCadence ||
   initialPreferences.defaultCategory !== DEFAULT_PREFERENCES.defaultCategory ||
   initialPreferences.quickAddDateBehavior !== DEFAULT_PREFERENCES.quickAddDateBehavior
@@ -527,16 +544,16 @@ function mergeBillsForNewPeriod(existingBills: Bill[], carriedBills: Bill[]) {
   return merged
 }
 
-function getExpandedCategoriesFromItems(bills: Bill[], expenses: Expense[]) {
+function getExpandedCategoriesFromItems(bills: Bill[], expenses: Expense[], categories: BudgetCategory[]) {
   const seeded = new Set<BudgetCategory>()
-  for (const category of DEFAULT_CATEGORIES) {
+  for (const category of categories) {
     if (bills.some((bill) => bill.category === category) || expenses.some((expense) => expense.category === category)) {
       seeded.add(category)
     }
   }
 
   if (seeded.size === 0) {
-    seeded.add('Housing')
+    seeded.add(categories[0] ?? 'Housing')
   }
 
   return seeded
@@ -879,20 +896,10 @@ function App() {
   const [preferences, setPreferences] = useState<LeftlyPreferences>(initialPreferences)
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
+  const [customCategories, setCustomCategories] = useState<BudgetCategory[]>(initialCustomCategories)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
   const [expandedCategories, setExpandedCategories] = useState<Set<BudgetCategory>>(() => {
-    const seeded = new Set<BudgetCategory>()
-    for (const category of DEFAULT_CATEGORIES) {
-      if (initialBills.some((bill) => bill.category === category) || initialExpenses.some((expense) => expense.category === category)) {
-        seeded.add(category)
-      }
-    }
-
-    if (seeded.size === 0) {
-      seeded.add('Housing')
-    }
-
-    return seeded
+    return getExpandedCategoriesFromItems(initialBills, initialExpenses, initialAllCategories)
   })
   const [payPeriodDraft, setPayPeriodDraft] = useState<PayPeriodDraft>(() =>
     getDraftFromPeriod(initialPayPeriod, initialPreferences.defaultPayCadence),
@@ -906,15 +913,38 @@ function App() {
   const [billSuccess, setBillSuccess] = useState('')
   const [expenseSuccess, setExpenseSuccess] = useState('')
   const [billStatus, setBillStatus] = useState('')
+  const [categoryStatus, setCategoryStatus] = useState('')
   const [dataMessage, setDataMessage] = useState('')
   const [dataError, setDataError] = useState('')
   const [setupSuccess, setSetupSuccess] = useState('')
   const [billPlanMessage, setBillPlanMessage] = useState('')
+  const [newCustomCategoryName, setNewCustomCategoryName] = useState('')
+  const [categoryError, setCategoryError] = useState('')
+  const [renamingCategory, setRenamingCategory] = useState<BudgetCategory | null>(null)
+  const [renameCategoryDraft, setRenameCategoryDraft] = useState('')
+  const [deletingCategory, setDeletingCategory] = useState<BudgetCategory | null>(null)
+  const [deleteReplacementCategory, setDeleteReplacementCategory] = useState<BudgetCategory>(FALLBACK_CATEGORY)
   const [isImportingBackup, setIsImportingBackup] = useState(false)
   const [isSetupOpen, setIsSetupOpen] = useState(false)
   const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
+  const allCategories = useMemo(() => getAllCategories(customCategories), [customCategories])
+  const resolvedCategoryOrder = useMemo(() => reconcileCategoryOrder(categoryOrder, customCategories), [categoryOrder, customCategories])
+  const visibleExpandedCategories = useMemo(() => {
+    const next = new Set<BudgetCategory>()
+    for (const category of allCategories) {
+      if (expandedCategories.has(category)) {
+        next.add(category)
+      }
+    }
+
+    if (next.size === 0) {
+      next.add(allCategories[0] ?? FALLBACK_CATEGORY)
+    }
+
+    return next
+  }, [allCategories, expandedCategories])
 
   useEffect(() => {
     saveActiveBudgetPeriod(payPeriod)
@@ -933,6 +963,10 @@ function App() {
   useEffect(() => {
     savePreferences(preferences)
   }, [preferences])
+
+  useEffect(() => {
+    saveCustomCategories(customCategories)
+  }, [customCategories])
 
   useEffect(() => {
     saveBills(bills)
@@ -955,8 +989,8 @@ function App() {
   }, [sortMode])
 
   useEffect(() => {
-    saveCategoryOrder(categoryOrder)
-  }, [categoryOrder])
+    saveCategoryOrder(resolvedCategoryOrder, customCategories)
+  }, [customCategories, resolvedCategoryOrder])
 
   useEffect(() => {
     saveCategoryOrderMode(categoryOrderMode)
@@ -1029,6 +1063,15 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [billPlanMessage])
 
+  useEffect(() => {
+    if (!categoryStatus) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setCategoryStatus(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [categoryStatus])
+
   const totals = useMemo(() => {
     const income = payPeriod?.income ?? 0
     const totalPlannedBills = bills.reduce((sum, bill) => sum + bill.amount, 0)
@@ -1054,7 +1097,7 @@ function App() {
   const categorySummaries = useMemo<CategorySummary[]>(() => {
     const itemsByCategory = new Map<BudgetCategory, BudgetItem[]>()
 
-    for (const category of DEFAULT_CATEGORIES) {
+    for (const category of allCategories) {
       itemsByCategory.set(category, [])
     }
 
@@ -1090,7 +1133,7 @@ function App() {
       })
     }
 
-    const summaries = DEFAULT_CATEGORIES.map((category) => {
+    const summaries = allCategories.map((category) => {
       const items = sortItems(itemsByCategory.get(category) ?? [], sortMode)
       const total = items.reduce((sum, item) => sum + item.amount, 0)
       const billCount = items.filter((item) => item.kind === 'bill').length
@@ -1100,14 +1143,14 @@ function App() {
     })
 
     if (categoryOrderMode === 'custom') {
-      const indexByCategory = new Map(categoryOrder.map((category, index) => [category, index]))
+      const indexByCategory = new Map(resolvedCategoryOrder.map((category, index) => [category, index]))
       return [...summaries].sort(
         (a, b) => (indexByCategory.get(a.category) ?? 0) - (indexByCategory.get(b.category) ?? 0),
       )
     }
 
     return [...summaries].sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
-  }, [bills, categoryOrder, categoryOrderMode, expenses, sortMode])
+  }, [allCategories, bills, categoryOrderMode, expenses, resolvedCategoryOrder, sortMode])
 
   const topCategories = useMemo(() => {
     return [...categorySummaries]
@@ -1361,10 +1404,11 @@ function App() {
         expenses,
         recurringTemplates,
         payPeriodHistory,
-        categoryOrder,
+        categoryOrder: resolvedCategoryOrder,
+        customCategories,
         preferences,
       }),
-    [payPeriod, bills, expenses, recurringTemplates, payPeriodHistory, categoryOrder, preferences],
+    [payPeriod, bills, expenses, recurringTemplates, payPeriodHistory, resolvedCategoryOrder, customCategories, preferences],
   )
 
   const activeBottomNavTab: MainTabKey =
@@ -1376,6 +1420,24 @@ function App() {
     activeTab === 'help'
       ? 'more'
       : activeTab
+
+  const deleteCategoryCounts = useMemo(() => {
+    if (!deletingCategory) {
+      return null
+    }
+
+    return getCategoryReferenceCounts(
+      {
+        bills,
+        expenses,
+        recurringTemplates,
+        payPeriodHistory,
+        preferences,
+        setupDraft: payPeriod ? null : loadRawSetupDraft(payPeriod),
+      },
+      deletingCategory,
+    )
+  }, [bills, deletingCategory, expenses, payPeriod, payPeriodHistory, preferences, recurringTemplates])
 
   const activeScreenLabel = tabScreenLabels[activeTab] ?? 'Leftly'
 
@@ -1444,7 +1506,7 @@ function App() {
     setBills(generated.bills)
     setExpenses(generated.expenses)
     setRecurringTemplates(generated.templates)
-    setExpandedCategories(getExpandedCategoriesFromItems(generated.bills, generated.expenses))
+    setExpandedCategories(getExpandedCategoriesFromItems(generated.bills, generated.expenses, allCategories))
     setActiveTab('overview')
     setIsSetupOpen(false)
     if (setupTemplates.length > 0) {
@@ -1502,7 +1564,8 @@ function App() {
       expenses,
       recurringTemplates,
       payPeriodHistory,
-      categoryOrder,
+      categoryOrder: resolvedCategoryOrder,
+      customCategories,
       categoryOrderMode,
       sortMode,
       preferences,
@@ -1752,13 +1815,224 @@ function App() {
     )
   }
 
+  function syncCategoryInDrafts(fromCategory: BudgetCategory, toCategory: BudgetCategory) {
+    setBillDraft((current) => (current.category === fromCategory ? { ...current, category: toCategory } : current))
+    setExpenseDraft((current) => (current.category === fromCategory ? { ...current, category: toCategory } : current))
+    setEditingItem((current) => {
+      if (!current || current.item.category !== fromCategory) {
+        return current
+      }
+
+      return {
+        ...current,
+        item: {
+          ...current.item,
+          category: toCategory,
+        },
+      } as EditTarget
+    })
+    setExpandedCategories((current) => {
+      if (!current.has(fromCategory)) {
+        return current
+      }
+
+      const next = new Set(current)
+      next.delete(fromCategory)
+      next.add(toCategory)
+      return next
+    })
+  }
+
+  function handleCreateCustomCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setCategoryError('')
+    setCategoryStatus('')
+
+    const validation = validateCategoryName({
+      value: newCustomCategoryName,
+      existingCategories: allCategories,
+    })
+    if (!validation.ok) {
+      setCategoryError(validation.error)
+      return
+    }
+
+    const nextCustomCategories = [...customCategories, validation.value]
+    setCustomCategories(nextCustomCategories)
+    setCategoryOrder((current) => reconcileCategoryOrder([...current, validation.value], nextCustomCategories))
+    setExpandedCategories((current) => new Set([...current, validation.value]))
+    setNewCustomCategoryName('')
+    setCategoryStatus(`Category created: ${validation.value}.`)
+  }
+
+  function startRenamingCategory(category: BudgetCategory) {
+    setRenamingCategory(category)
+    setRenameCategoryDraft(category)
+    setCategoryError('')
+    setCategoryStatus('')
+  }
+
+  function cancelRenamingCategory() {
+    setRenamingCategory(null)
+    setRenameCategoryDraft('')
+    setCategoryError('')
+  }
+
+  function handleRenameCustomCategory(category: BudgetCategory) {
+    const validation = validateCategoryName({
+      value: renameCategoryDraft,
+      existingCategories: allCategories,
+      excludeName: category,
+    })
+    if (!validation.ok) {
+      setCategoryError(validation.error)
+      return
+    }
+
+    const setupDraft = payPeriod ? null : loadRawSetupDraft(payPeriod)
+    const result = replaceCategoryAcrossData(
+      {
+        bills,
+        expenses,
+        recurringTemplates,
+        payPeriodHistory,
+        preferences,
+        categoryOrder: resolvedCategoryOrder,
+        customCategories,
+        setupDraft,
+      },
+      category,
+      validation.value,
+    )
+
+    const nextCustomCategories = result.customCategories.filter((value) => !isBuiltInCategory(value))
+    const nextCategoryOrder = reconcileCategoryOrder(result.categoryOrder, nextCustomCategories)
+
+    setBills(result.bills)
+    setExpenses(result.expenses)
+    setRecurringTemplates(result.recurringTemplates)
+    setPayPeriodHistory(result.payPeriodHistory)
+    setPreferences(result.preferences)
+    setCustomCategories(nextCustomCategories)
+    setCategoryOrder(nextCategoryOrder)
+    if (result.setupDraft !== null) {
+      saveSetupDraft(result.setupDraft)
+    }
+    syncCategoryInDrafts(category, validation.value)
+    setRenamingCategory(null)
+    setRenameCategoryDraft('')
+    setCategoryError('')
+    setCategoryStatus(`Category renamed to ${validation.value}.`)
+  }
+
+  function startDeletingCategory(category: BudgetCategory) {
+    const fallbackReplacement = allCategories.find((value) => value !== category) ?? FALLBACK_CATEGORY
+    setDeletingCategory(category)
+    setDeleteReplacementCategory(fallbackReplacement)
+    setCategoryError('')
+    setCategoryStatus('')
+  }
+
+  function cancelDeletingCategory() {
+    setDeletingCategory(null)
+    setDeleteReplacementCategory(FALLBACK_CATEGORY)
+    setCategoryError('')
+  }
+
+  function handleDeleteCustomCategory() {
+    if (!deletingCategory) {
+      return
+    }
+
+    const counts = deleteCategoryCounts
+    const currentReferenceCount =
+      (counts?.activeBills ?? 0) +
+      (counts?.activeExpenses ?? 0) +
+      (counts?.recurringTemplates ?? 0) +
+      (counts?.preferences ?? 0) +
+      (counts?.setupDraft ?? 0)
+    const historicalReferenceCount = (counts?.historyBills ?? 0) + (counts?.historyExpenses ?? 0)
+    const requiresReplacement = currentReferenceCount + historicalReferenceCount > 0
+
+    if (requiresReplacement) {
+      if (!deleteReplacementCategory || deleteReplacementCategory === deletingCategory) {
+        setCategoryError('Choose a replacement category before deleting this one.')
+        return
+      }
+
+      const setupDraft = payPeriod ? null : loadRawSetupDraft(payPeriod)
+      const result = replaceCategoryAcrossData(
+        {
+          bills,
+          expenses,
+          recurringTemplates,
+          payPeriodHistory,
+          preferences,
+          categoryOrder: resolvedCategoryOrder,
+          customCategories,
+          setupDraft,
+        },
+        deletingCategory,
+        deleteReplacementCategory,
+      )
+
+      const nextCustomCategories = removeCategoryFromCustomList(result.customCategories, deletingCategory)
+      const nextCategoryOrder = reconcileCategoryOrder(
+        result.categoryOrder.filter((category) => category !== deletingCategory),
+        nextCustomCategories,
+      )
+
+      setBills(result.bills)
+      setExpenses(result.expenses)
+      setRecurringTemplates(result.recurringTemplates)
+      setPayPeriodHistory(result.payPeriodHistory)
+      setPreferences(result.preferences)
+      setCustomCategories(nextCustomCategories)
+      setCategoryOrder(nextCategoryOrder)
+      if (result.setupDraft !== null) {
+        saveSetupDraft(result.setupDraft)
+      }
+      syncCategoryInDrafts(deletingCategory, deleteReplacementCategory)
+      setExpandedCategories((current) => {
+        const next = new Set(current)
+        next.delete(deletingCategory)
+        return next
+      })
+      setDeletingCategory(null)
+      setDeleteReplacementCategory(FALLBACK_CATEGORY)
+      setCategoryError('')
+      setCategoryStatus(`Category deleted. Reassigned ${currentReferenceCount} current item(s) and ${historicalReferenceCount} historical item(s).`)
+      return
+    }
+
+    if (!window.confirm(`Delete custom category "${deletingCategory}"? This cannot be undone.`)) {
+      return
+    }
+
+    const nextCustomCategories = removeCategoryFromCustomList(customCategories, deletingCategory)
+    const nextAllCategories = getAllCategories(nextCustomCategories)
+    setCustomCategories(nextCustomCategories)
+    setCategoryOrder((current) => reconcileCategoryOrder(current.filter((category) => category !== deletingCategory), nextCustomCategories))
+    syncCategoryInDrafts(deletingCategory, deleteReplacementCategory)
+    setExpandedCategories((current) => {
+      const next = new Set(current)
+      next.delete(deletingCategory)
+      return next.size > 0 ? next : new Set([nextAllCategories[0] ?? FALLBACK_CATEGORY])
+    })
+    setDeletingCategory(null)
+    setDeleteReplacementCategory(FALLBACK_CATEGORY)
+    setCategoryError('')
+    setCategoryStatus(`Category deleted: ${deletingCategory}.`)
+  }
+
   function reloadLocalStateFromStorage() {
     const nextPayPeriod = loadActiveBudgetPeriod()
     const nextBills = loadBills()
     const nextExpenses = loadExpenses()
     const nextRecurringTemplates = loadRecurringTemplates()
     const nextHistory = loadPayPeriodHistory()
-    const nextCategoryOrder = loadCategoryOrder()
+    const nextCustomCategories = loadCustomCategories()
+    const nextCategoryOrder = loadCategoryOrder(nextCustomCategories)
     const nextCategoryOrderMode = loadCategoryOrderMode()
     const nextSortMode = loadSortMode()
     const nextPreferences = loadPreferences()
@@ -1769,10 +2043,11 @@ function App() {
     setRecurringTemplates(nextRecurringTemplates)
     setPayPeriodHistory(nextHistory)
     setPreferences(nextPreferences)
+    setCustomCategories(nextCustomCategories)
     setCategoryOrder(nextCategoryOrder)
     setCategoryOrderMode(nextCategoryOrderMode)
     setSortMode(nextSortMode)
-    setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses))
+    setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses, getAllCategories(nextCustomCategories)))
     resetDrafts(nextPreferences)
     setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod, nextPreferences.defaultPayCadence))
     setActiveTab('overview')
@@ -1780,6 +2055,13 @@ function App() {
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setEditingItem(null)
+    setCategoryStatus('')
+    setCategoryError('')
+    setNewCustomCategoryName('')
+    setRenamingCategory(null)
+    setRenameCategoryDraft('')
+    setDeletingCategory(null)
+    setDeleteReplacementCategory(FALLBACK_CATEGORY)
   }
 
   function closeQuickAddExpense() {
@@ -2326,7 +2608,8 @@ function App() {
     setRecurringTemplates(nextRecurringTemplates)
     setPayPeriodHistory(nextHistory)
     setPreferences({ ...DEFAULT_PREFERENCES })
-    setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses))
+    setCustomCategories([])
+    setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses, [...DEFAULT_CATEGORIES]))
     setSortMode('amount-desc')
     setCategoryOrderMode('total-desc')
     setCategoryOrder([...DEFAULT_CATEGORIES])
@@ -2401,10 +2684,11 @@ function App() {
     setExpenses([])
     setRecurringTemplates([])
     setPayPeriodHistory([])
+    setCustomCategories([])
     setSortMode('amount-desc')
     setCategoryOrderMode('total-desc')
     setCategoryOrder([...DEFAULT_CATEGORIES])
-    setExpandedCategories(new Set(['Housing']))
+    setExpandedCategories(new Set([DEFAULT_CATEGORIES[0]]))
     setActiveTab('overview')
     setIsSetupOpen(false)
     setIsStartNewPayPeriodOpen(false)
@@ -2455,10 +2739,11 @@ function App() {
     expenses.length > 0 ||
     recurringTemplates.length > 0 ||
     payPeriodHistory.length > 0 ||
+    customCategories.length > 0 ||
     sortMode !== 'amount-desc' ||
     categoryOrderMode !== 'total-desc' ||
-    categoryOrder.length !== DEFAULT_CATEGORIES.length ||
-    categoryOrder.some((category, index) => category !== DEFAULT_CATEGORIES[index]) ||
+    resolvedCategoryOrder.length !== allCategories.length ||
+    resolvedCategoryOrder.some((category, index) => category !== allCategories[index]) ||
     preferences.defaultPayCadence !== DEFAULT_PREFERENCES.defaultPayCadence ||
     preferences.defaultCategory !== DEFAULT_PREFERENCES.defaultCategory ||
     preferences.quickAddDateBehavior !== DEFAULT_PREFERENCES.quickAddDateBehavior
@@ -2631,6 +2916,7 @@ function App() {
                 isSetupOpen ? (
                   <SetupFlowPanel
                     defaultPayCadence={preferences.defaultPayCadence}
+                    categories={allCategories}
                     activeBudgetPeriod={payPeriod}
                     onClose={() => setIsSetupOpen(false)}
                     onFinish={handleFinishSetup}
@@ -3197,7 +3483,7 @@ function App() {
                               }))
                             }
                           >
-                            {DEFAULT_CATEGORIES.map((category) => (
+                            {allCategories.map((category) => (
                               <option key={category} value={category}>
                                 {category}
                               </option>
@@ -3502,7 +3788,7 @@ function App() {
                             }))
                           }
                         >
-                          {DEFAULT_CATEGORIES.map((category) => (
+                          {allCategories.map((category) => (
                             <option key={category} value={category}>
                               {category}
                             </option>
@@ -3678,7 +3964,7 @@ function App() {
                             }))
                           }
                         >
-                          {DEFAULT_CATEGORIES.map((category) => (
+                          {allCategories.map((category) => (
                             <option key={category} value={category}>
                               {category}
                             </option>
@@ -3744,6 +4030,185 @@ function App() {
                 </div>
               </div>
 
+              <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                <div className="leftly-shell-soft grid gap-4 p-4">
+                  <div className="grid gap-1">
+                    <p className="text-sm font-semibold text-white">Manage custom categories</p>
+                    <p className="text-sm leading-6 text-slate-400">
+                      Built-in categories stay locked for now. Custom categories appear everywhere Leftly lets you choose a category.
+                    </p>
+                  </div>
+
+                  <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={handleCreateCustomCategory}>
+                    <Field label="New custom category">
+                      <input
+                        value={newCustomCategoryName}
+                        onChange={(event) => setNewCustomCategoryName(event.target.value)}
+                        maxLength={40}
+                        placeholder="Medical"
+                      />
+                    </Field>
+                    <button type="submit" className="button-primary w-full self-end sm:w-auto">
+                      Add category
+                    </button>
+                  </form>
+
+                  {categoryError ? <FormMessage>{categoryError}</FormMessage> : null}
+                  {categoryStatus ? <SuccessMessage>{categoryStatus}</SuccessMessage> : null}
+
+                  {customCategories.length === 0 ? (
+                    <EmptyState
+                      title="No custom categories yet"
+                      text="Create one here and it will show up in bills, expenses, Quick Add, Bill Plan, setup, and preferences."
+                      compact
+                    />
+                  ) : (
+                    <div className="grid gap-3">
+                      {customCategories.map((category) => (
+                        <div key={category} className="leftly-shell-faint grid gap-3 p-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-white">{category}</p>
+                              <p className="mt-1 text-xs leading-5 text-slate-400">
+                                Custom category
+                              </p>
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <button type="button" onClick={() => startRenamingCategory(category)} className="button-secondary w-full sm:w-auto">
+                                Rename
+                              </button>
+                              <button type="button" onClick={() => startDeletingCategory(category)} className="button-secondary w-full sm:w-auto">
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+
+                          {renamingCategory === category ? (
+                            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                              <Field label="Rename category">
+                                <input
+                                  value={renameCategoryDraft}
+                                  onChange={(event) => setRenameCategoryDraft(event.target.value)}
+                                  maxLength={40}
+                                  autoFocus
+                                />
+                              </Field>
+                              <button type="button" onClick={() => handleRenameCustomCategory(category)} className="button-primary w-full self-end sm:w-auto">
+                                Save
+                              </button>
+                              <button type="button" onClick={cancelRenamingCategory} className="button-secondary w-full self-end sm:w-auto">
+                                Cancel
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="leftly-shell-soft grid gap-3 p-4">
+                  <div className="grid gap-1">
+                    <p className="text-sm font-semibold text-white">Built-in categories</p>
+                    <p className="text-sm leading-6 text-slate-400">
+                      These defaults cannot be renamed or deleted in this version, but they still participate in sorting and reassignment.
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    {DEFAULT_CATEGORIES.map((category) => (
+                      <div key={category} className="leftly-shell-faint flex items-center justify-between gap-3 p-3">
+                        <p className="text-sm font-medium text-white">{category}</p>
+                        <Badge muted>Built-in</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {deletingCategory ? (
+                <div className="mb-4 leftly-shell-soft grid gap-3 border border-amber-500/20 bg-amber-500/10 p-4">
+                  <div className="grid gap-1">
+                    <p className="text-sm font-semibold text-white">Delete custom category</p>
+                    <p className="text-sm leading-6 text-slate-300">
+                      Delete <span className="font-semibold">{deletingCategory}</span>
+                      {deleteCategoryCounts &&
+                      deleteCategoryCounts.activeBills +
+                        deleteCategoryCounts.activeExpenses +
+                        deleteCategoryCounts.recurringTemplates +
+                        deleteCategoryCounts.preferences +
+                        deleteCategoryCounts.setupDraft +
+                        deleteCategoryCounts.historyBills +
+                        deleteCategoryCounts.historyExpenses >
+                        0
+                        ? ' and reassign everything it touches before removal.'
+                        : ' directly because nothing currently references it.'}
+                    </p>
+                  </div>
+
+                  {deleteCategoryCounts &&
+                  deleteCategoryCounts.activeBills +
+                    deleteCategoryCounts.activeExpenses +
+                    deleteCategoryCounts.recurringTemplates +
+                    deleteCategoryCounts.preferences +
+                    deleteCategoryCounts.setupDraft +
+                    deleteCategoryCounts.historyBills +
+                    deleteCategoryCounts.historyExpenses >
+                    0 ? (
+                    <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="leftly-data-stat">
+                          <p className="leftly-data-stat-label">Current references</p>
+                          <p className="leftly-data-stat-value">
+                            {deleteCategoryCounts.activeBills +
+                              deleteCategoryCounts.activeExpenses +
+                              deleteCategoryCounts.recurringTemplates +
+                              deleteCategoryCounts.preferences +
+                              deleteCategoryCounts.setupDraft}
+                          </p>
+                        </div>
+                        <div className="leftly-data-stat">
+                          <p className="leftly-data-stat-label">Historical references</p>
+                          <p className="leftly-data-stat-value">
+                            {deleteCategoryCounts.historyBills + deleteCategoryCounts.historyExpenses}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid gap-2 text-xs leading-5 text-slate-300 sm:grid-cols-2">
+                        <p>Active bills: {deleteCategoryCounts.activeBills}</p>
+                        <p>Active expenses: {deleteCategoryCounts.activeExpenses}</p>
+                        <p>Bill Plan items: {deleteCategoryCounts.recurringTemplates}</p>
+                        <p>Preferences / setup: {deleteCategoryCounts.preferences + deleteCategoryCounts.setupDraft}</p>
+                        <p>History bills: {deleteCategoryCounts.historyBills}</p>
+                        <p>History expenses: {deleteCategoryCounts.historyExpenses}</p>
+                      </div>
+                      <Field label="Replacement category">
+                        <select
+                          value={deleteReplacementCategory}
+                          onChange={(event) => setDeleteReplacementCategory(event.target.value as BudgetCategory)}
+                        >
+                          {allCategories
+                            .filter((category) => category !== deletingCategory)
+                            .map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                        </select>
+                      </Field>
+                    </>
+                  ) : null}
+
+                  <div className="leftly-action-grid">
+                    <button type="button" onClick={handleDeleteCustomCategory} className="button-primary w-full sm:w-auto">
+                      Confirm delete
+                    </button>
+                    <button type="button" onClick={cancelDeletingCategory} className="button-secondary w-full sm:w-auto">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               {bills.length === 0 && expenses.length === 0 ? (
                 <div className="mb-4">
                   <EmptyState
@@ -3762,7 +4227,7 @@ function App() {
                     key={summary.category}
                     summary={summary}
                     rank={categoryRank.get(summary.category) ?? 0}
-                    expanded={expandedCategories.has(summary.category)}
+                    expanded={visibleExpandedCategories.has(summary.category)}
                     onToggle={() => toggleCategory(summary.category)}
                     onMoveUp={() => moveCategory(summary.category, -1)}
                     onMoveDown={() => moveCategory(summary.category, 1)}
@@ -3772,8 +4237,8 @@ function App() {
                     onEditBill={startEditBill}
                     onEditExpense={startEditExpense}
                     formatCurrency={formatCurrency}
-                    canMoveUp={categoryOrder.indexOf(summary.category) > 0}
-                    canMoveDown={categoryOrder.indexOf(summary.category) < categoryOrder.length - 1}
+                    canMoveUp={resolvedCategoryOrder.indexOf(summary.category) > 0}
+                    canMoveDown={resolvedCategoryOrder.indexOf(summary.category) < resolvedCategoryOrder.length - 1}
                   />
                 ))}
               </div>
@@ -3894,6 +4359,7 @@ function App() {
                 </div>
               ) : null}
               <RecurringSection
+                categories={allCategories}
                 templates={recurringTemplates}
                 onAddTemplate={addRecurringTemplate}
                 onUpdateTemplate={updateRecurringTemplate}
@@ -3934,6 +4400,7 @@ function App() {
               <MoreBackBar onBack={openMoreMenu} />
               <DataSection
                 backupSummary={backupSummary}
+                categories={allCategories}
                 preferences={preferences}
                 onPreferencesChange={handlePreferencesChange}
                 onLocalDataReloaded={reloadLocalStateFromStorage}
@@ -3985,6 +4452,7 @@ function App() {
             <EditItemPanel
               key={`${editingItem.kind}:${editingItem.item.id}`}
               target={editingItem}
+              categories={allCategories}
               isOpen={Boolean(editingItem)}
               onClose={() => setEditingItem(null)}
               onSaveBill={saveEditedBill}

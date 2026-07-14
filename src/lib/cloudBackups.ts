@@ -6,6 +6,7 @@ import {
   loadBills,
   loadCategoryOrder,
   loadCategoryOrderMode,
+  loadCustomCategories,
   loadExpenses,
   loadPreferences,
   loadPayPeriodHistory,
@@ -99,13 +100,15 @@ async function sha256Hex(value: string) {
 }
 
 export function buildLocalBackupSnapshot() {
+  const customCategories = loadCustomCategories()
   return buildLeftlyBackup({
     activeBudgetPeriod: loadActiveBudgetPeriod(),
     bills: loadBills(),
     expenses: loadExpenses(),
     recurringTemplates: loadRecurringTemplates(),
     payPeriodHistory: loadPayPeriodHistory(),
-    categoryOrder: loadCategoryOrder(),
+    categoryOrder: loadCategoryOrder(customCategories),
+    customCategories,
     categoryOrderMode: loadCategoryOrderMode(),
     sortMode: loadSortMode(),
     preferences: loadPreferences(),

@@ -10,7 +10,8 @@ export const DEFAULT_CATEGORIES = [
   'Other / Misc',
 ] as const
 
-export type BudgetCategory = (typeof DEFAULT_CATEGORIES)[number]
+export type BuiltInBudgetCategory = (typeof DEFAULT_CATEGORIES)[number]
+export type BudgetCategory = string
 
 export type PayCadence = 'weekly' | 'biweekly' | 'monthly'
 export type RecurringFrequency = 'every-pay-period' | 'weekly' | 'biweekly' | 'monthly' | 'one-time'

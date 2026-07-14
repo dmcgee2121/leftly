@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
+import { FALLBACK_CATEGORY, normalizeCategoryName } from '../lib/categories'
 import type { BudgetCategory, BudgetPeriod, PayCadence, RecurringFrequency, RecurringItemTemplate } from '../types/budget'
 import { MAIN_BILL_PLAN, buildRecurringPreview } from '../lib/recurring'
 import { clearSetupDraft, loadSetupDraft, saveSetupDraft } from '../lib/storage'
@@ -21,18 +22,6 @@ const frequencyOptions: Array<{ value: RecurringFrequency; label: string }> = [
   { value: 'biweekly', label: 'Biweekly' },
   { value: 'every-pay-period', label: 'Every pay period' },
   { value: 'one-time', label: 'One-time' },
-]
-
-const categoryOptions: BudgetCategory[] = [
-  'Housing',
-  'Utilities',
-  'Subscriptions',
-  'Transportation',
-  'Food',
-  'Debt',
-  'Insurance',
-  'Personal',
-  'Other / Misc',
 ]
 
 type SetupStep = 1 | 2 | 3
@@ -73,16 +62,18 @@ type SetupReview = {
 
 export function SetupFlowPanel({
   defaultPayCadence,
+  categories,
   activeBudgetPeriod,
   onClose,
   onFinish,
 }: {
   defaultPayCadence: PayCadence
+  categories: BudgetCategory[]
   activeBudgetPeriod: BudgetPeriod | null
   onClose: () => void
   onFinish: (result: SetupResult) => void
 }) {
-  const [draft, setDraft] = useState<SetupDraft>(() => loadOrCreateDraft(activeBudgetPeriod, defaultPayCadence))
+  const [draft, setDraft] = useState<SetupDraft>(() => loadOrCreateDraft(activeBudgetPeriod, defaultPayCadence, categories))
   const [error, setError] = useState('')
   const [clearedDraftMarker, setClearedDraftMarker] = useState<string | null>(null)
 
@@ -492,7 +483,7 @@ export function SetupFlowPanel({
                       value={item.category}
                       onChange={(event) => updateRecurringItem(item.id, { category: event.target.value as BudgetCategory })}
                     >
-                      {categoryOptions.map((category) => (
+                      {categories.map((category) => (
                         <option key={category} value={category}>
                           {category}
                         </option>
@@ -754,19 +745,19 @@ function getInitialDraft(defaultPayCadence: PayCadence): SetupDraft {
   }
 }
 
-function loadOrCreateDraft(activeBudgetPeriod: BudgetPeriod | null, defaultPayCadence: PayCadence): SetupDraft {
+function loadOrCreateDraft(activeBudgetPeriod: BudgetPeriod | null, defaultPayCadence: PayCadence, categories: BudgetCategory[]): SetupDraft {
   const storedDraft = loadSetupDraft(activeBudgetPeriod)
   if (storedDraft) {
-    return normalizeSetupDraft(storedDraft, defaultPayCadence)
+    return normalizeSetupDraft(storedDraft, defaultPayCadence, categories)
   }
 
   return getInitialDraft(defaultPayCadence)
 }
 
-function normalizeSetupDraft(value: unknown, defaultPayCadence: PayCadence): SetupDraft {
+function normalizeSetupDraft(value: unknown, defaultPayCadence: PayCadence, categories: BudgetCategory[]): SetupDraft {
   const draft = value as Partial<SetupDraft> | null
   const recurringItems = Array.isArray(draft?.recurringItems)
-    ? draft.recurringItems.map((item) => normalizeSetupRecurringDraft(item))
+    ? draft.recurringItems.map((item) => normalizeSetupRecurringDraft(item, categories))
     : [createEmptyRecurringDraft()]
 
   return {
@@ -795,24 +786,14 @@ function getSetupDraftMarker(draft: SetupDraft) {
   })
 }
 
-function normalizeSetupRecurringDraft(value: unknown): SetupRecurringDraft {
+function normalizeSetupRecurringDraft(value: unknown, categories: BudgetCategory[]): SetupRecurringDraft {
   const item = value as Partial<SetupRecurringDraft> | null
+  const normalizedCategory = normalizeCategoryName(item?.category)
   return {
     id: typeof item?.id === 'string' ? item.id : crypto.randomUUID(),
     name: typeof item?.name === 'string' ? item.name : '',
     amount: typeof item?.amount === 'string' ? item.amount : '',
-    category:
-      item?.category === 'Housing' ||
-      item?.category === 'Utilities' ||
-      item?.category === 'Subscriptions' ||
-      item?.category === 'Transportation' ||
-      item?.category === 'Food' ||
-      item?.category === 'Debt' ||
-      item?.category === 'Insurance' ||
-      item?.category === 'Personal' ||
-      item?.category === 'Other / Misc'
-        ? item.category
-        : 'Housing',
+    category: normalizedCategory && categories.includes(normalizedCategory) ? normalizedCategory : categories[0] ?? FALLBACK_CATEGORY,
     frequency:
       item?.frequency === 'monthly' ||
       item?.frequency === 'weekly' ||

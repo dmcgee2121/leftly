@@ -28,12 +28,14 @@ type EditDraft = {
 
 export function EditItemPanel({
   target,
+  categories,
   isOpen,
   onClose,
   onSaveBill,
   onSaveExpense,
 }: {
   target: EditTarget | null
+  categories: BudgetCategory[]
   isOpen: boolean
   onClose: () => void
   onSaveBill: (bill: Bill) => void
@@ -190,15 +192,11 @@ export function EditItemPanel({
             </Field>
             <Field label="Category">
               <select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value as BudgetCategory })}>
-                <option value="Housing">Housing</option>
-                <option value="Utilities">Utilities</option>
-                <option value="Subscriptions">Subscriptions</option>
-                <option value="Transportation">Transportation</option>
-                <option value="Food">Food</option>
-                <option value="Debt">Debt</option>
-                <option value="Insurance">Insurance</option>
-                <option value="Personal">Personal</option>
-                <option value="Other / Misc">Other / Misc</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
               </select>
             </Field>
           </div>

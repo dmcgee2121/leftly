@@ -1,4 +1,10 @@
 import { DEFAULT_CATEGORIES } from '../types/budget'
+import {
+  FALLBACK_CATEGORY,
+  deriveCustomCategories,
+  normalizeCategoryName,
+  reconcileCategoryOrder,
+} from './categories'
 import { normalizeRecurringPlanName, normalizeRecurringWeekday } from './recurring'
 import type {
   Bill,
@@ -19,6 +25,7 @@ const RECURRING_TEMPLATES_KEY = 'leftly.recurringTemplates'
 const PAY_PERIOD_HISTORY_KEY = 'leftly.payPeriodHistory'
 const SORT_MODE_KEY = 'leftly.sortMode'
 const CATEGORY_ORDER_KEY = 'leftly.categoryOrder'
+const CUSTOM_CATEGORIES_KEY = 'leftly.customCategories'
 const PREFERENCES_KEY = 'leftly.preferences'
 const ACTIVE_TAB_KEY = 'leftly.activeTab'
 const SETUP_DRAFT_KEY = 'leftly.setupDraft'
@@ -55,6 +62,7 @@ export type LeftlyBackup = {
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
   categoryOrder?: BudgetCategory[]
+  customCategories?: BudgetCategory[]
   categoryOrderMode?: CategoryOrderMode
   sortMode?: SortMode
   preferences?: LeftlyPreferences
@@ -67,6 +75,7 @@ export function buildLeftlyBackup(params: {
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
   categoryOrder?: BudgetCategory[]
+  customCategories?: BudgetCategory[]
   categoryOrderMode?: CategoryOrderMode
   sortMode?: SortMode
   preferences?: LeftlyPreferences
@@ -87,6 +96,7 @@ export function buildLeftlyBackup(params: {
     recurringTemplates: params.recurringTemplates,
     payPeriodHistory: params.payPeriodHistory,
     categoryOrder: params.categoryOrder,
+    customCategories: params.customCategories,
     categoryOrderMode: params.categoryOrderMode,
     sortMode: params.sortMode,
     preferences: params.preferences,
@@ -104,6 +114,7 @@ export function getLeftlyBackupSummary(params: {
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
   categoryOrder?: BudgetCategory[]
+  customCategories?: BudgetCategory[]
   categoryOrderMode?: CategoryOrderMode
   sortMode?: SortMode
   preferences?: LeftlyPreferences
@@ -134,9 +145,7 @@ function readJson<T>(key: string, fallback: T): T {
 }
 
 function normalizeCategory(category: unknown): BudgetCategory {
-  return DEFAULT_CATEGORIES.includes(category as BudgetCategory)
-    ? (category as BudgetCategory)
-    : 'Other / Misc'
+  return normalizeCategoryName(category) ?? FALLBACK_CATEGORY
 }
 
 function normalizePayCadence(value: unknown) {
@@ -242,7 +251,7 @@ function isLeftlyPreferences(value: unknown): value is LeftlyPreferences {
   const prefs = value as Record<string, unknown>
   return (
     (prefs.defaultPayCadence === 'weekly' || prefs.defaultPayCadence === 'biweekly' || prefs.defaultPayCadence === 'monthly') &&
-    DEFAULT_CATEGORIES.includes(prefs.defaultCategory as BudgetCategory) &&
+    normalizeCategoryName(prefs.defaultCategory) !== null &&
     (prefs.quickAddDateBehavior === 'today' || prefs.quickAddDateBehavior === 'pay-period-start' || prefs.quickAddDateBehavior === 'blank')
   )
 }
@@ -290,6 +299,7 @@ function isLeftlyBackup(value: unknown): value is LeftlyBackup {
     Array.isArray(backup.recurringTemplates) &&
     Array.isArray(backup.payPeriodHistory) &&
     (backup.categoryOrder === undefined || Array.isArray(backup.categoryOrder)) &&
+    (backup.customCategories === undefined || Array.isArray(backup.customCategories)) &&
     (backup.categoryOrderMode === undefined || backup.categoryOrderMode === 'total-desc' || backup.categoryOrderMode === 'custom') &&
     (backup.sortMode === undefined || backup.sortMode === 'amount-desc' || backup.sortMode === 'amount-asc' || backup.sortMode === 'date' || backup.sortMode === 'name') &&
     (backup.preferences === undefined || isLeftlyPreferences(backup.preferences))
@@ -314,12 +324,23 @@ export function parseLeftlyBackupJson(text: string): { ok: true; backup: LeftlyB
 }
 
 export function saveLeftlyBackup(backup: LeftlyBackup) {
+  const customCategories = deriveCustomCategories({
+    explicitCustomCategories: backup.customCategories,
+    bills: backup.bills,
+    expenses: backup.expenses,
+    recurringTemplates: backup.recurringTemplates,
+    payPeriodHistory: backup.payPeriodHistory,
+    preferences: backup.preferences ?? DEFAULT_PREFERENCES,
+    setupDraft: null,
+  })
+
   saveActiveBudgetPeriod(backup.activeBudgetPeriod)
   saveBills(backup.bills)
   saveExpenses(backup.expenses)
   saveRecurringTemplates(backup.recurringTemplates)
   savePayPeriodHistory(backup.payPeriodHistory)
-  saveCategoryOrder(backup.categoryOrder ?? [...DEFAULT_CATEGORIES])
+  saveCustomCategories(customCategories)
+  saveCategoryOrder(backup.categoryOrder ?? [...DEFAULT_CATEGORIES], customCategories)
   saveCategoryOrderMode(backup.categoryOrderMode ?? DEFAULT_CATEGORY_ORDER)
   saveSortMode(backup.sortMode ?? DEFAULT_SORT_MODE)
   savePreferences(backup.preferences ?? DEFAULT_PREFERENCES)
@@ -363,9 +384,7 @@ export function loadRecurringTemplates(): RecurringItemTemplate[] {
       id: String(item.id ?? crypto.randomUUID()),
       name: String(item.name ?? ''),
       amount: Number(item.amount ?? 0),
-      category: DEFAULT_CATEGORIES.includes(item.category as BudgetCategory)
-        ? (item.category as BudgetCategory)
-        : 'Other / Misc',
+      category: normalizeCategory(item.category),
       kind: item.kind === 'planned-expense' ? 'planned-expense' : 'bill',
       planName: typeof item.planName === 'string' ? normalizeRecurringPlanName(item.planName) : undefined,
       scheduleType:
@@ -473,6 +492,10 @@ export function saveSetupDraft(draft: unknown) {
   writeJson(SETUP_DRAFT_KEY, { version: 1 as const, draft })
 }
 
+export function loadRawSetupDraft(activeBudgetPeriod: BudgetPeriod | null): unknown | null {
+  return loadSetupDraft(activeBudgetPeriod)
+}
+
 export function clearSetupDraft() {
   try {
     window.localStorage.removeItem(SETUP_DRAFT_KEY)
@@ -481,24 +504,36 @@ export function clearSetupDraft() {
   }
 }
 
-function normalizeCategoryOrder(order: unknown): BudgetCategory[] {
-  if (!Array.isArray(order)) {
-    return [...DEFAULT_CATEGORIES]
-  }
+export function loadCustomCategories() {
+  const bills = loadBills()
+  const expenses = loadExpenses()
+  const recurringTemplates = loadRecurringTemplates()
+  const payPeriodHistory = loadPayPeriodHistory()
+  const preferences = loadPreferences()
+  const explicitCustomCategories = readJson<unknown>(CUSTOM_CATEGORIES_KEY, [])
+  const setupDraft = loadSetupDraft(null)
 
-  const normalized = order.filter((item): item is BudgetCategory =>
-    DEFAULT_CATEGORIES.includes(item as BudgetCategory),
-  )
-  const missing = DEFAULT_CATEGORIES.filter((category) => !normalized.includes(category))
-  return [...normalized, ...missing]
+  return deriveCustomCategories({
+    explicitCustomCategories,
+    bills,
+    expenses,
+    recurringTemplates,
+    payPeriodHistory,
+    preferences,
+    setupDraft,
+  })
 }
 
-export function loadCategoryOrder(): BudgetCategory[] {
-  return normalizeCategoryOrder(readJson<unknown>(CATEGORY_ORDER_KEY, [...DEFAULT_CATEGORIES]))
+export function saveCustomCategories(categories: BudgetCategory[]) {
+  writeJson(CUSTOM_CATEGORIES_KEY, deriveCustomCategories({ explicitCustomCategories: categories }))
 }
 
-export function saveCategoryOrder(order: BudgetCategory[]) {
-  writeJson(CATEGORY_ORDER_KEY, order)
+export function loadCategoryOrder(customCategories: BudgetCategory[] = []) {
+  return reconcileCategoryOrder(readJson<unknown>(CATEGORY_ORDER_KEY, [...DEFAULT_CATEGORIES]), customCategories)
+}
+
+export function saveCategoryOrder(order: BudgetCategory[], customCategories: BudgetCategory[] = []) {
+  writeJson(CATEGORY_ORDER_KEY, reconcileCategoryOrder(order, customCategories))
 }
 
 export function loadCategoryOrderMode(): CategoryOrderMode {
@@ -519,6 +554,7 @@ export function clearAllAppData() {
     window.localStorage.removeItem(PAY_PERIOD_HISTORY_KEY)
     window.localStorage.removeItem(SORT_MODE_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY)
+    window.localStorage.removeItem(CUSTOM_CATEGORIES_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY + '.mode')
     window.localStorage.removeItem(PREFERENCES_KEY)
     window.localStorage.removeItem(ACTIVE_TAB_KEY)

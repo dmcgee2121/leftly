@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import { DEFAULT_CATEGORIES } from '../types/budget'
 import type { LeftlyBackupSummary } from '../lib/storage'
 import type { BudgetCategory, LeftlyPreferences, PayCadence, QuickAddDateBehavior } from '../types/budget'
 import { getLeftlyCloudConfig } from '../lib/cloudConfig'
@@ -24,6 +23,7 @@ const quickAddDateOptions: Array<{ value: QuickAddDateBehavior; label: string }>
 
 export function DataSection({
   backupSummary,
+  categories,
   preferences,
   onPreferencesChange,
   onLocalDataReloaded,
@@ -38,6 +38,7 @@ export function DataSection({
   isImporting,
 }: {
   backupSummary: LeftlyBackupSummary
+  categories: BudgetCategory[]
   preferences: LeftlyPreferences
   onPreferencesChange: (preferences: LeftlyPreferences) => void
   onLocalDataReloaded: () => void
@@ -256,7 +257,7 @@ export function DataSection({
                   })
                 }
               >
-                {DEFAULT_CATEGORIES.map((category) => (
+                {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}
                   </option>

@@ -128,6 +128,15 @@ type DueSoonBillRow = {
   planName?: string
 }
 
+type BillPaymentSummary = {
+  totalCount: number
+  paidCount: number
+  unpaidCount: number
+  totalAmount: number
+  paidAmount: number
+  unpaidAmount: number
+}
+
 type SpendingSnapshotRow = {
   category: BudgetCategory
   total: number
@@ -165,6 +174,33 @@ function cloneExpenseForDemo(expense: Expense): Expense {
     ...expense,
     id: crypto.randomUUID(),
   }
+}
+
+function summarizeBillPayments(bills: Bill[]): BillPaymentSummary {
+  return bills.reduce<BillPaymentSummary>(
+    (summary, bill) => {
+      summary.totalCount += 1
+      summary.totalAmount += bill.amount
+
+      if (bill.isPaid) {
+        summary.paidCount += 1
+        summary.paidAmount += bill.amount
+      } else {
+        summary.unpaidCount += 1
+        summary.unpaidAmount += bill.amount
+      }
+
+      return summary
+    },
+    {
+      totalCount: 0,
+      paidCount: 0,
+      unpaidCount: 0,
+      totalAmount: 0,
+      paidAmount: 0,
+      unpaidAmount: 0,
+    },
+  )
 }
 
 function buildDemoHistorySnapshot(params: {
@@ -1094,23 +1130,10 @@ function App() {
   )
 
   const recentBills = useMemo(() => bills.slice(0, 3), [bills])
+  const recurringBills = useMemo(() => bills.filter((bill) => bill.source === 'recurring'), [bills])
+  const recurringBillSummary = useMemo(() => summarizeBillPayments(recurringBills), [recurringBills])
   const oneTimeBills = useMemo(() => bills.filter((bill) => bill.source !== 'recurring'), [bills])
-  const oneTimeBillSummary = useMemo(
-    () =>
-      oneTimeBills.reduce(
-        (summary, bill) => {
-          summary.total += bill.amount
-          if (bill.isPaid) {
-            summary.paidCount += 1
-          } else {
-            summary.unpaidCount += 1
-          }
-          return summary
-        },
-        { total: 0, paidCount: 0, unpaidCount: 0 },
-      ),
-    [oneTimeBills],
-  )
+  const oneTimeBillSummary = useMemo(() => summarizeBillPayments(oneTimeBills), [oneTimeBills])
   const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
   const dueSoonBills = useMemo<DueSoonBillRow[]>(() => {
     if (!payPeriod) {
@@ -2945,10 +2968,9 @@ function App() {
                                     <button
                                       type="button"
                                       onClick={() => toggleBillPaid(bill.id)}
-                                      disabled={bill.isPaid}
-                                      className="leftly-overview-inline-button disabled:cursor-not-allowed disabled:opacity-50"
+                                      className="leftly-overview-inline-button"
                                     >
-                                      {bill.isPaid ? 'Paid' : 'Mark paid'}
+                                      {bill.isPaid ? 'Mark unpaid' : 'Mark paid'}
                                     </button>
                                     <button
                                       type="button"
@@ -3349,7 +3371,7 @@ function App() {
                   <div className="flex flex-wrap gap-2">
                     {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
                     <Badge muted>{oneTimeBills.length} bill{oneTimeBills.length === 1 ? '' : 's'}</Badge>
-                    {oneTimeBills.length > 0 ? <Badge muted>{formatCurrency(oneTimeBillSummary.total)}</Badge> : null}
+                    {oneTimeBills.length > 0 ? <Badge muted>{formatCurrency(oneTimeBillSummary.totalAmount)}</Badge> : null}
                     <button type="button" onClick={() => setActiveTab('recurring')} className="button-secondary w-full sm:w-auto">
                       Open Bill Plan
                     </button>
@@ -3774,6 +3796,96 @@ function App() {
                   <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto">
                     Apply Bill Plan to this pay period
                   </button>
+                </div>
+              ) : null}
+              {payPeriod ? (
+                <div className="mb-4 leftly-shell-soft p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">Bills in this pay period from Bill Plan</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                        Mark generated Bill Plan bills paid here without changing your reserved totals or starting the next period.
+                      </p>
+                    </div>
+                    {recurringBills.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        <Badge muted>{recurringBillSummary.unpaidCount} unpaid</Badge>
+                        <Badge muted>{recurringBillSummary.paidCount} paid</Badge>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4">
+                    <BillPaymentSummaryBlock summary={recurringBillSummary} formatCurrency={formatCurrency} label="Bill Plan bills paid" />
+                  </div>
+
+                  {recurringBills.length > 0 ? (
+                    <div className="mt-4 grid gap-2.5">
+                      {recurringBills.map((bill) => (
+                        <div
+                          key={bill.id}
+                          className={`leftly-compact-list-card ${bill.isPaid ? 'border-emerald-400/20 bg-emerald-400/5' : ''}`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-sm font-semibold text-white">{bill.name}</p>
+                                  <Badge muted>Bill Plan</Badge>
+                                  <span
+                                    className={`leftly-chip px-3 py-1 text-xs font-medium ${bill.isPaid ? 'leftly-chip-success' : 'leftly-chip-warning'}`}
+                                  >
+                                    {bill.isPaid ? 'Paid' : 'Unpaid'}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-xs leading-5 text-slate-400">
+                                  Due {formatCompactDateLabel(bill.dueDate)} · {bill.category}
+                                </p>
+                              </div>
+                              <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            {bill.paidDate ? <Badge muted>Paid {formatCompactDateLabel(bill.paidDate)}</Badge> : null}
+                            {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
+                          </div>
+
+                          <div className="leftly-compact-actions">
+                            <button
+                              type="button"
+                              onClick={() => toggleBillPaid(bill.id)}
+                              className="button-secondary col-span-2 w-full sm:w-auto"
+                            >
+                              {bill.isPaid ? 'Mark unpaid' : 'Mark paid'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startEditBill(bill)}
+                              className="button-secondary w-full sm:w-auto"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteBill(bill.id)}
+                              className="button-secondary w-full sm:w-auto"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <EmptyState
+                        title="No Bill Plan bills in this period"
+                        text="Apply Bill Plan to this pay period to bring recurring bills here, then mark them paid as they are completed."
+                        compact
+                      />
+                    </div>
+                  )}
                 </div>
               ) : null}
               {billPlanMessage ? (
@@ -4318,6 +4430,32 @@ function DueSoonStatusBadge({ status, tone }: { status: DueSoonBillRow['status']
         : 'border-amber-500/20 bg-amber-500/10 text-amber-100'
 
   return <span className={`leftly-chip px-2.5 py-1 text-[10px] ${className}`}>{status}</span>
+}
+
+function BillPaymentSummaryBlock({
+  summary,
+  formatCurrency,
+  label,
+}: {
+  summary: BillPaymentSummary
+  formatCurrency: (value: number) => string
+  label: string
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/50 px-3 py-3 sm:px-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-white">
+            {summary.paidCount} of {summary.totalCount} bill{summary.totalCount === 1 ? '' : 's'} paid
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            {formatCurrency(summary.paidAmount)} paid · {formatCurrency(summary.unpaidAmount)} remaining
+          </p>
+        </div>
+        <Badge muted>{label}</Badge>
+      </div>
+    </div>
+  )
 }
 
 function OverviewListRow({

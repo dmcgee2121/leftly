@@ -3,6 +3,10 @@ import { DEFAULT_CATEGORIES, type Bill, type BudgetCategory, type Expense, type 
 export const MAX_CATEGORY_NAME_LENGTH = 40
 export const FALLBACK_CATEGORY: BudgetCategory = 'Other / Misc'
 
+const BUILT_IN_CATEGORY_BY_KEY = new Map(
+  DEFAULT_CATEGORIES.map((category) => [category.trim().toLocaleLowerCase(), category] as const),
+)
+
 type CategoryReplaceCollections = {
   bills: Bill[]
   expenses: Expense[]
@@ -34,7 +38,11 @@ export function normalizeCategoryName(value: unknown): BudgetCategory | null {
   }
 
   const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
+  if (trimmed.length === 0) {
+    return null
+  }
+
+  return canonicalizeBuiltInCategoryName(trimmed) ?? trimmed
 }
 
 export function normalizeCategoryNameForComparison(value: string) {
@@ -42,7 +50,7 @@ export function normalizeCategoryNameForComparison(value: string) {
 }
 
 export function isBuiltInCategory(category: string): category is (typeof DEFAULT_CATEGORIES)[number] {
-  return DEFAULT_CATEGORIES.includes(category as (typeof DEFAULT_CATEGORIES)[number])
+  return canonicalizeBuiltInCategoryName(category) !== null
 }
 
 export function getAllCategories(customCategories: BudgetCategory[]) {
@@ -51,6 +59,14 @@ export function getAllCategories(customCategories: BudgetCategory[]) {
 
 export function sanitizeCustomCategoryName(value: string) {
   return value.trim()
+}
+
+export function canonicalizeBuiltInCategoryName(value: unknown): (typeof DEFAULT_CATEGORIES)[number] | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  return BUILT_IN_CATEGORY_BY_KEY.get(value.trim().toLocaleLowerCase()) ?? null
 }
 
 export function validateCategoryName(params: {

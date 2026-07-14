@@ -257,7 +257,7 @@ const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> 
   {
     key: 'help',
     label: 'Help / About / Feedback',
-    helper: 'Learn what Leftly does and how to use it safely.',
+    helper: 'Find the beta tester guide, privacy basics, and the feedback template.',
   },
 ]
 
@@ -3841,7 +3841,7 @@ function App() {
           {activeTab === 'help' ? (
             <SectionShell
               title="Help / About / Feedback"
-              description="A quick guide to what Leftly does, how backups work, and who to contact with feedback."
+              description="Start here for the beta tester guide, feedback template, and the basics on local-first Leftly data."
             >
               <MoreBackBar onBack={openMoreMenu} />
               <HelpAboutFeedbackSection />

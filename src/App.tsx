@@ -1278,30 +1278,6 @@ function App() {
     return new Set(expenses.map((expense) => expense.category)).size
   }, [expenses, payPeriod])
 
-  const nextOverviewAction = !payPeriod
-    ? {
-        label: 'Set up pay period',
-        helper: 'Add income and dates to unlock the rest of Overview.',
-        onClick: () => setActiveTab('income'),
-      }
-    : dueSoonBills.length > 0
-      ? {
-          label: 'Review next bill',
-          helper: `${dueSoonBills[0].bill.name} is ${dueSoonBills[0].status.toLowerCase()}.`,
-          onClick: () => startEditBill(dueSoonBills[0].bill),
-        }
-      : hasActiveBillPlanItems && upcomingRecurringBills.length > 0
-        ? {
-            label: 'Apply Bill Plan',
-            helper: 'Pull saved items into this pay period.',
-            onClick: openBillPlanApply,
-          }
-        : {
-            label: 'Quick Add expense',
-            helper: 'Log spending without leaving this pay period.',
-            onClick: openQuickAddExpense,
-          }
-
   const recentManualExpenses = useMemo(
     () => expenses.filter((expense) => expense.source !== 'recurring').slice(0, 4),
     [expenses],
@@ -2823,7 +2799,7 @@ function App() {
           </header>
         )}
 
-        {!isFirstRun ? (
+        {!isFirstRun && isOverviewTab ? (
           <section className="mt-4 md:hidden">
             <div className="leftly-shell leftly-shell-accent overflow-hidden p-4">
               <div className="flex items-start justify-between gap-3">
@@ -2859,7 +2835,7 @@ function App() {
           </section>
         ) : null}
 
-        {!isFirstRun ? (
+        {!isFirstRun && isOverviewTab ? (
           <section className="leftly-shell leftly-shell-accent mt-4 hidden overflow-hidden p-4 md:block sm:mt-5 sm:p-5">
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400 sm:text-sm sm:tracking-[0.24em]">Leftover</p>
@@ -2935,69 +2911,6 @@ function App() {
                 )
               ) : hasAnyData ? (
                 <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                  <div className="leftly-overview-hero md:hidden">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/80">Leftly</p>
-                        <p className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-white">{formatCurrency(totals.leftover)}</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-300">Left over after bills, set-asides, and spending in this pay period.</p>
-                      </div>
-                      <Badge muted>{payPeriod ? payPeriod.cadence : 'No pay period'}</Badge>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                      {payPeriod ? (
-                        <>
-                          <Badge muted>{payPeriod.startDate}</Badge>
-                          <Badge muted>{payPeriod.endDate}</Badge>
-                          {payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? <Badge success>Rollover active</Badge> : null}
-                        </>
-                      ) : (
-                        <Badge muted>Add a pay period to begin tracking</Badge>
-                      )}
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <MiniStat label="Income" value={formatCurrency(totals.income)} dense />
-                      <MiniStat label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" dense />
-                      <MiniStat label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} dense />
-                      <MiniStat label="Spending" value={formatCurrency(totals.totalExpenses)} dense />
-                    </div>
-
-                    <div className="mt-4 leftly-shell-soft p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Next action</p>
-                      <div className="mt-2 flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white">{nextOverviewAction.label}</p>
-                          <p className="mt-1 text-[11px] leading-5 text-slate-400">{nextOverviewAction.helper}</p>
-                        </div>
-                        <button type="button" onClick={nextOverviewAction.onClick} className="button-primary !min-h-11 shrink-0 !px-3 !py-2 !text-xs">
-                          Open
-                        </button>
-                      </div>
-                    </div>
-
-                    {topCategories.length > 0 ? (
-                      <div className="mt-4 grid gap-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Highest cost categories</p>
-                        {topCategories.map((summary, index) => (
-                          <div key={summary.category} className="leftly-shell-soft flex items-center justify-between gap-3 px-3 py-2.5">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate text-sm font-medium text-white">{summary.category}</p>
-                                {index === 0 ? <Badge>Highest cost</Badge> : null}
-                              </div>
-                              <p className="mt-1 text-[11px] text-slate-400">
-                                {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
-                              </p>
-                            </div>
-                            <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(summary.total)}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
                   <div className="lg:col-span-2">
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader

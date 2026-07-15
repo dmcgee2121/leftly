@@ -1,0 +1,1 @@
+Leftly release checkpoint for the Overview-only summary layout fix.

@@ -131,8 +131,8 @@ export function DataSection({
         <div className="leftly-shell-faint grid gap-2 p-3">
           <p className="text-sm font-medium text-white">What a JSON backup includes</p>
           <p className="text-sm leading-6 text-slate-400">
-            A JSON backup includes your pay period, bills, expenses, Bill Plan, saved history, categories, display
-            settings, and preferences. Older Leftly backups can still be imported.
+            A JSON backup includes your pay period, bills, expenses, Bill Plan, category targets, saved history,
+            categories, display settings, and preferences. Older Leftly backups can still be imported.
           </p>
         </div>
       </div>

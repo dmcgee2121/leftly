@@ -10,6 +10,7 @@ import type {
   Bill,
   BudgetPeriod,
   BudgetCategory,
+  CategoryTargets,
   CategoryOrderMode,
   Expense,
   LeftlyPreferences,
@@ -25,6 +26,7 @@ const RECURRING_TEMPLATES_KEY = 'leftly.recurringTemplates'
 const PAY_PERIOD_HISTORY_KEY = 'leftly.payPeriodHistory'
 const SORT_MODE_KEY = 'leftly.sortMode'
 const CATEGORY_ORDER_KEY = 'leftly.categoryOrder'
+const CATEGORY_TARGETS_KEY = 'leftly.categoryTargets'
 const CUSTOM_CATEGORIES_KEY = 'leftly.customCategories'
 const PREFERENCES_KEY = 'leftly.preferences'
 const ACTIVE_TAB_KEY = 'leftly.activeTab'
@@ -61,6 +63,7 @@ export type LeftlyBackup = {
   expenses: Expense[]
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
+  categoryTargets?: CategoryTargets
   categoryOrder?: BudgetCategory[]
   customCategories?: BudgetCategory[]
   categoryOrderMode?: CategoryOrderMode
@@ -74,6 +77,7 @@ export function buildLeftlyBackup(params: {
   expenses: Expense[]
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
+  categoryTargets?: CategoryTargets
   categoryOrder?: BudgetCategory[]
   customCategories?: BudgetCategory[]
   categoryOrderMode?: CategoryOrderMode
@@ -95,6 +99,7 @@ export function buildLeftlyBackup(params: {
     expenses: params.expenses,
     recurringTemplates: params.recurringTemplates,
     payPeriodHistory: params.payPeriodHistory,
+    categoryTargets: normalizeCategoryTargets(params.categoryTargets),
     categoryOrder: params.categoryOrder,
     customCategories: params.customCategories,
     categoryOrderMode: params.categoryOrderMode,
@@ -113,6 +118,7 @@ export function getLeftlyBackupSummary(params: {
   expenses: Expense[]
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
+  categoryTargets?: CategoryTargets
   categoryOrder?: BudgetCategory[]
   customCategories?: BudgetCategory[]
   categoryOrderMode?: CategoryOrderMode
@@ -129,6 +135,25 @@ export function getLeftlyBackupSummary(params: {
     displaySettingsIncluded: params.categoryOrderMode !== undefined && params.sortMode !== undefined,
     preferencesIncluded: params.preferences !== undefined,
   }
+}
+
+export function normalizeCategoryTargets(value: unknown): CategoryTargets {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  const targets: CategoryTargets = {}
+  for (const [rawCategory, rawAmount] of Object.entries(value as Record<string, unknown>)) {
+    const category = normalizeCategoryName(rawCategory)
+    const amount = typeof rawAmount === 'number' ? rawAmount : Number(rawAmount)
+    if (!category || !Number.isFinite(amount) || amount < 0) {
+      continue
+    }
+
+    targets[category] = Math.round(amount * 100) / 100
+  }
+
+  return targets
 }
 
 function readJson<T>(key: string, fallback: T): T {
@@ -237,6 +262,7 @@ function normalizePayPeriodSnapshot(snapshot: PayPeriodSnapshot | Record<string,
     rolloverApplied: typeof item.rolloverApplied === 'boolean' ? item.rolloverApplied : undefined,
     bills,
     expenses,
+    categoryTargets: normalizeCategoryTargets(item.categoryTargets),
     totals: normalizePayPeriodTotals(item.totals),
     createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
     archivedAt: typeof item.archivedAt === 'string' ? item.archivedAt : new Date().toISOString(),
@@ -298,6 +324,7 @@ function isLeftlyBackup(value: unknown): value is LeftlyBackup {
     Array.isArray(backup.expenses) &&
     Array.isArray(backup.recurringTemplates) &&
     Array.isArray(backup.payPeriodHistory) &&
+    (backup.categoryTargets === undefined || (!!backup.categoryTargets && typeof backup.categoryTargets === 'object' && !Array.isArray(backup.categoryTargets))) &&
     (backup.categoryOrder === undefined || Array.isArray(backup.categoryOrder)) &&
     (backup.customCategories === undefined || Array.isArray(backup.customCategories)) &&
     (backup.categoryOrderMode === undefined || backup.categoryOrderMode === 'total-desc' || backup.categoryOrderMode === 'custom') &&
@@ -338,7 +365,8 @@ export function saveLeftlyBackup(backup: LeftlyBackup) {
   saveBills(backup.bills)
   saveExpenses(backup.expenses)
   saveRecurringTemplates(backup.recurringTemplates)
-  savePayPeriodHistory(backup.payPeriodHistory)
+  savePayPeriodHistory(backup.payPeriodHistory.map((snapshot) => normalizePayPeriodSnapshot(snapshot)))
+  saveCategoryTargets(backup.categoryTargets)
   saveCustomCategories(customCategories)
   saveCategoryOrder(backup.categoryOrder ?? [...DEFAULT_CATEGORIES], customCategories)
   saveCategoryOrderMode(backup.categoryOrderMode ?? DEFAULT_CATEGORY_ORDER)
@@ -423,6 +451,14 @@ export function loadPayPeriodHistory(): PayPeriodSnapshot[] {
 
 export function savePayPeriodHistory(history: PayPeriodSnapshot[]) {
   writeJson(PAY_PERIOD_HISTORY_KEY, history)
+}
+
+export function loadCategoryTargets(): CategoryTargets {
+  return normalizeCategoryTargets(readJson<unknown>(CATEGORY_TARGETS_KEY, {}))
+}
+
+export function saveCategoryTargets(targets: CategoryTargets | undefined) {
+  writeJson(CATEGORY_TARGETS_KEY, normalizeCategoryTargets(targets))
 }
 
 export function addPayPeriodSnapshot(snapshot: PayPeriodSnapshot) {
@@ -554,6 +590,7 @@ export function clearAllAppData() {
     window.localStorage.removeItem(PAY_PERIOD_HISTORY_KEY)
     window.localStorage.removeItem(SORT_MODE_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY)
+    window.localStorage.removeItem(CATEGORY_TARGETS_KEY)
     window.localStorage.removeItem(CUSTOM_CATEGORIES_KEY)
     window.localStorage.removeItem(CATEGORY_ORDER_KEY + '.mode')
     window.localStorage.removeItem(PREFERENCES_KEY)

@@ -27,6 +27,7 @@ export type LeftlyPreferences = {
 export type SortMode = 'amount-desc' | 'amount-asc' | 'date' | 'name'
 
 export type CategoryOrderMode = 'total-desc' | 'custom'
+export type CategoryTargets = Record<BudgetCategory, number>
 
 export type BudgetPeriod = {
   cadence: PayCadence
@@ -108,6 +109,7 @@ export type PayPeriodSnapshot = {
   rolloverApplied?: boolean
   bills: Bill[]
   expenses: Expense[]
+  categoryTargets: CategoryTargets
   totals: PayPeriodTotals
   createdAt: string
   archivedAt: string

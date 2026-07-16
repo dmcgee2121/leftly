@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import type { Bill, BudgetPeriod, Expense, PayCadence, PayPeriodSnapshot } from '../types/budget'
+import type { Bill, BudgetPeriod, CategoryTargets, Expense, PayCadence, PayPeriodSnapshot } from '../types/budget'
 
 const buttonStyles = {
   primary:
@@ -31,6 +31,7 @@ type HistoryStartReview = {
   period: BudgetPeriod
   bills: Bill[]
   expenses: Expense[]
+  categoryTargets: CategoryTargets
   copyManualExpenses: boolean
 }
 
@@ -164,6 +165,7 @@ export function StartFromHistoryPanel({
       },
       bills: copiedBills,
       expenses: [...copiedRecurringExpenses, ...copiedManualExpenses],
+      categoryTargets: { ...snapshot.categoryTargets },
       copyManualExpenses: draft.copyManualExpenses,
     })
   }
@@ -274,6 +276,15 @@ export function StartFromHistoryPanel({
               label="Copy manual expenses"
               description="Default off. Most people should leave manual expenses unchecked so each pay period starts fresh."
             />
+
+            {Object.keys(snapshot.categoryTargets).length > 0 ? (
+              <div className="leftly-shell-faint grid gap-2 p-3">
+                <p className="text-sm font-semibold text-white">Category targets</p>
+                <p className="text-sm leading-6 text-slate-400">
+                  {Object.keys(snapshot.categoryTargets).length} archived target{Object.keys(snapshot.categoryTargets).length === 1 ? '' : 's'} will seed the new pay period.
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {error ? (
@@ -308,6 +319,7 @@ export function StartFromHistoryPanel({
             <SummaryCard label="Income" value={formatCurrency(Number(draft.income))} />
             <SummaryCard label="Cadence" value={draft.cadence} />
             <SummaryCard label="Copy manual expenses" value={draft.copyManualExpenses ? 'Enabled' : 'Disabled'} />
+            <SummaryCard label="Category targets" value={`${Object.keys(snapshot.categoryTargets).length}`} />
           </div>
 
           <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">

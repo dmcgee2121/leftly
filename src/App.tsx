@@ -13,6 +13,7 @@ import {
   loadBills,
   loadCategoryOrder,
   loadCategoryOrderMode,
+  loadCategoryTargets,
   loadCustomCategories,
   loadExpenses,
   loadPreferences,
@@ -26,6 +27,7 @@ import {
   saveBills,
   saveCategoryOrder,
   saveCategoryOrderMode,
+  saveCategoryTargets,
   saveCustomCategories,
   saveExpenses,
   savePayPeriodHistory,
@@ -61,6 +63,7 @@ import {
   type BudgetCategory,
   type BudgetPeriod,
   type CategoryOrderMode,
+  type CategoryTargets,
   type Expense,
   type LeftlyPreferences,
   type PayPeriodSnapshot,
@@ -157,6 +160,16 @@ type SpendingSnapshotRow = {
   count: number
 }
 
+type CategoryTargetProgress = {
+  category: BudgetCategory
+  target: number
+  spent: number
+  remaining: number
+  percentUsed: number
+  status: 'On track' | 'Getting close' | 'At target' | 'Over target'
+  progressValue: number
+}
+
 function formatIsoDate(date: Date) {
   return date.toISOString().slice(0, 10)
 }
@@ -222,6 +235,7 @@ function buildDemoHistorySnapshot(params: {
   period: BudgetPeriod
   bills: Bill[]
   expenses: Expense[]
+  categoryTargets?: CategoryTargets
 }): PayPeriodSnapshot {
   const archivedAt = new Date().toISOString()
   const totals = calculatePayPeriodTotals(params.period, params.bills, params.expenses)
@@ -235,6 +249,7 @@ function buildDemoHistorySnapshot(params: {
     income: params.period.income,
     bills: params.bills.map((bill) => ({ ...bill })),
     expenses: params.expenses.map((expense) => ({ ...expense })),
+    categoryTargets: { ...(params.categoryTargets ?? {}) },
     totals,
     createdAt: archivedAt,
     archivedAt,
@@ -341,6 +356,7 @@ const initialPreferences = loadPreferences()
 const initialCustomCategories = loadCustomCategories()
 const initialCategoryOrder = loadCategoryOrder(initialCustomCategories)
 const initialCategoryOrderMode = loadCategoryOrderMode()
+const initialCategoryTargets = loadCategoryTargets()
 const initialAllCategories = getAllCategories(initialCustomCategories)
 const initialHasMeaningfulLocalData =
   initialPayPeriod !== null ||
@@ -351,6 +367,7 @@ const initialHasMeaningfulLocalData =
   initialCustomCategories.length > 0 ||
   initialSortMode !== 'amount-desc' ||
   initialCategoryOrderMode !== 'total-desc' ||
+  Object.keys(initialCategoryTargets).length > 0 ||
   initialCategoryOrder.length !== initialAllCategories.length ||
   initialCategoryOrder.some((category, index) => category !== initialAllCategories[index]) ||
   initialPreferences.defaultPayCadence !== DEFAULT_PREFERENCES.defaultPayCadence ||
@@ -473,7 +490,56 @@ function calculatePayPeriodTotals(period: BudgetPeriod, bills: Bill[], expenses:
   }
 }
 
-function createPayPeriodSnapshot(period: BudgetPeriod, bills: Bill[], expenses: Expense[]): PayPeriodSnapshot {
+function roundCurrencyAmount(amount: number) {
+  return Math.round(amount * 100) / 100
+}
+
+function getCategoryTargetSpent(expenses: Expense[], category: BudgetCategory) {
+  return roundCurrencyAmount(expenses
+    .filter((expense) => expense.category === category && !expense.setAsideForTemplateId)
+    .reduce((sum, expense) => sum + expense.amount, 0))
+}
+
+function calculateCategoryTargetProgress(categoryTargets: CategoryTargets, expenses: Expense[], categories: BudgetCategory[]) {
+  const categorySet = new Set(categories)
+  for (const category of Object.keys(categoryTargets)) {
+    categorySet.add(category)
+  }
+
+  return [...categorySet]
+    .flatMap<CategoryTargetProgress>((category) => {
+      const target = categoryTargets[category]
+      if (target === undefined) {
+        return []
+      }
+
+      const spent = getCategoryTargetSpent(expenses, category)
+      const remaining = roundCurrencyAmount(target - spent)
+      const percentUsed = target > 0 ? (spent / target) * 100 : spent > 0 ? Number.POSITIVE_INFINITY : 0
+      const status =
+        spent > target
+          ? 'Over target'
+          : target === 0
+            ? 'On track'
+            : percentUsed === 100
+              ? 'At target'
+              : percentUsed >= 75
+                ? 'Getting close'
+                : 'On track'
+
+      return [{
+        category,
+        target,
+        spent,
+        remaining,
+        percentUsed,
+        status,
+        progressValue: target > 0 ? Math.min(100, Math.max(0, percentUsed)) : spent > 0 ? 100 : 0,
+      }]
+    })
+}
+
+function createPayPeriodSnapshot(period: BudgetPeriod, bills: Bill[], expenses: Expense[], categoryTargets: CategoryTargets): PayPeriodSnapshot {
   const archivedAt = new Date().toISOString()
 
   return {
@@ -488,6 +554,7 @@ function createPayPeriodSnapshot(period: BudgetPeriod, bills: Bill[], expenses: 
     rolloverApplied: period.rolloverApplied,
     bills: bills.map((bill) => ({ ...bill })),
     expenses: expenses.map((expense) => ({ ...expense })),
+    categoryTargets: { ...categoryTargets },
     totals: calculatePayPeriodTotals(period, bills, expenses),
     createdAt: archivedAt,
     archivedAt,
@@ -651,6 +718,8 @@ function HistorySection({
     const expenseItems = selectedSnapshot.expenses
     const carriedOverSummary = getSnapshotCarriedOverSummary(billItems)
     const topExpenseCategories = getSnapshotTopExpenseCategories(expenseItems)
+    const snapshotCategories = Array.from(new Set([...billItems.map((bill) => bill.category), ...expenseItems.map((expense) => expense.category), ...Object.keys(selectedSnapshot.categoryTargets)]))
+    const snapshotTargetProgress = calculateCategoryTargetProgress(selectedSnapshot.categoryTargets, expenseItems, snapshotCategories)
     const rolloverAmount = typeof selectedSnapshot.rolloverAmount === 'number' && selectedSnapshot.rolloverAmount > 0 ? selectedSnapshot.rolloverAmount : 0
     const rolloverApplied = typeof selectedSnapshot.rolloverApplied === 'boolean' ? selectedSnapshot.rolloverApplied : null
     const visibleExpenses = showAllExpenses || expenseItems.length <= 5 ? expenseItems : expenseItems.slice(0, 5)
@@ -804,6 +873,17 @@ function HistorySection({
             <p className="mt-2 text-sm leading-6 text-slate-400">No spending categories for this archived pay period.</p>
           )}
         </div>
+
+        {snapshotTargetProgress.length > 0 ? (
+          <div className="leftly-shell p-3 sm:p-4">
+            <p className="text-sm font-semibold text-white">Category target results</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {snapshotTargetProgress.map((progress) => (
+                <TargetProgressCard key={progress.category} progress={progress} formatCurrency={formatCurrency} compact />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -898,6 +978,7 @@ function App() {
   const [categoryOrderMode, setCategoryOrderMode] = useState<CategoryOrderMode>(initialCategoryOrderMode)
   const [customCategories, setCustomCategories] = useState<BudgetCategory[]>(initialCustomCategories)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
+  const [categoryTargets, setCategoryTargets] = useState<CategoryTargets>(initialCategoryTargets)
   const [expandedCategories, setExpandedCategories] = useState<Set<BudgetCategory>>(() => {
     return getExpandedCategoriesFromItems(initialBills, initialExpenses, initialAllCategories)
   })
@@ -924,6 +1005,8 @@ function App() {
   const [renameCategoryDraft, setRenameCategoryDraft] = useState('')
   const [deletingCategory, setDeletingCategory] = useState<BudgetCategory | null>(null)
   const [deleteReplacementCategory, setDeleteReplacementCategory] = useState<BudgetCategory>(FALLBACK_CATEGORY)
+  const [targetEditingCategory, setTargetEditingCategory] = useState<BudgetCategory | null>(null)
+  const [targetDraft, setTargetDraft] = useState('')
   const [isImportingBackup, setIsImportingBackup] = useState(false)
   const [isSetupOpen, setIsSetupOpen] = useState(false)
   const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
@@ -995,6 +1078,10 @@ function App() {
   useEffect(() => {
     saveCategoryOrderMode(categoryOrderMode)
   }, [categoryOrderMode])
+
+  useEffect(() => {
+    saveCategoryTargets(categoryTargets)
+  }, [categoryTargets])
 
   useEffect(() => {
     if (!incomeSuccess) {
@@ -1157,6 +1244,28 @@ function App() {
       .sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
       .slice(0, 3)
   }, [categorySummaries])
+
+  const categoryTargetProgress = useMemo(
+    () => calculateCategoryTargetProgress(categoryTargets, expenses, allCategories),
+    [allCategories, categoryTargets, expenses],
+  )
+
+  const categoryTargetProgressByCategory = useMemo(
+    () => new Map(categoryTargetProgress.map((progress) => [progress.category, progress])),
+    [categoryTargetProgress],
+  )
+
+  const overviewCategoryTargets = useMemo(
+    () =>
+      [...categoryTargetProgress]
+        .sort((left, right) => {
+          const leftPriority = left.status === 'Over target' ? 2 : left.status === 'At target' ? 1 : 0
+          const rightPriority = right.status === 'Over target' ? 2 : right.status === 'At target' ? 1 : 0
+          return rightPriority - leftPriority || right.percentUsed - left.percentUsed || left.remaining - right.remaining || left.category.localeCompare(right.category)
+        })
+        .slice(0, 4),
+    [categoryTargetProgress],
+  )
 
   const recurringTemplateById = useMemo(
     () => new Map(recurringTemplates.map((template) => [template.id, template])),
@@ -1380,11 +1489,12 @@ function App() {
         expenses,
         recurringTemplates,
         payPeriodHistory,
+        categoryTargets,
         categoryOrder: resolvedCategoryOrder,
         customCategories,
         preferences,
       }),
-    [payPeriod, bills, expenses, recurringTemplates, payPeriodHistory, resolvedCategoryOrder, customCategories, preferences],
+    [payPeriod, bills, expenses, recurringTemplates, payPeriodHistory, categoryTargets, resolvedCategoryOrder, customCategories, preferences],
   )
 
   const activeBottomNavTab: MainTabKey =
@@ -1540,6 +1650,7 @@ function App() {
       expenses,
       recurringTemplates,
       payPeriodHistory,
+      categoryTargets,
       categoryOrder: resolvedCategoryOrder,
       customCategories,
       categoryOrderMode,
@@ -1891,6 +2002,16 @@ function App() {
     setPreferences(result.preferences)
     setCustomCategories(nextCustomCategories)
     setCategoryOrder(nextCategoryOrder)
+    setCategoryTargets((current) => {
+      if (current[category] === undefined) {
+        return current
+      }
+
+      const next = { ...current }
+      next[validation.value] = next[category]
+      delete next[category]
+      return next
+    })
     if (result.setupDraft !== null) {
       saveSetupDraft(result.setupDraft)
     }
@@ -1965,6 +2086,15 @@ function App() {
       setPreferences(result.preferences)
       setCustomCategories(nextCustomCategories)
       setCategoryOrder(nextCategoryOrder)
+      setCategoryTargets((current) => {
+        if (current[deletingCategory] === undefined) {
+          return current
+        }
+
+        const next = { ...current }
+        delete next[deletingCategory]
+        return next
+      })
       if (result.setupDraft !== null) {
         saveSetupDraft(result.setupDraft)
       }
@@ -1977,7 +2107,7 @@ function App() {
       setDeletingCategory(null)
       setDeleteReplacementCategory(FALLBACK_CATEGORY)
       setCategoryError('')
-      setCategoryStatus(`Category deleted. Reassigned ${currentReferenceCount} current item(s) and ${historicalReferenceCount} historical item(s).`)
+      setCategoryStatus(`Category deleted. Reassigned ${currentReferenceCount} current item(s) and ${historicalReferenceCount} historical item(s). Removed its target.`)
       return
     }
 
@@ -1989,6 +2119,15 @@ function App() {
     const nextAllCategories = getAllCategories(nextCustomCategories)
     setCustomCategories(nextCustomCategories)
     setCategoryOrder((current) => reconcileCategoryOrder(current.filter((category) => category !== deletingCategory), nextCustomCategories))
+    setCategoryTargets((current) => {
+      if (current[deletingCategory] === undefined) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[deletingCategory]
+      return next
+    })
     syncCategoryInDrafts(deletingCategory, deleteReplacementCategory)
     setExpandedCategories((current) => {
       const next = new Set(current)
@@ -1998,7 +2137,7 @@ function App() {
     setDeletingCategory(null)
     setDeleteReplacementCategory(FALLBACK_CATEGORY)
     setCategoryError('')
-    setCategoryStatus(`Category deleted: ${deletingCategory}.`)
+    setCategoryStatus(`Category deleted: ${deletingCategory}. Removed its target.`)
   }
 
   function reloadLocalStateFromStorage() {
@@ -2010,6 +2149,7 @@ function App() {
     const nextCustomCategories = loadCustomCategories()
     const nextCategoryOrder = loadCategoryOrder(nextCustomCategories)
     const nextCategoryOrderMode = loadCategoryOrderMode()
+    const nextCategoryTargets = loadCategoryTargets()
     const nextSortMode = loadSortMode()
     const nextPreferences = loadPreferences()
 
@@ -2022,6 +2162,7 @@ function App() {
     setCustomCategories(nextCustomCategories)
     setCategoryOrder(nextCategoryOrder)
     setCategoryOrderMode(nextCategoryOrderMode)
+    setCategoryTargets(nextCategoryTargets)
     setSortMode(nextSortMode)
     setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses, getAllCategories(nextCustomCategories)))
     resetDrafts(nextPreferences)
@@ -2038,6 +2179,8 @@ function App() {
     setRenameCategoryDraft('')
     setDeletingCategory(null)
     setDeleteReplacementCategory(FALLBACK_CATEGORY)
+    setTargetEditingCategory(null)
+    setTargetDraft('')
   }
 
   function closeQuickAddExpense() {
@@ -2138,7 +2281,7 @@ function App() {
       return false
     }
 
-    const snapshot = createPayPeriodSnapshot(payPeriod, bills, expenses)
+    const snapshot = createPayPeriodSnapshot(payPeriod, bills, expenses, categoryTargets)
     addPayPeriodSnapshot(snapshot)
     setPayPeriodHistory((current) => [snapshot, ...current])
     return true
@@ -2151,7 +2294,7 @@ function App() {
 
   function handleStartNewPayPeriod(
     period: BudgetPeriod,
-    options: { generateRecurring: boolean; carryoverBills: Bill[] },
+    options: { generateRecurring: boolean; carryoverBills: Bill[]; carryCategoryTargets: boolean },
   ) {
     if (!archiveActivePayPeriod()) {
       return
@@ -2186,6 +2329,7 @@ function App() {
     const carriedOverCount = mergedBills.filter((bill) => bill.carriedOverFromPayPeriodId === sourcePeriodKey).length
 
     setPayPeriod(period)
+    setCategoryTargets(options.carryCategoryTargets ? categoryTargets : {})
     setIsStartNewPayPeriodOpen(false)
     setSelectedHistoryId(null)
     setEditingItem(null)
@@ -2204,6 +2348,7 @@ function App() {
     period: BudgetPeriod
     bills: Bill[]
     expenses: Expense[]
+    categoryTargets: CategoryTargets
     copyManualExpenses: boolean
   }) {
     if (!archiveActivePayPeriod()) {
@@ -2214,6 +2359,7 @@ function App() {
     setPayPeriodDraft(getDraftFromPeriod(result.period))
     setBills(result.bills)
     setExpenses(result.expenses)
+    setCategoryTargets(result.categoryTargets)
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setIsStartNewPayPeriodOpen(false)
@@ -2583,6 +2729,7 @@ function App() {
     setExpenses(nextExpenses)
     setRecurringTemplates(nextRecurringTemplates)
     setPayPeriodHistory(nextHistory)
+    setCategoryTargets({})
     setPreferences({ ...DEFAULT_PREFERENCES })
     setCustomCategories([])
     setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses, [...DEFAULT_CATEGORIES]))
@@ -2660,6 +2807,7 @@ function App() {
     setExpenses([])
     setRecurringTemplates([])
     setPayPeriodHistory([])
+    setCategoryTargets({})
     setCustomCategories([])
     setSortMode('amount-desc')
     setCategoryOrderMode('total-desc')
@@ -2709,6 +2857,55 @@ function App() {
     })
   }
 
+  function startEditingCategoryTarget(category: BudgetCategory) {
+    setTargetEditingCategory(category)
+    setTargetDraft(categoryTargets[category] !== undefined ? categoryTargets[category].toFixed(2) : '')
+    setCategoryError('')
+    setCategoryStatus('')
+  }
+
+  function cancelEditingCategoryTarget() {
+    setTargetEditingCategory(null)
+    setTargetDraft('')
+    setCategoryError('')
+  }
+
+  function saveCategoryTarget(category: BudgetCategory) {
+    const trimmed = targetDraft.trim()
+    if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+      setCategoryError('Target must be a nonnegative currency amount with up to two decimal places.')
+      return
+    }
+
+    const amount = Number(trimmed)
+    if (!Number.isFinite(amount) || amount < 0) {
+      setCategoryError('Target must be a valid nonnegative amount.')
+      return
+    }
+
+    setCategoryTargets((current) => ({ ...current, [category]: Math.round(amount * 100) / 100 }))
+    setTargetEditingCategory(null)
+    setTargetDraft('')
+    setCategoryError('')
+    setCategoryStatus(`Target saved for ${category}.`)
+  }
+
+  function removeCategoryTarget(category: BudgetCategory) {
+    setCategoryTargets((current) => {
+      if (current[category] === undefined) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[category]
+      return next
+    })
+    setTargetEditingCategory(null)
+    setTargetDraft('')
+    setCategoryError('')
+    setCategoryStatus(`Target removed for ${category}.`)
+  }
+
   const hasAnyData =
     payPeriod !== null ||
     bills.length > 0 ||
@@ -2718,6 +2915,7 @@ function App() {
     customCategories.length > 0 ||
     sortMode !== 'amount-desc' ||
     categoryOrderMode !== 'total-desc' ||
+    Object.keys(categoryTargets).length > 0 ||
     resolvedCategoryOrder.length !== allCategories.length ||
     resolvedCategoryOrder.some((category, index) => category !== allCategories[index]) ||
     preferences.defaultPayCadence !== DEFAULT_PREFERENCES.defaultPayCadence ||
@@ -3122,6 +3320,33 @@ function App() {
                     </div>
                   </div>
 
+                  {overviewCategoryTargets.length > 0 ? (
+                    <div className="lg:col-span-2">
+                      <div className="leftly-overview-section">
+                        <OverviewSectionHeader
+                          title="Category targets"
+                          description="Planning targets for active expense categories this pay period."
+                          aside={
+                            <button type="button" onClick={() => setActiveTab('categories')} className="button-secondary w-full sm:w-auto">
+                              View all
+                            </button>
+                          }
+                        />
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {overviewCategoryTargets.map((progress) => (
+                            <TargetProgressCard
+                              key={progress.category}
+                              progress={progress}
+                              formatCurrency={formatCurrency}
+                              compact
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
                   {payPeriod ? (
                     <div className="lg:col-span-2">
                       <PayPeriodCalendar
@@ -3460,6 +3685,7 @@ function App() {
                   currentPayPeriod={payPeriod}
                   currentReview={currentPayPeriodReview}
                   templates={recurringTemplates}
+                  categoryTargetCount={Object.keys(categoryTargets).length}
                   isOpen={isStartNewPayPeriodOpen}
                   defaultPayCadence={preferences.defaultPayCadence}
                   onClose={() => setIsStartNewPayPeriodOpen(false)}
@@ -4139,11 +4365,19 @@ function App() {
                   <CategoryCard
                     key={summary.category}
                     summary={summary}
+                    targetProgress={categoryTargetProgressByCategory.get(summary.category) ?? null}
+                    targetEditing={targetEditingCategory === summary.category}
+                    targetDraft={targetEditingCategory === summary.category ? targetDraft : ''}
                     rank={categoryRank.get(summary.category) ?? 0}
                     expanded={visibleExpandedCategories.has(summary.category)}
                     onToggle={() => toggleCategory(summary.category)}
                     onMoveUp={() => moveCategory(summary.category, -1)}
                     onMoveDown={() => moveCategory(summary.category, 1)}
+                    onStartEditingTarget={() => startEditingCategoryTarget(summary.category)}
+                    onTargetDraftChange={setTargetDraft}
+                    onSaveTarget={() => saveCategoryTarget(summary.category)}
+                    onRemoveTarget={() => removeCategoryTarget(summary.category)}
+                    onCancelTargetEdit={cancelEditingCategoryTarget}
                     onDeleteBill={deleteBill}
                     onDeleteExpense={deleteExpense}
                     onToggleBillPaid={toggleBillPaid}
@@ -4488,13 +4722,94 @@ function sortItems(items: BudgetItem[], sortMode: SortMode) {
   })
 }
 
+function TargetProgressCard({
+  progress,
+  formatCurrency,
+  compact = false,
+}: {
+  progress: CategoryTargetProgress
+  formatCurrency: (value: number) => string
+  compact?: boolean
+}) {
+  const overAmount = Math.max(0, -progress.remaining)
+  const percentLabel = Number.isFinite(progress.percentUsed) ? `${progress.percentUsed.toFixed(0)}% used` : 'Over target'
+  const toneClass =
+    progress.status === 'Over target'
+      ? 'border-rose-500/25 bg-rose-500/10'
+      : progress.status === 'At target'
+        ? 'border-emerald-400/25 bg-emerald-400/10'
+        : progress.status === 'Getting close'
+          ? 'border-amber-400/25 bg-amber-400/10'
+          : 'border-slate-800/70 bg-slate-950/60'
+
+  return (
+    <div className={`rounded-2xl border p-3 ${toneClass}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-white">{progress.category}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            {progress.status} · {percentLabel}
+          </p>
+        </div>
+        <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(progress.spent)}</p>
+      </div>
+
+      <div
+        className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800/80"
+        role="progressbar"
+        aria-label={`${progress.category} target progress: ${progress.status}`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress.progressValue)}
+      >
+        <div
+          className={`h-full rounded-full ${
+            progress.status === 'Over target'
+              ? 'bg-rose-400'
+              : progress.status === 'Getting close'
+                ? 'bg-amber-300'
+                : 'bg-gradient-to-r from-cyan-400 to-emerald-400'
+          }`}
+          style={{ width: `${progress.progressValue}%` }}
+        />
+      </div>
+
+      <div className={`mt-3 grid gap-2 ${compact ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'}`}>
+        <MiniTargetStat label="Target" value={formatCurrency(progress.target)} />
+        <MiniTargetStat label="Spent" value={formatCurrency(progress.spent)} />
+        <MiniTargetStat
+          label={progress.remaining < 0 ? 'Over' : 'Remaining'}
+          value={progress.remaining < 0 ? formatCurrency(overAmount) : formatCurrency(progress.remaining)}
+        />
+      </div>
+    </div>
+  )
+}
+
+function MiniTargetStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-xs font-semibold text-white">{value}</p>
+    </div>
+  )
+}
+
 function CategoryCard({
   summary,
+  targetProgress,
+  targetEditing,
+  targetDraft,
   rank,
   expanded,
   onToggle,
   onMoveUp,
   onMoveDown,
+  onStartEditingTarget,
+  onTargetDraftChange,
+  onSaveTarget,
+  onRemoveTarget,
+  onCancelTargetEdit,
   onDeleteBill,
   onDeleteExpense,
   onToggleBillPaid,
@@ -4505,11 +4820,19 @@ function CategoryCard({
   canMoveDown,
 }: {
   summary: CategorySummary
+  targetProgress: CategoryTargetProgress | null
+  targetEditing: boolean
+  targetDraft: string
   rank: number
   expanded: boolean
   onToggle: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  onStartEditingTarget: () => void
+  onTargetDraftChange: (value: string) => void
+  onSaveTarget: () => void
+  onRemoveTarget: () => void
+  onCancelTargetEdit: () => void
   onDeleteBill: (id: string) => void
   onDeleteExpense: (id: string) => void
   onToggleBillPaid: (id: string) => void
@@ -4555,7 +4878,34 @@ function CategoryCard({
           <Badge muted>{summary.billCount} bill{summary.billCount === 1 ? '' : 's'}</Badge>
           <Badge muted>{summary.expenseCount} expense{summary.expenseCount === 1 ? '' : 's'}</Badge>
           {summary.manualExpenseCount > 0 ? <Badge muted>{summary.manualExpenseCount} manual</Badge> : null}
+          {targetProgress ? <Badge muted>{targetProgress.status}</Badge> : null}
         </div>
+
+        {targetProgress ? (
+          <TargetProgressCard progress={targetProgress} formatCurrency={formatCurrency} />
+        ) : null}
+
+        {targetEditing ? (
+          <div className="leftly-shell-faint grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+            <Field label="Category target">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={targetDraft}
+                onChange={(event) => onTargetDraftChange(event.target.value)}
+                placeholder="250.00"
+              />
+            </Field>
+            <button type="button" onClick={onSaveTarget} className="button-primary w-full self-end sm:w-auto">
+              Save
+            </button>
+            <button type="button" onClick={onCancelTargetEdit} className="button-secondary w-full self-end sm:w-auto">
+              Cancel
+            </button>
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -4580,6 +4930,17 @@ function CategoryCard({
             <p className="text-lg font-semibold text-white">{formatCurrency(summary.total)}</p>
             <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Current total</p>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button type="button" onClick={onStartEditingTarget} className="button-secondary w-full sm:w-auto">
+            {targetProgress ? 'Edit target' : 'Set target'}
+          </button>
+          {targetProgress ? (
+            <button type="button" onClick={onRemoveTarget} className="button-secondary w-full sm:w-auto">
+              Remove target
+            </button>
+          ) : null}
         </div>
       </div>
 

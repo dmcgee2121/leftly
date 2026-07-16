@@ -27,6 +27,7 @@ type StartNewPeriodDraft = {
   startDate: string
   endDate: string
   generateRecurring: boolean
+  carryCategoryTargets: boolean
 }
 
 type CurrentPayPeriodReview = {
@@ -64,6 +65,7 @@ export function StartNewPayPeriodPanel({
   currentPayPeriod,
   currentReview,
   templates,
+  categoryTargetCount,
   isOpen,
   defaultPayCadence,
   onClose,
@@ -72,10 +74,11 @@ export function StartNewPayPeriodPanel({
   currentPayPeriod: BudgetPeriod | null
   currentReview: CurrentPayPeriodReview | null
   templates: RecurringItemTemplate[]
+  categoryTargetCount: number
   isOpen: boolean
   defaultPayCadence: PayCadence
   onClose: () => void
-  onSubmit: (period: BudgetPeriod, options: { generateRecurring: boolean; carryoverBills: Bill[] }) => void
+  onSubmit: (period: BudgetPeriod, options: { generateRecurring: boolean; carryoverBills: Bill[]; carryCategoryTargets: boolean }) => void
 }) {
   const [draft, setDraft] = useState<StartNewPeriodDraft>(() => ({
     income: currentPayPeriod ? String(currentPayPeriod.income) : '',
@@ -83,6 +86,7 @@ export function StartNewPayPeriodPanel({
     startDate: currentPayPeriod?.startDate ?? '',
     endDate: currentPayPeriod?.endDate ?? '',
     generateRecurring: templates.length > 0,
+    carryCategoryTargets: true,
   }))
   const [mode, setMode] = useState<PanelMode>('edit')
   const [error, setError] = useState('')
@@ -218,6 +222,7 @@ export function StartNewPayPeriodPanel({
       {
         generateRecurring: draft.generateRecurring,
         carryoverBills: selectedCarryoverBills,
+        carryCategoryTargets: draft.carryCategoryTargets,
       },
     )
   }
@@ -529,6 +534,23 @@ export function StartNewPayPeriodPanel({
             </span>
           </label>
 
+          <label className="leftly-selection-card">
+            <input
+              type="checkbox"
+              checked={draft.carryCategoryTargets}
+              onChange={(event) => setDraft({ ...draft, carryCategoryTargets: event.target.checked })}
+              className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
+            />
+            <span>
+              <span className="block font-semibold">Carry category targets into the new pay period</span>
+              <span className="mt-1 block text-sm leading-6 text-slate-400">
+                {categoryTargetCount > 0
+                  ? `${categoryTargetCount} target${categoryTargetCount === 1 ? '' : 's'} will copy as planning amounts. Spending progress starts over with the new period.`
+                  : 'No category targets are set yet.'}
+              </span>
+            </span>
+          </label>
+
           {error ? (
             <p className="leftly-banner-danger" role="alert">
               {error}
@@ -564,6 +586,7 @@ export function StartNewPayPeriodPanel({
               <SummaryCard label="Rollover" value={formatCurrency(rolloverAmount)} detail={rolloverAmount > 0 ? 'Added to next income' : 'Not applied'} />
               <SummaryCard label="Next income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Base income + rollover' : 'Base income only'} />
               <SummaryCard label="Bills carried over" value={`${selectedCarryoverBills.length}`} detail={selectedCarryoverBills.length > 0 ? formatCurrency(selectedCarryoverAmount) : 'None selected'} />
+              <SummaryCard label="Category targets" value={draft.carryCategoryTargets ? `${categoryTargetCount}` : '0'} detail={draft.carryCategoryTargets ? 'Copied as targets only' : 'Not copied'} />
               <SummaryCard label="Estimated bills" value={formatCurrency(recurringBillsAmount + selectedCarryoverUniqueAmount)} detail="Bill Plan + carried unpaid bills" />
               <SummaryCard label="Estimated expenses" value={formatCurrency(setAsidesAmount + plannedExpensesAmount)} detail="Bill Plan expenses" />
             </div>
@@ -575,6 +598,7 @@ export function StartNewPayPeriodPanel({
               <li>Leftly saves the current pay period to History before opening the new one.</li>
               <li>{rolloverAmount > 0 ? `${formatCurrency(rolloverAmount)} is added to the new pay period income.` : 'No rollover is applied to the new pay period income.'}</li>
               <li>{carryoverModeSummary}</li>
+              <li>{draft.carryCategoryTargets ? 'Category target amounts copy forward; progress starts with new-period expenses.' : 'Category targets will be cleared for the new pay period.'}</li>
               <li>You can go Back to edit or Cancel to leave without changing data.</li>
             </ul>
           </div>

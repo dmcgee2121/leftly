@@ -140,6 +140,8 @@ type CategorySummary = {
   manualExpenseCount: number
 }
 
+type CurrentPeriodItemFilter = 'all' | 'bills' | 'expenses' | 'set-asides' | 'unpaid-bills' | 'paid-bills'
+
 type DueSoonBillRow = {
   bill: Bill
   status: 'Overdue' | 'Due today' | 'Due in next 7 days'
@@ -276,6 +278,15 @@ const sortOptions: Array<{ value: SortMode; label: string }> = [
   { value: 'amount-asc', label: 'Low to high amount' },
   { value: 'date', label: 'Due date / date' },
   { value: 'name', label: 'Name A-Z' },
+]
+
+const currentPeriodItemFilterOptions: Array<{ value: CurrentPeriodItemFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'bills', label: 'Bills' },
+  { value: 'expenses', label: 'Expenses' },
+  { value: 'set-asides', label: 'Set-asides' },
+  { value: 'unpaid-bills', label: 'Unpaid bills' },
+  { value: 'paid-bills', label: 'Paid bills' },
 ]
 
 const categoryOrderOptions: Array<{ value: CategoryOrderMode; label: string }> = [
@@ -1011,6 +1022,8 @@ function App() {
   const [deleteReplacementCategory, setDeleteReplacementCategory] = useState<BudgetCategory>(FALLBACK_CATEGORY)
   const [targetEditingCategory, setTargetEditingCategory] = useState<BudgetCategory | null>(null)
   const [targetDraft, setTargetDraft] = useState('')
+  const [currentPeriodSearch, setCurrentPeriodSearch] = useState('')
+  const [currentPeriodFilter, setCurrentPeriodFilter] = useState<CurrentPeriodItemFilter>('all')
   const [isImportingBackup, setIsImportingBackup] = useState(false)
   const [isSetupOpen, setIsSetupOpen] = useState(false)
   const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
@@ -1242,6 +1255,38 @@ function App() {
 
     return [...summaries].sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
   }, [allCategories, bills, categoryOrderMode, expenses, resolvedCategoryOrder, sortMode])
+
+  const normalizedCurrentPeriodSearch = currentPeriodSearch.trim().toLocaleLowerCase()
+  const visibleCategorySummaries = useMemo<CategorySummary[]>(() => {
+    return categorySummaries
+      .map((summary) => {
+        const items = summary.items.filter((item) => {
+          if (!matchesCurrentPeriodFilter(item, currentPeriodFilter)) {
+            return false
+          }
+
+          if (!normalizedCurrentPeriodSearch) {
+            return true
+          }
+
+          return `${item.name} ${item.category}`.toLocaleLowerCase().includes(normalizedCurrentPeriodSearch)
+        })
+
+        if (items.length === 0) {
+          return null
+        }
+
+        return {
+          ...summary,
+          items,
+          total: items.reduce((sum, item) => sum + item.amount, 0),
+          billCount: items.filter((item) => item.kind === 'bill').length,
+          expenseCount: items.filter((item) => item.kind === 'expense').length,
+          manualExpenseCount: items.filter((item) => item.kind === 'expense' && item.source !== 'recurring').length,
+        }
+      })
+      .filter((summary): summary is CategorySummary => summary !== null)
+  }, [categorySummaries, currentPeriodFilter, normalizedCurrentPeriodSearch])
 
   const topCategories = useMemo(() => {
     return [...categorySummaries]
@@ -1480,11 +1525,11 @@ function App() {
 
   const categoryRank = useMemo(() => {
     return new Map(
-      [...categorySummaries]
+      [...visibleCategorySummaries]
         .sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
         .map((summary, index) => [summary.category, index + 1]),
     )
-  }, [categorySummaries])
+  }, [visibleCategorySummaries])
   const backupSummary = useMemo(
     () =>
       getLeftlyBackupSummary({
@@ -2197,6 +2242,7 @@ function App() {
     setDeleteReplacementCategory(FALLBACK_CATEGORY)
     setTargetEditingCategory(null)
     setTargetDraft('')
+    clearCurrentPeriodSearchAndFilter()
   }
 
   function closeQuickAddExpense() {
@@ -2764,6 +2810,7 @@ function App() {
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setEditingItem(null)
+    clearCurrentPeriodSearchAndFilter()
     setDataMessage('Demo data loaded.')
     setDataError('')
     setIsSetupOpen(false)
@@ -2835,6 +2882,7 @@ function App() {
     setHistoryStartSnapshot(null)
     setSelectedHistoryId(null)
     setEditingItem(null)
+    clearCurrentPeriodSearchAndFilter()
     setDataMessage('')
     setDataError('')
     setSetupSuccess('')
@@ -2920,6 +2968,11 @@ function App() {
     setTargetDraft('')
     setCategoryError('')
     setCategoryStatus(`Target removed for ${category}.`)
+  }
+
+  function clearCurrentPeriodSearchAndFilter() {
+    setCurrentPeriodSearch('')
+    setCurrentPeriodFilter('all')
   }
 
   const hasAnyData =
@@ -4378,34 +4431,75 @@ function App() {
 
               {billStatus ? <SuccessMessage>{billStatus}</SuccessMessage> : null}
 
+              {bills.length > 0 || expenses.length > 0 ? (
+                <div className="mb-4 grid gap-3 rounded-[1.2rem] border border-slate-800/80 bg-slate-950/55 p-3 sm:p-4">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                    <Field label="Search current-period items">
+                      <input
+                        type="search"
+                        value={currentPeriodSearch}
+                        onChange={(event) => setCurrentPeriodSearch(event.target.value)}
+                        placeholder="Search by item or category"
+                      />
+                    </Field>
+                    <button
+                      type="button"
+                      onClick={clearCurrentPeriodSearchAndFilter}
+                      className="button-secondary w-full lg:w-auto"
+                    >
+                      Clear search and filters
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {currentPeriodItemFilterOptions.map((option) => (
+                      <TabButton
+                        key={option.value}
+                        label={option.label}
+                        active={currentPeriodFilter === option.value}
+                        onClick={() => setCurrentPeriodFilter(option.value)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="grid gap-3">
-                {categorySummaries.map((summary) => (
-                  <CategoryCard
-                    key={summary.category}
-                    summary={summary}
-                    targetProgress={categoryTargetProgressByCategory.get(summary.category) ?? null}
-                    targetEditing={targetEditingCategory === summary.category}
-                    targetDraft={targetEditingCategory === summary.category ? targetDraft : ''}
-                    rank={categoryRank.get(summary.category) ?? 0}
-                    expanded={visibleExpandedCategories.has(summary.category)}
-                    onToggle={() => toggleCategory(summary.category)}
-                    onMoveUp={() => moveCategory(summary.category, -1)}
-                    onMoveDown={() => moveCategory(summary.category, 1)}
-                    onStartEditingTarget={() => startEditingCategoryTarget(summary.category)}
-                    onTargetDraftChange={setTargetDraft}
-                    onSaveTarget={() => saveCategoryTarget(summary.category)}
-                    onRemoveTarget={() => removeCategoryTarget(summary.category)}
-                    onCancelTargetEdit={cancelEditingCategoryTarget}
-                    onDeleteBill={deleteBill}
-                    onDeleteExpense={deleteExpense}
-                    onToggleBillPaid={toggleBillPaid}
-                    onEditBill={startEditBill}
-                    onEditExpense={startEditExpense}
-                    formatCurrency={formatCurrency}
-                    canMoveUp={resolvedCategoryOrder.indexOf(summary.category) > 0}
-                    canMoveDown={resolvedCategoryOrder.indexOf(summary.category) < resolvedCategoryOrder.length - 1}
+                {visibleCategorySummaries.length > 0 ? (
+                  visibleCategorySummaries.map((summary) => (
+                    <CategoryCard
+                      key={summary.category}
+                      summary={summary}
+                      targetProgress={categoryTargetProgressByCategory.get(summary.category) ?? null}
+                      targetEditing={targetEditingCategory === summary.category}
+                      targetDraft={targetEditingCategory === summary.category ? targetDraft : ''}
+                      rank={categoryRank.get(summary.category) ?? 0}
+                      expanded={visibleExpandedCategories.has(summary.category)}
+                      onToggle={() => toggleCategory(summary.category)}
+                      onMoveUp={() => moveCategory(summary.category, -1)}
+                      onMoveDown={() => moveCategory(summary.category, 1)}
+                      onStartEditingTarget={() => startEditingCategoryTarget(summary.category)}
+                      onTargetDraftChange={setTargetDraft}
+                      onSaveTarget={() => saveCategoryTarget(summary.category)}
+                      onRemoveTarget={() => removeCategoryTarget(summary.category)}
+                      onCancelTargetEdit={cancelEditingCategoryTarget}
+                      onDeleteBill={deleteBill}
+                      onDeleteExpense={deleteExpense}
+                      onToggleBillPaid={toggleBillPaid}
+                      onEditBill={startEditBill}
+                      onEditExpense={startEditExpense}
+                      formatCurrency={formatCurrency}
+                      canMoveUp={resolvedCategoryOrder.indexOf(summary.category) > 0}
+                      canMoveDown={resolvedCategoryOrder.indexOf(summary.category) < resolvedCategoryOrder.length - 1}
+                    />
+                  ))
+                ) : bills.length > 0 || expenses.length > 0 ? (
+                  <EmptyState
+                    title="No matching items"
+                    text="Try a different search or filter, or clear both to show the full current pay period again."
+                    compact
                   />
-                ))}
+                ) : null}
               </div>
             </SectionShell>
           ) : null}
@@ -4738,6 +4832,30 @@ function sortItems(items: BudgetItem[], sortMode: SortMode) {
 
     return a.name.localeCompare(b.name)
   })
+}
+
+function matchesCurrentPeriodFilter(item: BudgetItem, filter: CurrentPeriodItemFilter) {
+  if (filter === 'all') {
+    return true
+  }
+
+  if (filter === 'bills') {
+    return item.kind === 'bill'
+  }
+
+  if (filter === 'expenses') {
+    return item.kind === 'expense' && !item.setAsideForTemplateId
+  }
+
+  if (filter === 'set-asides') {
+    return item.kind === 'expense' && Boolean(item.setAsideForTemplateId)
+  }
+
+  if (filter === 'unpaid-bills') {
+    return item.kind === 'bill' && !item.isPaid
+  }
+
+  return item.kind === 'bill' && Boolean(item.isPaid)
 }
 
 function TargetProgressCard({

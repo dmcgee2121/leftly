@@ -358,7 +358,6 @@
 
   .leftly-overlay-shell-drawer {
     @apply md:ml-auto md:h-[calc(100dvh-2rem)] md:max-h-none md:max-w-[29rem] md:rounded-[1.85rem];
-    animation-name: leftly-overlay-drawer-in;
   }
 
   .leftly-overlay-shell-dialog {
@@ -485,32 +484,39 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .leftly-overlay-backdrop,
-    .leftly-overlay-shell,
-    .leftly-screen-stage-a,
-    .leftly-screen-stage-b {
-      animation-duration: 1ms !important;
-      animation-iteration-count: 1 !important;
-    }
+}
 
-    .leftly-input-shell:is(input, select, textarea),
-    .leftly-input-shell input,
-    .leftly-input-shell select,
-    .leftly-input-shell textarea,
-    .leftly-mobile-nav-button,
-    .leftly-btn-primary,
-    .leftly-btn-secondary,
-    .leftly-btn-danger,
-    .leftly-chip-button,
-    .leftly-quick-action,
-    .leftly-more-menu-card,
-    .leftly-overview-action-card,
-    .button-primary,
-    .button-secondary,
-    .button-danger {
-      transition-duration: 1ms !important;
-    }
+@media (prefers-reduced-motion: reduce) {
+  .leftly-overlay-backdrop,
+  .leftly-overlay-shell,
+  .leftly-screen-stage-a,
+  .leftly-screen-stage-b {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .leftly-input-shell:is(input, select, textarea),
+  .leftly-input-shell input,
+  .leftly-input-shell select,
+  .leftly-input-shell textarea,
+  .leftly-mobile-nav-button,
+  .leftly-btn-primary,
+  .leftly-btn-secondary,
+  .leftly-btn-danger,
+  .leftly-chip-button,
+  .leftly-quick-action,
+  .leftly-more-menu-card,
+  .leftly-overview-action-card,
+  .button-primary,
+  .button-secondary,
+  .button-danger {
+    transition-duration: 1ms !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .leftly-overlay-shell-drawer {
+    animation: leftly-overlay-drawer-in 220ms ease-out;
   }
 }
 

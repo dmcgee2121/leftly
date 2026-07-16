@@ -119,16 +119,12 @@ export function AppOverlay({
 
   return (
     <div className="fixed inset-0 z-[70]" aria-hidden={false}>
-      <button
-        type="button"
-        aria-label={closeLabel}
-        className="leftly-overlay-backdrop"
-        onClick={onClose}
-      />
+      <div className="leftly-overlay-backdrop" aria-hidden="true" />
       <div
         className={`fixed inset-0 flex items-end justify-center p-3 sm:p-4 ${
           desktopPresentation === 'dialog' ? 'md:items-center md:justify-center' : 'md:items-stretch md:justify-end'
         }`}
+        onClick={onClose}
       >
         <section
           id={id}
@@ -139,7 +135,7 @@ export function AppOverlay({
           aria-describedby={description ? descriptionId : undefined}
           tabIndex={-1}
           className={`leftly-overlay-shell ${
-            desktopPresentation === 'dialog' ? 'md:leftly-overlay-shell-dialog' : 'md:leftly-overlay-shell-drawer'
+            desktopPresentation === 'dialog' ? 'leftly-overlay-shell-dialog' : 'leftly-overlay-shell-drawer'
           }`}
           onClick={(event) => event.stopPropagation()}
         >
@@ -154,7 +150,7 @@ export function AppOverlay({
                 </p>
               ) : null}
             </div>
-            <button type="button" onClick={onClose} className="button-secondary w-full shrink-0 sm:w-auto">
+            <button type="button" onClick={onClose} aria-label={closeLabel} className="button-secondary w-full shrink-0 sm:w-auto">
               Close
             </button>
           </div>

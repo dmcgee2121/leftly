@@ -1,0 +1,1 @@
+Leftly release checkpoint for category spending targets, target hardening, and current-period transaction filters.

@@ -357,6 +357,7 @@ export function saveLeftlyBackup(backup: LeftlyBackup) {
     expenses: backup.expenses,
     recurringTemplates: backup.recurringTemplates,
     payPeriodHistory: backup.payPeriodHistory,
+    categoryTargets: normalizeCategoryTargets(backup.categoryTargets),
     preferences: backup.preferences ?? DEFAULT_PREFERENCES,
     setupDraft: null,
   })
@@ -555,6 +556,7 @@ export function loadCustomCategories() {
     expenses,
     recurringTemplates,
     payPeriodHistory,
+    categoryTargets: loadCategoryTargets(),
     preferences,
     setupDraft,
   })

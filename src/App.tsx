@@ -44,9 +44,13 @@ import {
   getAllCategories,
   getCategoryReferenceCounts,
   isBuiltInCategory,
+  removeCategoryTargetKey,
   reconcileCategoryOrder,
   removeCategoryFromCustomList,
   replaceCategoryAcrossData,
+  removeTargetKeyAcrossHistorySnapshots,
+  renameCategoryTargetKey,
+  updateTargetKeysAcrossHistorySnapshots,
   validateCategoryName,
 } from './lib/categories'
 import {
@@ -1518,12 +1522,35 @@ function App() {
         expenses,
         recurringTemplates,
         payPeriodHistory,
+        categoryTargets,
         preferences,
         setupDraft: payPeriod ? null : loadRawSetupDraft(payPeriod),
       },
       deletingCategory,
     )
-  }, [bills, deletingCategory, expenses, payPeriod, payPeriodHistory, preferences, recurringTemplates])
+  }, [bills, categoryTargets, deletingCategory, expenses, payPeriod, payPeriodHistory, preferences, recurringTemplates])
+
+  const deleteCategorySummary = useMemo(() => {
+    if (!deleteCategoryCounts) {
+      return null
+    }
+
+    const currentReferenceCount =
+      deleteCategoryCounts.activeBills +
+      deleteCategoryCounts.activeExpenses +
+      deleteCategoryCounts.recurringTemplates +
+      deleteCategoryCounts.preferences +
+      deleteCategoryCounts.setupDraft
+    const historicalReferenceCount = deleteCategoryCounts.historyBills + deleteCategoryCounts.historyExpenses
+
+    return {
+      currentReferenceCount,
+      historicalReferenceCount,
+      activeTargetCount: deleteCategoryCounts.activeTargets,
+      historicalTargetSnapshotCount: deleteCategoryCounts.historyTargetSnapshots,
+      requiresReplacement: currentReferenceCount + historicalReferenceCount > 0,
+    }
+  }, [deleteCategoryCounts])
 
   const activeScreenLabel = tabScreenLabels[activeTab] ?? 'Leftly'
 
@@ -1983,6 +2010,7 @@ function App() {
         expenses,
         recurringTemplates,
         payPeriodHistory,
+        categoryTargets,
         preferences,
         categoryOrder: resolvedCategoryOrder,
         customCategories,
@@ -1994,24 +2022,17 @@ function App() {
 
     const nextCustomCategories = result.customCategories.filter((value) => !isBuiltInCategory(value))
     const nextCategoryOrder = reconcileCategoryOrder(result.categoryOrder, nextCustomCategories)
+    const nextPayPeriodHistory = updateTargetKeysAcrossHistorySnapshots(result.payPeriodHistory, category, validation.value)
+    const nextCategoryTargets = renameCategoryTargetKey(categoryTargets, category, validation.value)
 
     setBills(result.bills)
     setExpenses(result.expenses)
     setRecurringTemplates(result.recurringTemplates)
-    setPayPeriodHistory(result.payPeriodHistory)
+    setPayPeriodHistory(nextPayPeriodHistory)
     setPreferences(result.preferences)
     setCustomCategories(nextCustomCategories)
     setCategoryOrder(nextCategoryOrder)
-    setCategoryTargets((current) => {
-      if (current[category] === undefined) {
-        return current
-      }
-
-      const next = { ...current }
-      next[validation.value] = next[category]
-      delete next[category]
-      return next
-    })
+    setCategoryTargets(nextCategoryTargets)
     if (result.setupDraft !== null) {
       saveSetupDraft(result.setupDraft)
     }
@@ -2041,15 +2062,12 @@ function App() {
       return
     }
 
-    const counts = deleteCategoryCounts
-    const currentReferenceCount =
-      (counts?.activeBills ?? 0) +
-      (counts?.activeExpenses ?? 0) +
-      (counts?.recurringTemplates ?? 0) +
-      (counts?.preferences ?? 0) +
-      (counts?.setupDraft ?? 0)
-    const historicalReferenceCount = (counts?.historyBills ?? 0) + (counts?.historyExpenses ?? 0)
-    const requiresReplacement = currentReferenceCount + historicalReferenceCount > 0
+    const summary = deleteCategorySummary
+    const currentReferenceCount = summary?.currentReferenceCount ?? 0
+    const historicalReferenceCount = summary?.historicalReferenceCount ?? 0
+    const activeTargetCount = summary?.activeTargetCount ?? 0
+    const historicalTargetSnapshotCount = summary?.historicalTargetSnapshotCount ?? 0
+    const requiresReplacement = summary?.requiresReplacement ?? false
 
     if (requiresReplacement) {
       if (!deleteReplacementCategory || deleteReplacementCategory === deletingCategory) {
@@ -2064,6 +2082,7 @@ function App() {
           expenses,
           recurringTemplates,
           payPeriodHistory,
+          categoryTargets,
           preferences,
           categoryOrder: resolvedCategoryOrder,
           customCategories,
@@ -2078,23 +2097,17 @@ function App() {
         result.categoryOrder.filter((category) => category !== deletingCategory),
         nextCustomCategories,
       )
+      const nextPayPeriodHistory = removeTargetKeyAcrossHistorySnapshots(result.payPeriodHistory, deletingCategory)
+      const nextCategoryTargets = removeCategoryTargetKey(categoryTargets, deletingCategory)
 
       setBills(result.bills)
       setExpenses(result.expenses)
       setRecurringTemplates(result.recurringTemplates)
-      setPayPeriodHistory(result.payPeriodHistory)
+      setPayPeriodHistory(nextPayPeriodHistory)
       setPreferences(result.preferences)
       setCustomCategories(nextCustomCategories)
       setCategoryOrder(nextCategoryOrder)
-      setCategoryTargets((current) => {
-        if (current[deletingCategory] === undefined) {
-          return current
-        }
-
-        const next = { ...current }
-        delete next[deletingCategory]
-        return next
-      })
+      setCategoryTargets(nextCategoryTargets)
       if (result.setupDraft !== null) {
         saveSetupDraft(result.setupDraft)
       }
@@ -2107,27 +2120,28 @@ function App() {
       setDeletingCategory(null)
       setDeleteReplacementCategory(FALLBACK_CATEGORY)
       setCategoryError('')
-      setCategoryStatus(`Category deleted. Reassigned ${currentReferenceCount} current item(s) and ${historicalReferenceCount} historical item(s). Removed its target.`)
+      setCategoryStatus(
+        `Category deleted. Reassigned ${currentReferenceCount} current item(s) and ${historicalReferenceCount} historical item(s). Removed ${activeTargetCount} active target and ${historicalTargetSnapshotCount} historical target record${historicalTargetSnapshotCount === 1 ? '' : 's'}.`,
+      )
       return
     }
 
-    if (!window.confirm(`Delete custom category "${deletingCategory}"? This cannot be undone.`)) {
+    if (
+      !window.confirm(
+        `Delete custom category "${deletingCategory}"? This cannot be undone.\n\nActive targets removed: ${activeTargetCount}\nHistorical target records removed: ${historicalTargetSnapshotCount}\n\nTargets are removed, not transferred to another category.`,
+      )
+    ) {
       return
     }
 
     const nextCustomCategories = removeCategoryFromCustomList(customCategories, deletingCategory)
     const nextAllCategories = getAllCategories(nextCustomCategories)
+    const nextPayPeriodHistory = removeTargetKeyAcrossHistorySnapshots(payPeriodHistory, deletingCategory)
+    const nextCategoryTargets = removeCategoryTargetKey(categoryTargets, deletingCategory)
     setCustomCategories(nextCustomCategories)
     setCategoryOrder((current) => reconcileCategoryOrder(current.filter((category) => category !== deletingCategory), nextCustomCategories))
-    setCategoryTargets((current) => {
-      if (current[deletingCategory] === undefined) {
-        return current
-      }
-
-      const next = { ...current }
-      delete next[deletingCategory]
-      return next
-    })
+    setPayPeriodHistory(nextPayPeriodHistory)
+    setCategoryTargets(nextCategoryTargets)
     syncCategoryInDrafts(deletingCategory, deleteReplacementCategory)
     setExpandedCategories((current) => {
       const next = new Set(current)
@@ -2137,7 +2151,9 @@ function App() {
     setDeletingCategory(null)
     setDeleteReplacementCategory(FALLBACK_CATEGORY)
     setCategoryError('')
-    setCategoryStatus(`Category deleted: ${deletingCategory}. Removed its target.`)
+    setCategoryStatus(
+      `Category deleted: ${deletingCategory}. Removed ${activeTargetCount} active target and ${historicalTargetSnapshotCount} historical target record${historicalTargetSnapshotCount === 1 ? '' : 's'}.`,
+    )
   }
 
   function reloadLocalStateFromStorage() {
@@ -4270,46 +4286,43 @@ function App() {
                     <p className="text-sm font-semibold text-white">Delete custom category</p>
                     <p className="text-sm leading-6 text-slate-300">
                       Delete <span className="font-semibold">{deletingCategory}</span>
-                      {deleteCategoryCounts &&
-                      deleteCategoryCounts.activeBills +
-                        deleteCategoryCounts.activeExpenses +
-                        deleteCategoryCounts.recurringTemplates +
-                        deleteCategoryCounts.preferences +
-                        deleteCategoryCounts.setupDraft +
-                        deleteCategoryCounts.historyBills +
-                        deleteCategoryCounts.historyExpenses >
-                        0
+                      {deleteCategorySummary?.requiresReplacement
                         ? ' and reassign everything it touches before removal.'
-                        : ' directly because nothing currently references it.'}
+                        : ' directly because no bills, expenses, templates, preferences, setup data, or historical transactions reference it.'}
                     </p>
+                    {deleteCategorySummary ? (
+                      <p className="text-xs leading-5 text-amber-100/90">
+                        {deleteCategorySummary.activeTargetCount > 0 ? 'Its active target will be removed.' : 'It has no active target.'}{' '}
+                        {deleteCategorySummary.historicalTargetSnapshotCount > 0
+                          ? `${deleteCategorySummary.historicalTargetSnapshotCount} history snapshot${deleteCategorySummary.historicalTargetSnapshotCount === 1 ? '' : 's'} will lose this target record.`
+                          : 'No history snapshots contain this target.'}{' '}
+                        Targets are removed, not transferred.
+                      </p>
+                    ) : null}
                   </div>
 
-                  {deleteCategoryCounts &&
-                  deleteCategoryCounts.activeBills +
-                    deleteCategoryCounts.activeExpenses +
-                    deleteCategoryCounts.recurringTemplates +
-                    deleteCategoryCounts.preferences +
-                    deleteCategoryCounts.setupDraft +
-                    deleteCategoryCounts.historyBills +
-                    deleteCategoryCounts.historyExpenses >
-                    0 ? (
+                  {deleteCategorySummary?.requiresReplacement && deleteCategoryCounts ? (
                     <>
                       <div className="grid gap-2 sm:grid-cols-2">
                         <div className="leftly-data-stat">
                           <p className="leftly-data-stat-label">Current references</p>
                           <p className="leftly-data-stat-value">
-                            {deleteCategoryCounts.activeBills +
-                              deleteCategoryCounts.activeExpenses +
-                              deleteCategoryCounts.recurringTemplates +
-                              deleteCategoryCounts.preferences +
-                              deleteCategoryCounts.setupDraft}
+                            {deleteCategorySummary.currentReferenceCount}
                           </p>
                         </div>
                         <div className="leftly-data-stat">
                           <p className="leftly-data-stat-label">Historical references</p>
                           <p className="leftly-data-stat-value">
-                            {deleteCategoryCounts.historyBills + deleteCategoryCounts.historyExpenses}
+                            {deleteCategorySummary.historicalReferenceCount}
                           </p>
+                        </div>
+                        <div className="leftly-data-stat">
+                          <p className="leftly-data-stat-label">Active targets removed</p>
+                          <p className="leftly-data-stat-value">{deleteCategorySummary.activeTargetCount}</p>
+                        </div>
+                        <div className="leftly-data-stat">
+                          <p className="leftly-data-stat-label">History target records removed</p>
+                          <p className="leftly-data-stat-value">{deleteCategorySummary.historicalTargetSnapshotCount}</p>
                         </div>
                       </div>
                       <div className="grid gap-2 text-xs leading-5 text-slate-300 sm:grid-cols-2">
@@ -4319,7 +4332,12 @@ function App() {
                         <p>Preferences / setup: {deleteCategoryCounts.preferences + deleteCategoryCounts.setupDraft}</p>
                         <p>History bills: {deleteCategoryCounts.historyBills}</p>
                         <p>History expenses: {deleteCategoryCounts.historyExpenses}</p>
+                        <p>Active targets: {deleteCategorySummary.activeTargetCount}</p>
+                        <p>History target records: {deleteCategorySummary.historicalTargetSnapshotCount}</p>
                       </div>
+                      <p className="text-xs leading-5 text-slate-300">
+                        Choose a replacement only for bills, expenses, templates, preferences, setup data, and historical transactions. Deleted targets will not transfer to {deleteReplacementCategory}.
+                      </p>
                       <Field label="Replacement category">
                         <select
                           value={deleteReplacementCategory}

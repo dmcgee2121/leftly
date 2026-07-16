@@ -1,4 +1,13 @@
-import { DEFAULT_CATEGORIES, type Bill, type BudgetCategory, type Expense, type LeftlyPreferences, type PayPeriodSnapshot, type RecurringItemTemplate } from '../types/budget'
+import {
+  DEFAULT_CATEGORIES,
+  type Bill,
+  type BudgetCategory,
+  type CategoryTargets,
+  type Expense,
+  type LeftlyPreferences,
+  type PayPeriodSnapshot,
+  type RecurringItemTemplate,
+} from '../types/budget'
 
 export const MAX_CATEGORY_NAME_LENGTH = 40
 export const FALLBACK_CATEGORY: BudgetCategory = 'Other / Misc'
@@ -12,6 +21,7 @@ type CategoryReplaceCollections = {
   expenses: Expense[]
   recurringTemplates: RecurringItemTemplate[]
   payPeriodHistory: PayPeriodSnapshot[]
+  categoryTargets: CategoryTargets
   preferences: LeftlyPreferences
   categoryOrder: BudgetCategory[]
   customCategories: BudgetCategory[]
@@ -26,6 +36,8 @@ export type CategoryReferenceCounts = {
   setupDraft: number
   historyBills: number
   historyExpenses: number
+  activeTargets: number
+  historyTargetSnapshots: number
 }
 
 export type ReplaceCategoryResult = CategoryReplaceCollections & {
@@ -103,6 +115,7 @@ export function deriveCustomCategories(params: {
   expenses?: Expense[]
   recurringTemplates?: RecurringItemTemplate[]
   payPeriodHistory?: PayPeriodSnapshot[]
+  categoryTargets?: CategoryTargets
   preferences?: LeftlyPreferences | null
   setupDraft?: unknown | null
 }) {
@@ -126,9 +139,11 @@ export function deriveCustomCategories(params: {
   params.bills?.forEach((bill) => addCategory(bill.category))
   params.expenses?.forEach((expense) => addCategory(expense.category))
   params.recurringTemplates?.forEach((template) => addCategory(template.category))
+  Object.keys(params.categoryTargets ?? {}).forEach((category) => addCategory(category))
   params.payPeriodHistory?.forEach((snapshot) => {
     snapshot.bills.forEach((bill) => addCategory(bill.category))
     snapshot.expenses.forEach((expense) => addCategory(expense.category))
+    Object.keys(snapshot.categoryTargets).forEach((category) => addCategory(category))
   })
   addCategory(params.preferences?.defaultCategory)
 
@@ -186,6 +201,8 @@ export function replaceCategoryAcrossData(
     setupDraft: 0,
     historyBills: 0,
     historyExpenses: 0,
+    activeTargets: 0,
+    historyTargetSnapshots: 0,
   }
 
   const bills = collections.bills.map((bill) => {
@@ -253,11 +270,73 @@ export function replaceCategoryAcrossData(
     expenses,
     recurringTemplates,
     payPeriodHistory,
+    categoryTargets: collections.categoryTargets,
     preferences,
     categoryOrder,
     customCategories,
     setupDraft: setupDraftResult.value,
     counts,
+  }
+}
+
+export function renameCategoryTargetKey(
+  targets: CategoryTargets,
+  fromCategory: BudgetCategory,
+  toCategory: BudgetCategory,
+): CategoryTargets {
+  if (fromCategory === toCategory || targets[fromCategory] === undefined) {
+    return targets
+  }
+
+  const nextTargets = { ...targets }
+  nextTargets[toCategory] = nextTargets[fromCategory]
+  delete nextTargets[fromCategory]
+  return nextTargets
+}
+
+export function removeCategoryTargetKey(targets: CategoryTargets, category: BudgetCategory): CategoryTargets {
+  if (targets[category] === undefined) {
+    return targets
+  }
+
+  const nextTargets = { ...targets }
+  delete nextTargets[category]
+  return nextTargets
+}
+
+export function updateTargetKeysAcrossHistorySnapshots(
+  history: PayPeriodSnapshot[],
+  fromCategory: BudgetCategory,
+  toCategory: BudgetCategory,
+): PayPeriodSnapshot[] {
+  return history.map((snapshot) => {
+    const nextCategoryTargets = renameCategoryTargetKey(snapshot.categoryTargets, fromCategory, toCategory)
+    return nextCategoryTargets === snapshot.categoryTargets
+      ? snapshot
+      : { ...snapshot, categoryTargets: nextCategoryTargets }
+  })
+}
+
+export function removeTargetKeyAcrossHistorySnapshots(history: PayPeriodSnapshot[], category: BudgetCategory): PayPeriodSnapshot[] {
+  return history.map((snapshot) => {
+    const nextCategoryTargets = removeCategoryTargetKey(snapshot.categoryTargets, category)
+    return nextCategoryTargets === snapshot.categoryTargets
+      ? snapshot
+      : { ...snapshot, categoryTargets: nextCategoryTargets }
+  })
+}
+
+export function countCategoryTargetReferences(
+  categoryTargets: CategoryTargets,
+  payPeriodHistory: PayPeriodSnapshot[],
+  category: BudgetCategory,
+) {
+  return {
+    activeTargets: categoryTargets[category] === undefined ? 0 : 1,
+    historyTargetSnapshots: payPeriodHistory.reduce(
+      (count, snapshot) => count + (snapshot.categoryTargets[category] === undefined ? 0 : 1),
+      0,
+    ),
   }
 }
 
@@ -269,7 +348,7 @@ export function getCategoryReferenceCounts(
   collections: Omit<CategoryReplaceCollections, 'categoryOrder' | 'customCategories'>,
   category: BudgetCategory,
 ) {
-  return replaceCategoryAcrossData(
+  const counts = replaceCategoryAcrossData(
     {
       ...collections,
       categoryOrder: [],
@@ -278,6 +357,11 @@ export function getCategoryReferenceCounts(
     category,
     category,
   ).counts
+
+  return {
+    ...counts,
+    ...countCategoryTargetReferences(collections.categoryTargets, collections.payPeriodHistory, category),
+  }
 }
 
 function getSetupDraftRecurringItems(value: unknown | null) {

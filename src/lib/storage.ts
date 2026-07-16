@@ -269,6 +269,12 @@ function normalizePayPeriodSnapshot(snapshot: PayPeriodSnapshot | Record<string,
   }
 }
 
+function normalizePayPeriodHistory(history: unknown): PayPeriodSnapshot[] {
+  return Array.isArray(history)
+    ? history.map((snapshot) => normalizePayPeriodSnapshot(snapshot as PayPeriodSnapshot | Record<string, unknown>))
+    : []
+}
+
 function isLeftlyPreferences(value: unknown): value is LeftlyPreferences {
   if (!value || typeof value !== 'object') {
     return false
@@ -351,12 +357,13 @@ export function parseLeftlyBackupJson(text: string): { ok: true; backup: LeftlyB
 }
 
 export function saveLeftlyBackup(backup: LeftlyBackup) {
+  const normalizedPayPeriodHistory = normalizePayPeriodHistory(backup.payPeriodHistory)
   const customCategories = deriveCustomCategories({
     explicitCustomCategories: backup.customCategories,
     bills: backup.bills,
     expenses: backup.expenses,
     recurringTemplates: backup.recurringTemplates,
-    payPeriodHistory: backup.payPeriodHistory,
+    payPeriodHistory: normalizedPayPeriodHistory,
     categoryTargets: normalizeCategoryTargets(backup.categoryTargets),
     preferences: backup.preferences ?? DEFAULT_PREFERENCES,
     setupDraft: null,
@@ -366,7 +373,7 @@ export function saveLeftlyBackup(backup: LeftlyBackup) {
   saveBills(backup.bills)
   saveExpenses(backup.expenses)
   saveRecurringTemplates(backup.recurringTemplates)
-  savePayPeriodHistory(backup.payPeriodHistory.map((snapshot) => normalizePayPeriodSnapshot(snapshot)))
+  savePayPeriodHistory(normalizedPayPeriodHistory)
   saveCategoryTargets(backup.categoryTargets)
   saveCustomCategories(customCategories)
   saveCategoryOrder(backup.categoryOrder ?? [...DEFAULT_CATEGORIES], customCategories)
@@ -447,7 +454,7 @@ export function saveRecurringTemplates(templates: RecurringItemTemplate[]) {
 
 export function loadPayPeriodHistory(): PayPeriodSnapshot[] {
   const value = readJson<unknown>(PAY_PERIOD_HISTORY_KEY, [])
-  return Array.isArray(value) ? value.map((item) => normalizePayPeriodSnapshot(item as PayPeriodSnapshot | Record<string, unknown>)) : []
+  return normalizePayPeriodHistory(value)
 }
 
 export function savePayPeriodHistory(history: PayPeriodSnapshot[]) {

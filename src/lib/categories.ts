@@ -143,7 +143,7 @@ export function deriveCustomCategories(params: {
   params.payPeriodHistory?.forEach((snapshot) => {
     snapshot.bills.forEach((bill) => addCategory(bill.category))
     snapshot.expenses.forEach((expense) => addCategory(expense.category))
-    Object.keys(snapshot.categoryTargets).forEach((category) => addCategory(category))
+    getCategoryTargetKeys(snapshot.categoryTargets).forEach((category) => addCategory(category))
   })
   addCategory(params.preferences?.defaultCategory)
 
@@ -367,6 +367,14 @@ export function getCategoryReferenceCounts(
 function getSetupDraftRecurringItems(value: unknown | null) {
   const draft = value as { recurringItems?: Array<{ category?: unknown }> } | null
   return Array.isArray(draft?.recurringItems) ? draft.recurringItems : []
+}
+
+function getCategoryTargetKeys(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return []
+  }
+
+  return Object.keys(value)
 }
 
 function replaceCategoryInSetupDraft(value: unknown | null, fromCategory: BudgetCategory, toCategory: BudgetCategory) {

@@ -345,6 +345,39 @@
     @apply flex min-h-[3.65rem] flex-col items-center justify-center rounded-[1.15rem] border px-2 py-2 text-[10px] font-semibold tracking-[0.01em] transition whitespace-nowrap;
   }
 
+  .leftly-overlay-backdrop {
+    @apply absolute inset-0 border-0 bg-slate-950/80 p-0 backdrop-blur-[2px];
+    animation: leftly-overlay-backdrop-in 220ms ease-out;
+  }
+
+  .leftly-overlay-shell {
+    @apply relative z-10 flex max-h-[calc(100dvh-0.75rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[1.75rem] border border-slate-800/85 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(5,9,20,0.96))] shadow-[0_30px_80px_rgba(2,6,23,0.58),inset_0_1px_0_rgba(148,163,184,0.07)];
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0.25rem);
+    animation: leftly-overlay-sheet-in 220ms ease-out;
+  }
+
+  .leftly-overlay-shell-drawer {
+    @apply md:ml-auto md:h-[calc(100dvh-2rem)] md:max-h-none md:max-w-[29rem] md:rounded-[1.85rem];
+    animation-name: leftly-overlay-drawer-in;
+  }
+
+  .leftly-overlay-shell-dialog {
+    @apply md:max-h-[min(90dvh,52rem)] md:max-w-3xl;
+  }
+
+  .leftly-overlay-header {
+    @apply flex flex-col gap-3 border-b border-slate-800/70 px-4 py-4 sm:px-5 sm:py-5 md:flex-row md:items-start md:justify-between;
+  }
+
+  .leftly-overlay-body {
+    @apply min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5;
+  }
+
+  .leftly-screen-stage-a,
+  .leftly-screen-stage-b {
+    animation: leftly-screen-enter 220ms ease-out;
+  }
+
   .button-primary {
     @apply inline-flex min-h-12 items-center justify-center rounded-2xl border border-cyan-200/25 bg-[linear-gradient(180deg,rgba(103,232,249,0.98),rgba(34,211,238,0.94))] px-4 py-3 text-[0.94rem] font-semibold tracking-[0.01em] text-slate-950 shadow-[0_16px_36px_rgba(34,211,238,0.16)] transition hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap;
   }
@@ -404,6 +437,80 @@
 
   * {
     box-sizing: border-box;
+  }
+
+  @keyframes leftly-overlay-backdrop-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes leftly-overlay-sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes leftly-overlay-drawer-in {
+    from {
+      opacity: 0;
+      transform: translateX(1rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes leftly-screen-enter {
+    from {
+      opacity: 0;
+      transform: translateY(0.35rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .leftly-overlay-backdrop,
+    .leftly-overlay-shell,
+    .leftly-screen-stage-a,
+    .leftly-screen-stage-b {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+    }
+
+    .leftly-input-shell:is(input, select, textarea),
+    .leftly-input-shell input,
+    .leftly-input-shell select,
+    .leftly-input-shell textarea,
+    .leftly-mobile-nav-button,
+    .leftly-btn-primary,
+    .leftly-btn-secondary,
+    .leftly-btn-danger,
+    .leftly-chip-button,
+    .leftly-quick-action,
+    .leftly-more-menu-card,
+    .leftly-overview-action-card,
+    .button-primary,
+    .button-secondary,
+    .button-danger {
+      transition-duration: 1ms !important;
+    }
   }
 }
 

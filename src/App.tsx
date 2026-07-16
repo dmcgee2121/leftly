@@ -87,11 +87,15 @@ import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { PayPeriodCalendar } from './components/PayPeriodCalendar'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 import { HelpAboutFeedbackSection } from './components/HelpAboutFeedbackSection'
+import { AppOverlay } from './components/AppOverlay'
 import { getLeftlyCloudConfig } from './lib/cloudConfig'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
 type TabKey = MainTabKey | MoreMenuKey
+type OverlayKey = Extract<TabKey, 'quick-add' | 'more'>
+type ContentTabKey = Exclude<TabKey, OverlayKey>
+type ActiveOverlay = OverlayKey | null
 type PayPeriodDraft = {
   cadence: PayCadence
   income: string
@@ -395,13 +399,17 @@ function isValidTabKey(tab: string | null): tab is TabKey {
   return tab !== null && Object.prototype.hasOwnProperty.call(tabScreenLabels, tab)
 }
 
-function getInitialActiveTab(): TabKey {
+function getInitialActiveTab(): ContentTabKey {
   if (!initialHasMeaningfulLocalData) {
     return 'overview'
   }
 
   const savedTab = loadActiveTab()
-  return isValidTabKey(savedTab) ? savedTab : 'overview'
+  if (!isValidTabKey(savedTab)) {
+    return 'overview'
+  }
+
+  return savedTab === 'quick-add' || savedTab === 'more' ? 'overview' : savedTab
 }
 
 function getDraftFromPeriod(period: BudgetPeriod | null, defaultCadence: PayCadence = DEFAULT_PREFERENCES.defaultPayCadence): PayPeriodDraft {
@@ -980,7 +988,14 @@ function MiniStat({
 
 function App() {
   const landingBackupInputRef = useRef<HTMLInputElement | null>(null)
-  const [activeTab, setActiveTab] = useState<TabKey>(getInitialActiveTab)
+  const mainContentRef = useRef<HTMLDivElement | null>(null)
+  const quickAddNameInputRef = useRef<HTMLInputElement | null>(null)
+  const moreFirstItemRef = useRef<HTMLButtonElement | null>(null)
+  const overlayTriggerRef = useRef<HTMLElement | null>(null)
+  const hasMountedScreenTransitionRef = useRef(false)
+  const [activeTab, setActiveTab] = useState<ContentTabKey>(getInitialActiveTab)
+  const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay>(null)
+  const [screenTransitionPhase, setScreenTransitionPhase] = useState<'a' | 'b'>('a')
   const [payPeriod, setPayPeriod] = useState<BudgetPeriod | null>(initialPayPeriod)
   const [bills, setBills] = useState<Bill[]>(initialBills)
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
@@ -1130,6 +1145,35 @@ function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [activeTab])
+
+  useEffect(() => {
+    if (!hasMountedScreenTransitionRef.current) {
+      hasMountedScreenTransitionRef.current = true
+      return
+    }
+
+    setScreenTransitionPhase((current) => (current === 'a' ? 'b' : 'a'))
+  }, [activeTab])
+
+  useEffect(() => {
+    const contentNode = mainContentRef.current
+    if (!contentNode) {
+      return undefined
+    }
+
+    if (activeOverlay) {
+      contentNode.setAttribute('aria-hidden', 'true')
+      contentNode.setAttribute('inert', '')
+    } else {
+      contentNode.removeAttribute('aria-hidden')
+      contentNode.removeAttribute('inert')
+    }
+
+    return () => {
+      contentNode.removeAttribute('aria-hidden')
+      contentNode.removeAttribute('inert')
+    }
+  }, [activeOverlay])
 
   useEffect(() => {
     if (!dataMessage) {
@@ -1546,13 +1590,14 @@ function App() {
     [payPeriod, bills, expenses, recurringTemplates, payPeriodHistory, categoryTargets, resolvedCategoryOrder, customCategories, preferences],
   )
 
-  const activeBottomNavTab: MainTabKey =
-    activeTab === 'income' ||
-    activeTab === 'bill' ||
-    activeTab === 'expense' ||
-    activeTab === 'categories' ||
-    activeTab === 'data' ||
-    activeTab === 'help'
+  const activeBottomNavTab: MainTabKey = activeOverlay
+    ? activeOverlay
+    : activeTab === 'income' ||
+        activeTab === 'bill' ||
+        activeTab === 'expense' ||
+        activeTab === 'categories' ||
+        activeTab === 'data' ||
+        activeTab === 'help'
       ? 'more'
       : activeTab
 
@@ -1938,7 +1983,8 @@ function App() {
       return
     }
 
-    setActiveTab('quick-add')
+    overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setActiveOverlay('quick-add')
     setExpenseError('')
     setExpenseSuccess('')
     setExpenseDraft((current) => ({
@@ -1948,10 +1994,12 @@ function App() {
   }
 
   function openMoreMenu() {
-    setActiveTab('more')
+    overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setActiveOverlay('more')
   }
 
   function openMoreScreen(key: MoreMenuKey) {
+    setActiveOverlay(null)
     setActiveTab(key)
   }
 
@@ -2248,7 +2296,10 @@ function App() {
   function closeQuickAddExpense() {
     setExpenseError('')
     setExpenseSuccess('')
-    setActiveTab('overview')
+    setActiveOverlay(null)
+    window.setTimeout(() => {
+      overlayTriggerRef.current?.focus()
+    }, 0)
   }
 
   function applyQuickAddRecentExpense(expense: Expense) {
@@ -2993,6 +3044,184 @@ function App() {
   const isTrueEmptyNewUserState = !hasAnyData
   const isFirstRun = isTrueEmptyNewUserState
   const isOverviewTab = activeTab === 'overview'
+  const quickAddOverlayId = 'leftly-quick-add-overlay'
+  const moreOverlayId = 'leftly-more-overlay'
+
+  const quickAddOverlayContent = payPeriod ? (
+    <div className="grid gap-4">
+      {recentManualExpenses.length > 0 ? (
+        <div className="leftly-panel-section">
+          <div className="grid gap-1">
+            <p className="leftly-panel-label">Repeat recent</p>
+            <p className="leftly-panel-copy">Tap a recent manual expense to prefill the form.</p>
+          </div>
+
+          <div className="grid gap-2">
+            {recentManualExpenses.slice(0, 3).map((expense) => (
+              <button
+                key={expense.id}
+                type="button"
+                onClick={() => applyQuickAddRecentExpense(expense)}
+                className="leftly-quick-action"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-white">{expense.name}</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-400">
+                    {expense.category} · {expense.date}
+                  </span>
+                </span>
+                <span className="shrink-0 text-sm font-semibold text-white">{formatCurrency(expense.amount)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleQuickAddExpense}>
+        <div className="leftly-panel-section">
+          <div className="grid gap-1">
+            <p className="leftly-panel-label">Quick expense</p>
+            <p className="leftly-panel-copy">Name, amount, category, then add it to this pay period.</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <Badge muted>{quickAddDateBehaviorLabels[preferences.quickAddDateBehavior]}</Badge>
+            <span>
+              {payPeriod.startDate} to {payPeriod.endDate}
+            </span>
+            <span>Default: {preferences.defaultCategory}</span>
+          </div>
+
+          {quickAddCategorySuggestions.length > 0 ? (
+            <div className="grid gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Category shortcuts</p>
+              <div className="flex flex-wrap gap-2">
+                {quickAddCategorySuggestions.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => applyQuickAddCategory(category)}
+                    aria-pressed={expenseDraft.category === category}
+                    className={`leftly-chip-button ${expenseDraft.category === category ? 'leftly-chip-button-active' : ''}`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Name">
+              <input
+                ref={quickAddNameInputRef}
+                value={expenseDraft.name}
+                onChange={(event) =>
+                  setExpenseDraft((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
+                }
+                placeholder="Groceries"
+              />
+            </Field>
+            <Field label="Amount">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={expenseDraft.amount}
+                onChange={(event) =>
+                  setExpenseDraft((current) => ({
+                    ...current,
+                    amount: event.target.value,
+                  }))
+                }
+                placeholder="48.25"
+              />
+            </Field>
+            <Field label="Category">
+              <select
+                value={expenseDraft.category}
+                onChange={(event) =>
+                  setExpenseDraft((current) => ({
+                    ...current,
+                    category: event.target.value as BudgetCategory,
+                  }))
+                }
+              >
+                {allCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Date">
+              <input
+                type="date"
+                value={expenseDraft.date}
+                onChange={(event) =>
+                  setExpenseDraft((current) => ({
+                    ...current,
+                    date: event.target.value,
+                  }))
+                }
+              />
+            </Field>
+          </div>
+        </div>
+
+        {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
+        {expenseSuccess ? (
+          <div className="leftly-success-inline" role="status">
+            {expenseSuccess}
+          </div>
+        ) : null}
+
+        <div className="leftly-action-grid">
+          <button type="button" onClick={closeQuickAddExpense} className="button-secondary w-full sm:w-auto">
+            Back
+          </button>
+          <button type="submit" className="button-primary w-full sm:w-auto">
+            Add expense
+          </button>
+        </div>
+      </form>
+    </div>
+  ) : (
+    <div className="grid gap-4">
+      <EmptyState
+        title="Start a pay period first"
+        text="Run setup first, or set income and pay period in Income, so Quick Add knows where this spending belongs."
+      />
+      <div className="leftly-action-grid">
+        <button type="button" onClick={() => setActiveTab('income')} className="button-primary w-full sm:w-auto">
+          Go to Income
+        </button>
+      </div>
+    </div>
+  )
+
+  const moreOverlayContent = (
+    <div className="grid gap-3">
+      {moreMenuItems.map((item, index) => (
+        <button
+          key={item.key}
+          ref={index === 0 ? moreFirstItemRef : undefined}
+          type="button"
+          onClick={() => openMoreScreen(item.key)}
+          className="leftly-more-menu-card"
+        >
+          <div className="min-w-0">
+            <p className="text-base font-semibold tracking-[-0.02em] text-white">{item.label}</p>
+            <p className="mt-1 text-sm leading-6 text-slate-400">{item.helper}</p>
+          </div>
+          <span className="mt-0.5 shrink-0 text-slate-500">›</span>
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <main className="leftly-page">
@@ -3000,6 +3229,7 @@ function App() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-slate-950/80 to-transparent" />
 
       <div
+        ref={mainContentRef}
         className={`relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 pb-32 sm:px-6 sm:pb-6 lg:px-8 ${
           isFirstRun ? 'py-2.5 sm:py-4 lg:py-5' : isOverviewTab ? 'py-3 sm:py-5 lg:py-6' : 'py-2.5 sm:py-4 lg:py-5'
         }`}
@@ -3133,8 +3363,21 @@ function App() {
               <TabButton
                 key={tab.key}
                 label={tab.label}
-                active={activeTab === tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                active={tab.key === 'quick-add' ? activeOverlay === 'quick-add' : tab.key === 'more' ? activeOverlay === 'more' : activeTab === tab.key}
+                disabled={tab.key === 'quick-add' && !payPeriod}
+                onClick={() => {
+                  if (tab.key === 'quick-add') {
+                    openQuickAddExpense()
+                    return
+                  }
+
+                  if (tab.key === 'more') {
+                    openMoreMenu()
+                    return
+                  }
+
+                  setActiveTab(tab.key)
+                }}
               />
             ))}
             </div>
@@ -3143,6 +3386,7 @@ function App() {
         </div>
 
         <section className={`mx-auto w-full max-w-5xl ${isFirstRun ? 'mt-2 sm:mt-3' : 'mt-4 sm:mt-5'}`}>
+          <div className={`leftly-screen-stage leftly-screen-stage-${screenTransitionPhase}`}>
           {activeTab === 'overview' ? (
             <SectionShell
               title="Overview"
@@ -3584,163 +3828,6 @@ function App() {
                     title="No budget data yet"
                     text="Start setup to set income and your pay period, then add regular bills in Bill Plan and log spending with Quick Add."
                   />
-              )}
-            </SectionShell>
-          ) : null}
-
-          {activeTab === 'quick-add' ? (
-            <SectionShell title="Quick Add" description="Log everyday spending quickly in your current pay period.">
-              {payPeriod ? (
-                <div className="grid gap-4">
-                  {recentManualExpenses.length > 0 ? (
-                    <div className="leftly-panel-section">
-                      <div className="grid gap-1">
-                        <p className="leftly-panel-label">Repeat recent</p>
-                        <p className="leftly-panel-copy">Tap a recent manual expense to prefill the form.</p>
-                      </div>
-
-                      <div className="grid gap-2">
-                        {recentManualExpenses.slice(0, 3).map((expense) => (
-                          <button
-                            key={expense.id}
-                            type="button"
-                            onClick={() => applyQuickAddRecentExpense(expense)}
-                            className="leftly-quick-action"
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-semibold text-white">{expense.name}</span>
-                              <span className="mt-1 block text-xs leading-5 text-slate-400">
-                                {expense.category} · {expense.date}
-                              </span>
-                            </span>
-                            <span className="shrink-0 text-sm font-semibold text-white">{formatCurrency(expense.amount)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleQuickAddExpense}>
-                    <div className="leftly-panel-section">
-                      <div className="grid gap-1">
-                        <p className="leftly-panel-label">Quick expense</p>
-                        <p className="leftly-panel-copy">Name, amount, category, then add it to this pay period.</p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                        <Badge muted>{quickAddDateBehaviorLabels[preferences.quickAddDateBehavior]}</Badge>
-                        <span>{payPeriod.startDate} to {payPeriod.endDate}</span>
-                        <span>Default: {preferences.defaultCategory}</span>
-                      </div>
-
-                      {quickAddCategorySuggestions.length > 0 ? (
-                        <div className="grid gap-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Category shortcuts</p>
-                          <div className="flex flex-wrap gap-2">
-                            {quickAddCategorySuggestions.map((category) => (
-                              <button
-                                key={category}
-                                type="button"
-                                onClick={() => applyQuickAddCategory(category)}
-                                aria-pressed={expenseDraft.category === category}
-                                className={`leftly-chip-button ${expenseDraft.category === category ? 'leftly-chip-button-active' : ''}`}
-                              >
-                                {category}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Field label="Name">
-                          <input
-                            value={expenseDraft.name}
-                            onChange={(event) =>
-                              setExpenseDraft((current) => ({
-                                ...current,
-                                name: event.target.value,
-                              }))
-                            }
-                            placeholder="Groceries"
-                          />
-                        </Field>
-                        <Field label="Amount">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={expenseDraft.amount}
-                            onChange={(event) =>
-                              setExpenseDraft((current) => ({
-                                ...current,
-                                amount: event.target.value,
-                              }))
-                            }
-                            placeholder="48.25"
-                          />
-                        </Field>
-                        <Field label="Category">
-                          <select
-                            value={expenseDraft.category}
-                            onChange={(event) =>
-                              setExpenseDraft((current) => ({
-                                ...current,
-                                category: event.target.value as BudgetCategory,
-                              }))
-                            }
-                          >
-                            {allCategories.map((category) => (
-                              <option key={category} value={category}>
-                                {category}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                        <Field label="Date">
-                          <input
-                            type="date"
-                            value={expenseDraft.date}
-                            onChange={(event) =>
-                              setExpenseDraft((current) => ({
-                                ...current,
-                                date: event.target.value,
-                              }))
-                            }
-                          />
-                        </Field>
-                      </div>
-                    </div>
-
-                    {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
-                    {expenseSuccess ? (
-                      <div className="leftly-success-inline" role="status">
-                        {expenseSuccess}
-                      </div>
-                    ) : null}
-
-                    <div className="leftly-action-grid">
-                      <button type="button" onClick={closeQuickAddExpense} className="button-secondary w-full sm:w-auto">
-                        Back
-                      </button>
-                      <button type="submit" className="button-primary w-full sm:w-auto">
-                        Add expense
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  <EmptyState
-                    title="Start a pay period first"
-                    text="Run setup first, or set income and pay period in Income, so Quick Add knows where this spending belongs."
-                  />
-                  <div className="leftly-action-grid">
-                    <button type="button" onClick={() => setActiveTab('income')} className="button-primary w-full sm:w-auto">
-                      Go to Income
-                    </button>
-                  </div>
-                </div>
               )}
             </SectionShell>
           ) : null}
@@ -4686,27 +4773,6 @@ function App() {
             </SectionShell>
           ) : null}
 
-          {activeTab === 'more' ? (
-            <SectionShell title="Choose a screen" description="Open the parts of Leftly that do not fit in the main bottom nav.">
-              <div className="grid gap-3">
-                {moreMenuItems.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => openMoreScreen(item.key)}
-                    className="leftly-more-menu-card"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-base font-semibold tracking-[-0.02em] text-white">{item.label}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-400">{item.helper}</p>
-                    </div>
-                    <span className="mt-0.5 shrink-0 text-slate-500">›</span>
-                  </button>
-                ))}
-              </div>
-            </SectionShell>
-          ) : null}
-
           {editingItem ? (
             <EditItemPanel
               key={`${editingItem.kind}:${editingItem.item.id}`}
@@ -4727,6 +4793,7 @@ function App() {
             onClose={() => setIsApplyBillPlanOpen(false)}
             onApply={handleApplyBillPlan}
           />
+          </div>
         </section>
 
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800/80 bg-slate-950/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-2 shadow-[0_-20px_40px_rgba(2,6,23,0.35)] backdrop-blur md:hidden">
@@ -4749,6 +4816,9 @@ function App() {
               onClick={openQuickAddExpense}
               disabled={!payPeriod}
               aria-label="Open Quick Add"
+              aria-controls={quickAddOverlayId}
+              aria-expanded={activeOverlay === 'quick-add'}
+              aria-haspopup="dialog"
               aria-pressed={activeBottomNavTab === 'quick-add'}
               className={`leftly-mobile-nav-button disabled:cursor-not-allowed disabled:opacity-50 ${
                 activeBottomNavTab === 'quick-add'
@@ -4788,6 +4858,9 @@ function App() {
               type="button"
               onClick={openMoreMenu}
               aria-label="Go to More"
+              aria-controls={moreOverlayId}
+              aria-expanded={activeOverlay === 'more'}
+              aria-haspopup="dialog"
               aria-pressed={activeBottomNavTab === 'more'}
               className={`leftly-mobile-nav-button ${
                 activeBottomNavTab === 'more'
@@ -4800,6 +4873,35 @@ function App() {
           </div>
         </div>
       </div>
+      <AppOverlay
+        id={quickAddOverlayId}
+        isOpen={activeOverlay === 'quick-add'}
+        title="Quick Add"
+        description="Log everyday spending quickly in your current pay period."
+        desktopPresentation="dialog"
+        initialFocusRef={quickAddNameInputRef}
+        closeLabel="Close Quick Add"
+        onClose={closeQuickAddExpense}
+      >
+        {quickAddOverlayContent}
+      </AppOverlay>
+      <AppOverlay
+        id={moreOverlayId}
+        isOpen={activeOverlay === 'more'}
+        title="More"
+        description="Open the parts of Leftly that do not fit in the main navigation."
+        desktopPresentation="drawer"
+        initialFocusRef={moreFirstItemRef}
+        closeLabel="Close More menu"
+        onClose={() => {
+          setActiveOverlay(null)
+          window.setTimeout(() => {
+            overlayTriggerRef.current?.focus()
+          }, 0)
+        }}
+      >
+        {moreOverlayContent}
+      </AppOverlay>
       <input
         ref={landingBackupInputRef}
         type="file"
@@ -5193,18 +5295,21 @@ function MoreBackBar({ onBack }: { onBack: () => void }) {
 function TabButton({
   label,
   active,
+  disabled = false,
   onClick,
 }: {
   label: string
   active: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
-      className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-semibold tracking-[0.01em] transition ${
+      className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-semibold tracking-[0.01em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
         active
           ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.15)]'
           : 'border-slate-700/80 bg-slate-900/70 text-slate-300 hover:border-slate-600 hover:text-white'

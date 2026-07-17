@@ -1,0 +1,1 @@
+Leftly production release checkpoint for the animated app shell, Quick Add bottom sheet, More overlay navigation, accessibility behavior, and overlay hardening through commit b41089d3b553a7b8aebbda782482e82d817b3a36.

@@ -1,0 +1,1 @@
+Leftly production release checkpoint for the Phase 2 Overview visual hierarchy, paycheck allocation, bill-payment progress, and responsive dashboard hardening.

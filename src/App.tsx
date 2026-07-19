@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import {
   clearAllAppData,
   addPayPeriodSnapshot,
@@ -162,6 +162,17 @@ type BillPaymentSummary = {
   totalAmount: number
   paidAmount: number
   unpaidAmount: number
+}
+
+type OverviewTotals = {
+  income: number
+  totalPlannedBills: number
+  paidBills: number
+  unpaidBills: number
+  totalExpenses: number
+  totalSetAside: number
+  leftover: number
+  safeToSpend: number
 }
 
 type SpendingSnapshotRow = {
@@ -1379,6 +1390,7 @@ function App() {
   const recurringBillSummary = useMemo(() => summarizeBillPayments(recurringBills), [recurringBills])
   const oneTimeBills = useMemo(() => bills.filter((bill) => bill.source !== 'recurring'), [bills])
   const oneTimeBillSummary = useMemo(() => summarizeBillPayments(oneTimeBills), [oneTimeBills])
+  const billPaymentSummary = useMemo(() => summarizeBillPayments(bills), [bills])
   const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
   const dueSoonBills = useMemo<DueSoonBillRow[]>(() => {
     if (!payPeriod) {
@@ -3296,66 +3308,6 @@ function App() {
           </header>
         )}
 
-        {!isFirstRun && isOverviewTab ? (
-          <section className="mt-4 md:hidden">
-            <div className="leftly-shell leftly-shell-accent overflow-hidden p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/75">Current Leftover</p>
-                  <p className="mt-3 text-[3rem] font-semibold tracking-[-0.06em] text-white">{formatCurrency(totals.leftover)}</p>
-                  <p className="mt-2 max-w-xs text-sm leading-6 text-slate-300">
-                    Income minus bills, set-asides, and expenses in the current pay period.
-                  </p>
-                </div>
-                {payPeriod ? <Badge muted>{payPeriod.cadence}</Badge> : null}
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {payPeriod ? (
-                  <>
-                    <Badge muted>{payPeriod.startDate}</Badge>
-                    <Badge muted>{payPeriod.endDate}</Badge>
-                    {payPeriod.rolloverAmount && payPeriod.rolloverAmount > 0 ? <Badge success>Rollover active</Badge> : null}
-                  </>
-                ) : (
-                  <Badge muted>No active pay period</Badge>
-                )}
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2.5">
-                <MetricCard label="Income" value={formatCurrency(totals.income)} />
-                <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
-                <MetricCard label="Planned bills" value={formatCurrency(totals.totalPlannedBills)} />
-                <MetricCard label="Expenses" value={formatCurrency(totals.totalExpenses)} />
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {!isFirstRun && isOverviewTab ? (
-          <section className="leftly-shell leftly-shell-accent mt-4 hidden overflow-hidden p-4 md:block sm:mt-5 sm:p-5">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400 sm:text-sm sm:tracking-[0.24em]">Leftover</p>
-            <p className="text-5xl font-semibold tracking-tight text-white sm:text-7xl lg:text-8xl">
-              {formatCurrency(totals.leftover)}
-            </p>
-            <p className="max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
-              Income minus bills, set-asides, and expenses in the current pay period.
-            </p>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
-            <MetricCard label="Income" value={formatCurrency(totals.income)} />
-            <MetricCard label="Planned bills" value={formatCurrency(totals.totalPlannedBills)} />
-            <MetricCard label="Paid bills" value={formatCurrency(totals.paidBills)} />
-            <MetricCard label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
-            <MetricCard label="Manual expenses" value={formatCurrency(totals.totalExpenses)} />
-            {totals.totalSetAside > 0 ? <MetricCard label="Total set aside this period" value={formatCurrency(totals.totalSetAside)} /> : null}
-            <MetricCard label="Safe to spend" value={formatCurrency(totals.safeToSpend)} tone="highlight" />
-          </div>
-          </section>
-        ) : null}
-
         <div className="mt-4 hidden flex-col gap-3 sm:mt-5 sm:gap-3 md:flex">
           <div className="no-scrollbar -mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0">
             <div className="flex min-w-max flex-nowrap gap-2 sm:min-w-0 sm:flex-wrap">
@@ -3421,7 +3373,16 @@ function App() {
                   />
                 )
               ) : hasAnyData ? (
-                <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                <div className="leftly-overview-dashboard">
+                  <div className="lg:col-span-2">
+                    <FinancialPulseHero
+                      payPeriod={payPeriod}
+                      totals={totals}
+                      billPaymentSummary={billPaymentSummary}
+                      formatCurrency={formatCurrency}
+                    />
+                  </div>
+
                   <div className="lg:col-span-2">
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader
@@ -3430,7 +3391,7 @@ function App() {
                         aside={!payPeriod ? <p className="text-xs leading-5 text-slate-500">Start a pay period to unlock bill and expense actions.</p> : undefined}
                       />
 
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                         <OverviewActionCard
                           eyebrow="Fastest"
                           title="Quick Add"
@@ -3438,6 +3399,7 @@ function App() {
                           onClick={openQuickAddExpense}
                           disabled={!payPeriod}
                           tone="accent"
+                          wide
                         />
                         <OverviewActionCard
                           eyebrow={payPeriod && hasActiveBillPlanItems ? 'Saved items' : 'Bill Plan'}
@@ -3472,7 +3434,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="lg:col-span-2">
+                  <div>
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader
                         title="Due Soon"
@@ -3557,7 +3519,13 @@ function App() {
                     </div>
                   </div>
 
+                  <BillPaymentProgress summary={billPaymentSummary} formatCurrency={formatCurrency} />
+
                   <div className="lg:col-span-2">
+                    <PaycheckAllocation totals={totals} formatCurrency={formatCurrency} />
+                  </div>
+
+                  <div>
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader
                         title="Spending Snapshot"
@@ -3579,10 +3547,7 @@ function App() {
                                 const share = spendingSnapshotTotal > 0 ? Math.max(6, (row.total / spendingSnapshotTotal) * 100) : 0
 
                                 return (
-                                  <div
-                                    key={row.category}
-                                    className="leftly-shell-soft px-3 py-2.5"
-                                  >
+                                  <div key={row.category} className="leftly-spending-row">
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="min-w-0">
                                         <p className="truncate font-medium text-white">{row.category}</p>
@@ -3593,9 +3558,16 @@ function App() {
                                       <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(row.total)}</p>
                                     </div>
 
-                                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800/80">
+                                    <div
+                                      className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800/80"
+                                      role="progressbar"
+                                      aria-label={`${row.category} spending share`}
+                                      aria-valuemin={0}
+                                      aria-valuemax={100}
+                                      aria-valuenow={Math.round(Math.min(100, share))}
+                                    >
                                       <div
-                                        className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400"
+                                        className="leftly-progress-fill leftly-progress-cyan"
                                         style={{ width: `${share}%` }}
                                       />
                                     </div>
@@ -3634,7 +3606,7 @@ function App() {
                   </div>
 
                   {overviewCategoryTargets.length > 0 ? (
-                    <div className="lg:col-span-2">
+                    <div>
                       <div className="leftly-overview-section">
                         <OverviewSectionHeader
                           title="Category targets"
@@ -5331,22 +5303,229 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function MetricCard({
-  label,
-  value,
-  tone = 'default',
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
+  return Math.min(100, Math.max(0, value))
+}
+
+function getSafePercent(part: number, whole: number) {
+  if (whole <= 0 || !Number.isFinite(part) || !Number.isFinite(whole)) {
+    return 0
+  }
+
+  return clampPercent((part / whole) * 100)
+}
+
+function FinancialPulseHero({
+  payPeriod,
+  totals,
+  billPaymentSummary,
+  formatCurrency,
 }: {
-  label: string
-  value: string
-  tone?: 'default' | 'highlight'
+  payPeriod: BudgetPeriod | null
+  totals: OverviewTotals
+  billPaymentSummary: BillPaymentSummary
+  formatCurrency: (value: number) => string
 }) {
-  const valueClass = tone === 'highlight' ? 'text-emerald-100' : 'text-white'
+  const leftoverStatus =
+    totals.leftover < 0
+      ? 'Over budget'
+      : totals.leftover === 0
+        ? 'Fully allocated'
+        : 'Available after bills and spending'
+  const leftoverTone = totals.leftover < 0 ? 'warning' : totals.leftover === 0 ? 'neutral' : 'positive'
+  const billProgress = getSafePercent(billPaymentSummary.paidAmount, billPaymentSummary.totalAmount)
+  const rangeLabel = payPeriod ? `${payPeriod.startDate} to ${payPeriod.endDate}` : 'No active pay period'
 
   return (
-    <div className={`leftly-shell-soft p-3.5 sm:p-4 ${tone === 'highlight' ? 'leftly-shell-accent' : ''}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-[11px]">{label}</p>
-      <p className={`mt-2 text-[1.08rem] font-semibold tracking-[-0.03em] sm:mt-3 sm:text-[1.55rem] sm:leading-none ${valueClass}`}>{value}</p>
+    <section className={`leftly-financial-pulse leftly-financial-pulse-${leftoverTone}`} aria-labelledby="financial-pulse-title">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] lg:items-stretch">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p id="financial-pulse-title" className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/80">
+              Current Leftover
+            </p>
+            <Badge muted>{leftoverStatus}</Badge>
+          </div>
+
+          <p className="mt-3 break-words text-[clamp(2.4rem,14vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.04em] text-white lg:text-[clamp(4rem,7vw,6.5rem)]">
+            {formatCurrency(totals.leftover)}
+          </p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+            Income minus planned bills, set-asides, and expenses in this pay period.
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge muted>{rangeLabel}</Badge>
+            {payPeriod ? <Badge muted>{payPeriod.cadence}</Badge> : null}
+            {payPeriod?.rolloverAmount && payPeriod.rolloverAmount > 0 ? (
+              <Badge success>Rollover {formatCurrency(payPeriod.rolloverAmount)}</Badge>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid min-w-0 gap-3">
+          <div className="leftly-pulse-focus-stat">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Safe to spend</p>
+            <p className="mt-2 break-words text-2xl font-semibold tracking-[-0.03em] text-emerald-100">{formatCurrency(totals.safeToSpend)}</p>
+          </div>
+
+          <div className="leftly-pulse-focus-stat">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Bills paid by amount</p>
+              <p className="text-sm font-semibold text-cyan-100">{billPaymentSummary.totalAmount > 0 ? `${Math.round(billProgress)}%` : 'No bills'}</p>
+            </div>
+            <div
+              className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800/90"
+              role="progressbar"
+              aria-label="Bill payment progress by amount"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(billProgress)}
+            >
+              <div className="leftly-progress-fill leftly-progress-emerald" style={{ width: `${billProgress}%` }} />
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              {billPaymentSummary.paidCount} of {billPaymentSummary.totalCount} paid · {formatCurrency(billPaymentSummary.paidAmount)} of {formatCurrency(billPaymentSummary.totalAmount)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+        <OverviewStat label="Income" value={formatCurrency(totals.income)} />
+        <OverviewStat label="Planned bills" value={formatCurrency(totals.totalPlannedBills)} />
+        <OverviewStat label="Paid bills" value={formatCurrency(totals.paidBills)} />
+        <OverviewStat label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
+        <OverviewStat label="Expenses" value={formatCurrency(totals.totalExpenses)} />
+        {totals.totalSetAside > 0 ? <OverviewStat label="Set-asides" value={formatCurrency(totals.totalSetAside)} /> : null}
+      </div>
+    </section>
+  )
+}
+
+function OverviewStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="leftly-overview-stat">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-1.5 break-words text-sm font-semibold text-white">{value}</p>
     </div>
+  )
+}
+
+function PaycheckAllocation({
+  totals,
+  formatCurrency,
+}: {
+  totals: OverviewTotals
+  formatCurrency: (value: number) => string
+}) {
+  const otherExpenses = Math.max(0, totals.totalExpenses - totals.totalSetAside)
+  const remaining = Math.max(0, totals.leftover)
+  const overBudget = Math.max(0, -totals.leftover)
+  const buckets = [
+    { key: 'bills', label: 'Planned bills', amount: totals.totalPlannedBills, className: 'leftly-allocation-bills' },
+    { key: 'set-asides', label: 'Set-asides', amount: totals.totalSetAside, className: 'leftly-allocation-setaside' },
+    { key: 'expenses', label: 'Other expenses', amount: otherExpenses, className: 'leftly-allocation-expenses' },
+    { key: 'remaining', label: 'Remaining', amount: remaining, className: 'leftly-allocation-remaining' },
+  ].filter((bucket) => bucket.amount > 0)
+  const allocated = totals.totalPlannedBills + totals.totalSetAside + otherExpenses
+  const visualTotal = Math.max(totals.income, allocated + remaining)
+  const canShowBar = totals.income > 0 && visualTotal > 0
+
+  return (
+    <section className="leftly-overview-section">
+      <OverviewSectionHeader
+        title="Paycheck allocation"
+        description="Planned bills, set-asides, other expenses, and what remains from this pay period."
+        aside={overBudget > 0 ? <span className="leftly-chip leftly-chip-warning px-2.5 py-1 text-[10px]">Over by {formatCurrency(overBudget)}</span> : undefined}
+      />
+
+      {canShowBar ? (
+        <>
+          <div className="sr-only">
+            Paycheck allocation: {buckets.map((bucket) => `${bucket.label} ${formatCurrency(bucket.amount)}`).join(', ')}
+            {overBudget > 0 ? `, over budget by ${formatCurrency(overBudget)}` : ''}
+          </div>
+          <div className="leftly-allocation-bar mt-4" aria-hidden="true">
+            {buckets.map((bucket) => (
+              <div
+                key={bucket.key}
+                className={`leftly-allocation-segment ${bucket.className}`}
+                style={{ width: `${getSafePercent(bucket.amount, visualTotal)}%` }}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="mt-4 rounded-[1.1rem] border border-dashed border-slate-700/90 bg-slate-950/45 px-3 py-3 text-sm leading-6 text-slate-400">
+          Allocation appears after income is set. Exact bill, set-aside, and expense amounts are still listed below.
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ...buckets,
+          ...(overBudget > 0 ? [{ key: 'over', label: 'Over budget', amount: overBudget, className: 'leftly-allocation-over' }] : []),
+        ].map((bucket) => (
+          <div key={bucket.key} className="leftly-allocation-legend-item">
+            <span className={`leftly-allocation-dot ${bucket.className}`} aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white">{bucket.label}</p>
+              <p className="mt-1 break-words text-xs text-slate-400">{formatCurrency(bucket.amount)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function BillPaymentProgress({
+  summary,
+  formatCurrency,
+}: {
+  summary: BillPaymentSummary
+  formatCurrency: (value: number) => string
+}) {
+  const progress = getSafePercent(summary.paidAmount, summary.totalAmount)
+  const progressLabel = summary.totalAmount > 0 ? `${Math.round(progress)}% paid by amount` : 'No bills yet'
+
+  return (
+    <section className="leftly-overview-section" aria-labelledby="bill-payment-progress-title">
+      <OverviewSectionHeader
+        title="Bill-payment progress"
+        description="Completion is measured by paid amount divided by total planned bill amount."
+      />
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+        <div
+          className="leftly-bill-progress-ring"
+          style={{ '--leftly-bill-progress': `${progress}%` } as CSSProperties}
+          role="progressbar"
+          aria-label="Bill payment progress by amount"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progress)}
+        >
+          <span>{summary.totalAmount > 0 ? `${Math.round(progress)}%` : '0%'}</span>
+        </div>
+
+        <div className="min-w-0">
+          <p id="bill-payment-progress-title" className="text-base font-semibold text-white">{progressLabel}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            {summary.paidCount} of {summary.totalCount} bill{summary.totalCount === 1 ? '' : 's'} paid · {summary.unpaidCount} unpaid
+          </p>
+          <div className="mt-3 grid gap-2">
+            <OverviewStat label="Paid amount" value={`${formatCurrency(summary.paidAmount)} of ${formatCurrency(summary.totalAmount)}`} />
+            <OverviewStat label="Unpaid amount" value={formatCurrency(summary.unpaidAmount)} />
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 

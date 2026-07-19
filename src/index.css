@@ -241,8 +241,37 @@
     @apply leftly-shell leftly-shell-accent p-4 sm:p-5;
   }
 
+  .leftly-overview-dashboard {
+    @apply grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)];
+  }
+
   .leftly-overview-section {
     @apply leftly-shell p-3.5 sm:p-4;
+  }
+
+  .leftly-financial-pulse {
+    @apply leftly-shell leftly-shell-accent overflow-hidden p-4 sm:p-5 lg:p-6;
+    animation: leftly-pulse-enter 260ms ease-out;
+  }
+
+  .leftly-financial-pulse-positive {
+    @apply border-cyan-400/25;
+  }
+
+  .leftly-financial-pulse-neutral {
+    @apply border-slate-700/90;
+  }
+
+  .leftly-financial-pulse-warning {
+    @apply border-amber-400/25 bg-[linear-gradient(180deg,rgba(69,45,13,0.34),rgba(7,19,28,0.24))];
+  }
+
+  .leftly-pulse-focus-stat {
+    @apply min-w-0 rounded-[1.2rem] border border-slate-800/70 bg-slate-950/45 p-3.5 shadow-[inset_0_1px_0_rgba(148,163,184,0.05)];
+  }
+
+  .leftly-overview-stat {
+    @apply min-w-0 rounded-[1rem] border border-slate-800/70 bg-slate-950/40 px-3 py-2.5;
   }
 
   .leftly-overview-action-card {
@@ -271,6 +300,71 @@
 
   .leftly-overview-inline-button {
     @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700/90 bg-slate-900/75 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-slate-600 hover:text-white active:translate-y-px;
+  }
+
+  .leftly-progress-fill {
+    @apply h-full rounded-full transition-[width] duration-300 ease-out;
+  }
+
+  .leftly-progress-cyan {
+    @apply bg-gradient-to-r from-cyan-300 to-emerald-300;
+  }
+
+  .leftly-progress-emerald {
+    @apply bg-gradient-to-r from-emerald-300 to-cyan-300;
+  }
+
+  .leftly-allocation-bar {
+    @apply flex h-5 w-full overflow-hidden rounded-full border border-slate-800/80 bg-slate-950/70 shadow-[inset_0_1px_3px_rgba(2,6,23,0.7)];
+  }
+
+  .leftly-allocation-segment {
+    @apply h-full min-w-0 transition-[width] duration-300 ease-out;
+  }
+
+  .leftly-allocation-bills {
+    @apply bg-cyan-300;
+  }
+
+  .leftly-allocation-setaside {
+    @apply bg-indigo-300;
+  }
+
+  .leftly-allocation-expenses {
+    @apply bg-amber-300;
+  }
+
+  .leftly-allocation-remaining {
+    @apply bg-emerald-300;
+  }
+
+  .leftly-allocation-over {
+    @apply bg-rose-300;
+  }
+
+  .leftly-allocation-legend-item {
+    @apply flex min-w-0 items-start gap-2 rounded-[1rem] border border-slate-800/70 bg-slate-950/40 px-3 py-2.5;
+  }
+
+  .leftly-allocation-dot {
+    @apply mt-1 h-2.5 w-2.5 shrink-0 rounded-full;
+  }
+
+  .leftly-bill-progress-ring {
+    --leftly-bill-progress: 0%;
+    @apply grid h-24 w-24 place-items-center rounded-full text-lg font-semibold text-white shadow-[inset_0_1px_0_rgba(148,163,184,0.08)];
+    background:
+      radial-gradient(circle at center, #040814 0 57%, transparent 58%),
+      conic-gradient(rgb(52 211 153) var(--leftly-bill-progress), rgb(30 41 59 / 0.92) 0);
+    transition: background 300ms ease-out;
+  }
+
+  .leftly-bill-progress-ring span {
+    @apply rounded-full border border-slate-800/70 bg-slate-950/70 px-2 py-1 text-sm;
+  }
+
+  .leftly-spending-row {
+    @apply rounded-[1.1rem] border border-slate-800/75 bg-[linear-gradient(180deg,rgba(9,14,26,0.86),rgba(4,8,18,0.74))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(148,163,184,0.04)];
   }
 
   .leftly-calendar-shell {
@@ -484,13 +578,26 @@
     }
   }
 
+  @keyframes leftly-pulse-enter {
+    from {
+      opacity: 0;
+      transform: translateY(0.4rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
 }
 
 @media (prefers-reduced-motion: reduce) {
   .leftly-overlay-backdrop,
   .leftly-overlay-shell,
   .leftly-screen-stage-a,
-  .leftly-screen-stage-b {
+  .leftly-screen-stage-b,
+  .leftly-financial-pulse {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
   }
@@ -507,6 +614,9 @@
   .leftly-quick-action,
   .leftly-more-menu-card,
   .leftly-overview-action-card,
+  .leftly-progress-fill,
+  .leftly-allocation-segment,
+  .leftly-bill-progress-ring,
   .button-primary,
   .button-secondary,
   .button-danger {

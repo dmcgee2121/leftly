@@ -3525,7 +3525,7 @@ function App() {
                     <PaycheckAllocation totals={totals} formatCurrency={formatCurrency} />
                   </div>
 
-                  <div>
+                  <div className={overviewCategoryTargets.length > 0 ? undefined : 'lg:col-span-2'}>
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader
                         title="Spending Snapshot"
@@ -3646,7 +3646,7 @@ function App() {
                     </div>
                   ) : null}
 
-                  <div className="grid gap-4">
+                  <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2">
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader title="Recent bills" description="Latest bills in this pay period, with quick paid and edit actions." />
                       <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
@@ -3748,50 +3748,52 @@ function App() {
                       </div>
                     </div>
 
-                    <div className="leftly-overview-section">
-                      <OverviewSectionHeader
-                        title="Upcoming from your Bill Plan"
-                        description="Saved items that are active but not yet in this pay period."
-                        aside={
-                          payPeriod && hasActiveBillPlanItems ? (
-                            <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto sm:min-w-0 sm:px-3 sm:py-2.5 sm:text-xs">
-                              Review Bill Plan items
-                            </button>
-                          ) : undefined
-                        }
-                      />
-                      <div className="mt-3 space-y-2">
-                        {upcomingRecurringBills.length > 0 ? (
-                          upcomingRecurringBills.slice(0, 2).map((template) => (
-                            <OverviewListRow
-                              key={template.id}
-                              title={template.name}
-                              badges={
-                                <>
-                                  <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge>
-                                  <Badge muted>{formatPlanSchedule(template)}</Badge>
-                                  {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
-                                </>
-                              }
-                              meta={
-                                <>
-                                  {template.category}
-                                </>
-                              }
-                              amount={formatCurrency(template.amount)}
+                    <div className="lg:col-span-2">
+                      <div className="leftly-overview-section">
+                        <OverviewSectionHeader
+                          title="Upcoming from your Bill Plan"
+                          description="Saved items that are active but not yet in this pay period."
+                          aside={
+                            payPeriod && hasActiveBillPlanItems ? (
+                              <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto sm:min-w-0 sm:px-3 sm:py-2.5 sm:text-xs">
+                                Review Bill Plan items
+                              </button>
+                            ) : undefined
+                          }
+                        />
+                        <div className="mt-3 space-y-2">
+                          {upcomingRecurringBills.length > 0 ? (
+                            upcomingRecurringBills.slice(0, 2).map((template) => (
+                              <OverviewListRow
+                                key={template.id}
+                                title={template.name}
+                                badges={
+                                  <>
+                                    <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge>
+                                    <Badge muted>{formatPlanSchedule(template)}</Badge>
+                                    {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
+                                  </>
+                                }
+                                meta={
+                                  <>
+                                    {template.category}
+                                  </>
+                                }
+                                amount={formatCurrency(template.amount)}
+                              />
+                            ))
+                          ) : (
+                            <EmptyState
+                              title="Nothing waiting"
+                              text="Add regular bills to Bill Plan and Leftly will surface them here before you apply them."
+                              compact
                             />
-                          ))
-                        ) : (
-                          <EmptyState
-                            title="Nothing waiting"
-                            text="Add regular bills to Bill Plan and Leftly will surface them here before you apply them."
-                            compact
-                          />
-                        )}
+                          )}
+                        </div>
+                        {upcomingRecurringBills.length > 2 ? (
+                          <p className="mt-2 text-xs text-slate-500">+{upcomingRecurringBills.length - 2} more in Bill Plan</p>
+                        ) : null}
                       </div>
-                      {upcomingRecurringBills.length > 2 ? (
-                        <p className="mt-2 text-xs text-slate-500">+{upcomingRecurringBills.length - 2} more in Bill Plan</p>
-                      ) : null}
                     </div>
                   </div>
                 </div>

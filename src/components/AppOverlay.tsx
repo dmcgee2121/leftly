@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import type { MutableRefObject, ReactNode, RefObject } from 'react'
 
 type DesktopPresentation = 'drawer' | 'dialog'
+type DesktopSize = 'standard' | 'wide'
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -13,6 +14,7 @@ export function AppOverlay({
   description,
   closeLabel = 'Close panel',
   desktopPresentation = 'drawer',
+  desktopSize = 'standard',
   initialFocusRef,
   onClose,
   children,
@@ -23,6 +25,7 @@ export function AppOverlay({
   description?: string
   closeLabel?: string
   desktopPresentation?: DesktopPresentation
+  desktopSize?: DesktopSize
   initialFocusRef?: RefObject<HTMLElement | null>
   onClose: () => void
   children: ReactNode
@@ -135,7 +138,9 @@ export function AppOverlay({
           aria-describedby={description ? descriptionId : undefined}
           tabIndex={-1}
           className={`leftly-overlay-shell ${
-            desktopPresentation === 'dialog' ? 'leftly-overlay-shell-dialog' : 'leftly-overlay-shell-drawer'
+            desktopPresentation === 'dialog'
+              ? 'leftly-overlay-shell-dialog'
+              : `leftly-overlay-shell-drawer ${desktopSize === 'wide' ? 'leftly-overlay-shell-drawer-wide' : ''}`
           }`}
           onClick={(event) => event.stopPropagation()}
         >

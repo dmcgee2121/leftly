@@ -95,7 +95,8 @@ type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help
 type TabKey = MainTabKey | MoreMenuKey
 type OverlayKey = Extract<TabKey, 'quick-add' | 'more'>
 type ContentTabKey = Exclude<TabKey, OverlayKey>
-type ActiveOverlay = OverlayKey | null
+type ActiveOverlay = OverlayKey | 'history-detail' | null
+type HistorySort = 'newest' | 'oldest' | 'highest-leftly' | 'lowest-leftly'
 type PayPeriodDraft = {
   cadence: PayCadence
   income: string
@@ -704,6 +705,18 @@ function getSnapshotCarriedOverSummary(bills: Bill[]) {
   }
 }
 
+function getSnapshotLeftlyStatus(leftover: number) {
+  if (leftover < 0) {
+    return 'Over budget'
+  }
+
+  if (leftover === 0) {
+    return 'Fully allocated'
+  }
+
+  return 'Left after bills and expenses'
+}
+
 function getSnapshotTopExpenseCategories(expenses: Expense[]) {
   const byCategory = new Map<BudgetCategory, SnapshotCategorySummary>()
 
@@ -746,6 +759,36 @@ function HistorySection({
   formatCurrency: (value: number) => string
 }) {
   const [showAllExpenses, setShowAllExpenses] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [historySort, setHistorySort] = useState<HistorySort>('newest')
+
+  const filteredSnapshots = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase()
+    const matchingSnapshots = snapshots.filter((snapshot) => {
+      if (!query) return true
+      const periodText = formatHistoryPeriodLabel(snapshot.startDate, snapshot.endDate)
+      return [snapshot.label, snapshot.startDate, snapshot.endDate, snapshot.cadence, periodText]
+        .join(' ')
+        .toLocaleLowerCase()
+        .includes(query)
+    })
+    return matchingSnapshots
+      .map((snapshot, index) => ({ snapshot, index }))
+      .sort((left, right) => {
+        const comparison = historySort === 'highest-leftly' || historySort === 'lowest-leftly'
+          ? (historySort === 'highest-leftly' ? right.snapshot.totals.leftover - left.snapshot.totals.leftover : left.snapshot.totals.leftover - right.snapshot.totals.leftover)
+          : (() => {
+              const leftDate = Date.parse(left.snapshot.archivedAt)
+              const rightDate = Date.parse(right.snapshot.archivedAt)
+              const safeLeft = Number.isFinite(leftDate) ? leftDate : historySort === 'newest' ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY
+              const safeRight = Number.isFinite(rightDate) ? rightDate : historySort === 'newest' ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY
+              const dateComparison = safeLeft - safeRight
+              return historySort === 'newest' ? -dateComparison : dateComparison
+            })()
+        return comparison || left.index - right.index
+      })
+      .map(({ snapshot }) => snapshot)
+  }, [historySort, searchQuery, snapshots])
 
   if (selectedSnapshot) {
     const billItems = selectedSnapshot.bills
@@ -757,6 +800,7 @@ function HistorySection({
     const rolloverAmount = typeof selectedSnapshot.rolloverAmount === 'number' && selectedSnapshot.rolloverAmount > 0 ? selectedSnapshot.rolloverAmount : 0
     const rolloverApplied = typeof selectedSnapshot.rolloverApplied === 'boolean' ? selectedSnapshot.rolloverApplied : null
     const visibleExpenses = showAllExpenses || expenseItems.length <= 5 ? expenseItems : expenseItems.slice(0, 5)
+    const finalLeftlyStatus = getSnapshotLeftlyStatus(selectedSnapshot.totals.leftover)
 
     return (
     <div className="grid gap-3 sm:gap-4">
@@ -791,6 +835,29 @@ function HistorySection({
             >
               Delete snapshot
             </button>
+          </div>
+        </div>
+
+        <div className="leftly-shell-accent grid gap-3 p-3 sm:p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/70">Final Leftly</p>
+              <p className={`mt-1 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl ${selectedSnapshot.totals.leftover < 0 ? 'text-rose-200' : 'text-cyan-50'}`}>
+                {formatCurrency(selectedSnapshot.totals.leftover)}
+              </p>
+              <p className="mt-1 text-sm text-slate-300">{finalLeftlyStatus}</p>
+            </div>
+            <div className="text-right text-xs leading-5 text-slate-400 sm:text-sm">
+              <p>{selectedSnapshot.label}</p>
+              <p>Archived {formatArchivedDate(selectedSnapshot.archivedAt)} · {selectedSnapshot.cadence}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <MiniStat label="Starting income" value={formatCurrency(getSnapshotStartingIncome(selectedSnapshot))} dense />
+            <MiniStat label="Total bills" value={formatCurrency(selectedSnapshot.totals.totalBills)} dense />
+            <MiniStat label="Paid bills" value={formatCurrency(selectedSnapshot.totals.paidBills)} dense />
+            <MiniStat label="Unpaid bills" value={formatCurrency(selectedSnapshot.totals.unpaidBills)} dense />
+            <MiniStat label="Total expenses" value={formatCurrency(selectedSnapshot.totals.totalExpenses)} dense />
           </div>
         </div>
 
@@ -925,13 +992,34 @@ function HistorySection({
   return (
     <div className="grid gap-4">
       {snapshots.length > 0 ? (
+        <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-4">
+          <label className="leftly-field">
+            <span>Search archived periods</span>
+            <span className="leftly-input-shell"><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="June, 2026-06, biweekly…" /></span>
+          </label>
+          <label className="leftly-field sm:min-w-56">
+            <span>Sort history</span>
+            <span className="leftly-input-shell">
+              <select value={historySort} onChange={(event) => setHistorySort(event.target.value as HistorySort)}>
+                <option value="newest">Newest archived first</option>
+                <option value="oldest">Oldest archived first</option>
+                <option value="highest-leftly">Highest Final Leftly</option>
+                <option value="lowest-leftly">Lowest Final Leftly</option>
+              </select>
+            </span>
+          </label>
+        </div>
+      ) : null}
+      {snapshots.length > 0 && filteredSnapshots.length === 0 ? (
+        <EmptyState title="No archived periods match" text="Try a different search term or clear the search field." />
+      ) : snapshots.length > 0 ? (
         <div className="grid gap-2.5 sm:gap-3">
-          {snapshots.map((snapshot) => (
+          {filteredSnapshots.map((snapshot) => (
             <article key={snapshot.id} className="leftly-shell p-3 sm:p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <button type="button" onClick={() => onSelectSnapshot(snapshot.id)} className="min-w-0 flex-1 text-left">
-                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <h3 className="text-sm font-semibold text-white sm:text-base">{snapshot.label}</h3>
+                <button type="button" onClick={() => onSelectSnapshot(snapshot.id)} aria-label={`Open details for ${snapshot.label}`} className="min-w-0 flex-1 rounded-xl text-left focus:outline-none focus:ring-4 focus:ring-cyan-400/20">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <h3 className="min-w-0 text-sm font-semibold text-white sm:text-base">{snapshot.label}</h3>
                     <Badge muted>{snapshot.cadence}</Badge>
                     {snapshot.rolloverAmount && snapshot.rolloverAmount > 0 ? (
                       <Badge success>
@@ -941,9 +1029,14 @@ function HistorySection({
                     ) : null}
                     {getSnapshotCarriedOverSummary(snapshot.bills).count > 0 ? <Badge muted>{getSnapshotCarriedOverSummary(snapshot.bills).count} carried over</Badge> : null}
                   </div>
-                  <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-sm">
-                    Archived {formatArchivedDate(snapshot.archivedAt)} · Final Leftly {formatCurrency(snapshot.totals.leftover)}
-                  </p>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-sm">Archived {formatArchivedDate(snapshot.archivedAt)} · {snapshot.startDate} to {snapshot.endDate}</p>
+                  <div className="mt-3 flex items-end justify-between gap-3 border-t border-slate-800/70 pt-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Final Leftly</span>
+                    <span className={`text-right text-base font-semibold sm:text-lg ${snapshot.totals.leftover < 0 ? 'text-rose-200' : 'text-cyan-50'}`}>
+                      {formatCurrency(snapshot.totals.leftover)}
+                      <span className="mt-0.5 block text-[11px] font-medium text-slate-400">{getSnapshotLeftlyStatus(snapshot.totals.leftover)}</span>
+                    </span>
+                  </div>
                 </button>
 
                 <button
@@ -955,13 +1048,11 @@ function HistorySection({
                 </button>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-2 xl:grid-cols-3">
-                <MiniStat label="Income" value={formatCurrency(getSnapshotStartingIncome(snapshot))} dense />
-                <MiniStat label="Final Leftly" value={formatCurrency(snapshot.totals.leftover)} tone="highlight" dense />
+              <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-800/70 pt-3 sm:grid-cols-4">
+                <MiniStat label="Starting income" value={formatCurrency(getSnapshotStartingIncome(snapshot))} dense />
                 <MiniStat label="Total bills" value={formatCurrency(snapshot.totals.totalBills)} dense />
-                <MiniStat label="Paid bills" value={formatCurrency(snapshot.totals.paidBills)} dense />
-                <MiniStat label="Unpaid bills" value={formatCurrency(snapshot.totals.unpaidBills)} dense />
                 <MiniStat label="Total expenses" value={formatCurrency(snapshot.totals.totalExpenses)} dense />
+                <MiniStat label="Bill status" value={`${snapshot.totals.paidBills} paid · ${snapshot.totals.unpaidBills} unpaid`} dense />
               </div>
             </article>
           ))}
@@ -1185,6 +1276,17 @@ function App() {
       contentNode.removeAttribute('inert')
     }
   }, [activeOverlay])
+
+  useEffect(() => {
+    if (activeTab !== 'history' && activeOverlay === 'history-detail') {
+      const cleanupTimer = window.setTimeout(() => {
+        setActiveOverlay(null)
+        setSelectedHistoryId(null)
+      }, 0)
+      return () => window.clearTimeout(cleanupTimer)
+    }
+    return undefined
+  }, [activeOverlay, activeTab])
 
   useEffect(() => {
     if (!dataMessage) {
@@ -1579,6 +1681,17 @@ function App() {
     [payPeriodHistory, selectedHistoryId],
   )
 
+  useEffect(() => {
+    if (activeOverlay === 'history-detail' && !selectedHistorySnapshot) {
+      const cleanupTimer = window.setTimeout(() => {
+        setActiveOverlay(null)
+        setSelectedHistoryId(null)
+      }, 0)
+      return () => window.clearTimeout(cleanupTimer)
+    }
+    return undefined
+  }, [activeOverlay, selectedHistorySnapshot])
+
   const categoryRank = useMemo(() => {
     return new Map(
       [...visibleCategorySummaries]
@@ -1603,7 +1716,7 @@ function App() {
   )
 
   const activeBottomNavTab: MainTabKey = activeOverlay
-    ? activeOverlay
+    ? activeOverlay === 'history-detail' ? 'history' : activeOverlay
     : activeTab === 'income' ||
         activeTab === 'bill' ||
         activeTab === 'expense' ||
@@ -1996,6 +2109,7 @@ function App() {
     }
 
     overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setSelectedHistoryId(null)
     setActiveOverlay('quick-add')
     setExpenseError('')
     setExpenseSuccess('')
@@ -2007,7 +2121,27 @@ function App() {
 
   function openMoreMenu() {
     overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setSelectedHistoryId(null)
     setActiveOverlay('more')
+  }
+
+  function openHistorySnapshot(id: string) {
+    overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setSelectedHistoryId(id)
+    setActiveOverlay('history-detail')
+  }
+
+  function closeHistorySnapshot(restoreFocus = true) {
+    setActiveOverlay(null)
+    setSelectedHistoryId(null)
+    if (restoreFocus) {
+      window.setTimeout(() => overlayTriggerRef.current?.focus(), 0)
+    }
+  }
+
+  function useHistorySnapshotAsStartingPoint(snapshot: PayPeriodSnapshot) {
+    closeHistorySnapshot(false)
+    setHistoryStartSnapshot(snapshot)
   }
 
   function openMoreScreen(key: MoreMenuKey) {
@@ -2913,6 +3047,7 @@ function App() {
     deletePayPeriodSnapshot(id)
     setPayPeriodHistory((current) => current.filter((snapshot) => snapshot.id !== id))
     if (selectedHistoryId === id) {
+      setActiveOverlay(null)
       setSelectedHistoryId(null)
     }
   }
@@ -4702,13 +4837,12 @@ function App() {
                 </div>
               ) : null}
               <HistorySection
-                key={selectedHistorySnapshot?.id ?? 'history-list'}
                 snapshots={payPeriodHistory}
-                selectedSnapshot={selectedHistorySnapshot}
-                onSelectSnapshot={setSelectedHistoryId}
-                onUseAsStartingPoint={setHistoryStartSnapshot}
+                selectedSnapshot={null}
+                onSelectSnapshot={openHistorySnapshot}
+                onUseAsStartingPoint={useHistorySnapshotAsStartingPoint}
                 onExportSnapshotCsv={exportHistorySnapshotCsv}
-                onBackToList={() => setSelectedHistoryId(null)}
+                onBackToList={() => closeHistorySnapshot()}
                 onDeleteSnapshot={deleteHistorySnapshot}
                 formatCurrency={formatCurrency}
               />
@@ -4875,6 +5009,29 @@ function App() {
         }}
       >
         {moreOverlayContent}
+      </AppOverlay>
+      <AppOverlay
+        id="leftly-history-detail-overlay"
+        isOpen={activeOverlay === 'history-detail' && Boolean(selectedHistorySnapshot)}
+        title={selectedHistorySnapshot?.label ?? 'Archived pay period'}
+        description="Read-only details from this archived pay period."
+        desktopPresentation="drawer"
+        desktopSize="wide"
+        closeLabel="Close history details"
+        onClose={() => closeHistorySnapshot()}
+      >
+        {selectedHistorySnapshot ? (
+          <HistorySection
+            snapshots={payPeriodHistory}
+            selectedSnapshot={selectedHistorySnapshot}
+            onSelectSnapshot={openHistorySnapshot}
+            onUseAsStartingPoint={useHistorySnapshotAsStartingPoint}
+            onExportSnapshotCsv={exportHistorySnapshotCsv}
+            onBackToList={() => closeHistorySnapshot()}
+            onDeleteSnapshot={deleteHistorySnapshot}
+            formatCurrency={formatCurrency}
+          />
+        ) : null}
       </AppOverlay>
       <input
         ref={landingBackupInputRef}

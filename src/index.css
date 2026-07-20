@@ -454,6 +454,10 @@
     @apply md:ml-auto md:h-[calc(100dvh-2rem)] md:max-h-none md:max-w-[29rem] md:rounded-[1.85rem];
   }
 
+  .leftly-overlay-shell-drawer-wide {
+    @apply md:max-w-[44rem];
+  }
+
   .leftly-overlay-shell-dialog {
     @apply md:max-h-[min(90dvh,52rem)] md:max-w-3xl;
   }

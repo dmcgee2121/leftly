@@ -1052,7 +1052,7 @@ function HistorySection({
                 <MiniStat label="Starting income" value={formatCurrency(getSnapshotStartingIncome(snapshot))} dense />
                 <MiniStat label="Total bills" value={formatCurrency(snapshot.totals.totalBills)} dense />
                 <MiniStat label="Total expenses" value={formatCurrency(snapshot.totals.totalExpenses)} dense />
-                <MiniStat label="Bill status" value={`${snapshot.totals.paidBills} paid · ${snapshot.totals.unpaidBills} unpaid`} dense />
+                <MiniStat label="Paid / unpaid" value={`${formatCurrency(snapshot.totals.paidBills)} paid · ${formatCurrency(snapshot.totals.unpaidBills)} unpaid`} dense />
               </div>
             </article>
           ))}

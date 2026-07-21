@@ -46,7 +46,7 @@ export function StartFromHistoryPanel({
   snapshot: PayPeriodSnapshot | null
   isOpen: boolean
   onClose: () => void
-  onSubmit: (result: HistoryStartReview) => void
+  onSubmit: (result: HistoryStartReview) => boolean | void
 }) {
   const [draft, setDraft] = useState<HistoryStartDraft>({
     income: snapshot ? String(snapshot.income) : '',
@@ -61,6 +61,7 @@ export function StartFromHistoryPanel({
   })
   const [mode, setMode] = useState<PanelMode>('edit')
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const preview = useMemo(() => {
     if (!snapshot || !draft.startDate || !draft.endDate) {
@@ -141,7 +142,7 @@ export function StartFromHistoryPanel({
   function handleSubmit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault()
 
-    if (!validateDraft() || !snapshot) {
+    if (isSubmitting || !validateDraft() || !snapshot) {
       return
     }
 
@@ -156,7 +157,8 @@ export function StartFromHistoryPanel({
       ? snapshot.expenses.filter((expense) => expense.source !== 'recurring').map((expense) => cloneExpense(expense))
       : []
 
-    onSubmit({
+    setIsSubmitting(true)
+    const submitted = onSubmit({
       period: {
         cadence: draft.cadence,
         income,
@@ -168,6 +170,9 @@ export function StartFromHistoryPanel({
       categoryTargets: { ...snapshot.categoryTargets },
       copyManualExpenses: draft.copyManualExpenses,
     })
+    if (submitted === false) {
+      setIsSubmitting(false)
+    }
   }
 
   if (!isOpen || !snapshot) {
@@ -360,8 +365,8 @@ export function StartFromHistoryPanel({
               <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
                 Back to edit
               </button>
-              <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-                Start pay period
+              <button type="button" onClick={() => handleSubmit()} disabled={isSubmitting} className={`${buttonStyles.primary} w-full sm:w-auto`}>
+                {isSubmitting ? 'Starting pay period…' : 'Start pay period'}
               </button>
             </div>
           </div>

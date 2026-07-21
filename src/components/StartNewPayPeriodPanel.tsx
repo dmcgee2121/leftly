@@ -68,6 +68,7 @@ export function StartNewPayPeriodPanel({
   categoryTargetCount,
   isOpen,
   defaultPayCadence,
+  initialDraft,
   onClose,
   onSubmit,
 }: {
@@ -77,14 +78,20 @@ export function StartNewPayPeriodPanel({
   categoryTargetCount: number
   isOpen: boolean
   defaultPayCadence: PayCadence
+  initialDraft?: {
+    income?: string
+    cadence?: PayCadence
+    startDate?: string
+    endDate?: string
+  }
   onClose: () => void
-  onSubmit: (period: BudgetPeriod, options: { generateRecurring: boolean; carryoverBills: Bill[]; carryCategoryTargets: boolean }) => void
+  onSubmit: (period: BudgetPeriod, options: { generateRecurring: boolean; carryoverBills: Bill[]; carryCategoryTargets: boolean }) => boolean | void
 }) {
   const [draft, setDraft] = useState<StartNewPeriodDraft>(() => ({
-    income: currentPayPeriod ? String(currentPayPeriod.income) : '',
-    cadence: currentPayPeriod?.cadence ?? defaultPayCadence,
-    startDate: currentPayPeriod?.startDate ?? '',
-    endDate: currentPayPeriod?.endDate ?? '',
+    income: initialDraft?.income ?? (currentPayPeriod ? String(currentPayPeriod.income) : ''),
+    cadence: initialDraft?.cadence ?? currentPayPeriod?.cadence ?? defaultPayCadence,
+    startDate: initialDraft?.startDate ?? currentPayPeriod?.startDate ?? '',
+    endDate: initialDraft?.endDate ?? currentPayPeriod?.endDate ?? '',
     generateRecurring: templates.length > 0,
     carryCategoryTargets: true,
   }))
@@ -93,6 +100,7 @@ export function StartNewPayPeriodPanel({
   const [applyRollover, setApplyRollover] = useState(false)
   const [carryoverMode, setCarryoverMode] = useState<CarryoverMode>('skip')
   const [selectedCarryoverBillIds, setSelectedCarryoverBillIds] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const preview = useMemo(() => {
     if (!draft.generateRecurring || !draft.startDate || !draft.endDate) {
@@ -203,13 +211,14 @@ export function StartNewPayPeriodPanel({
   function handleSubmit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault()
 
-    if (!validateDraft()) {
+    if (isSubmitting || !validateDraft()) {
       return
     }
 
     const nextBaseIncome = Number(draft.income)
 
-    onSubmit(
+    setIsSubmitting(true)
+    const submitted = onSubmit(
       {
         cadence: draft.cadence,
         income: nextIncome,
@@ -225,6 +234,9 @@ export function StartNewPayPeriodPanel({
         carryCategoryTargets: draft.carryCategoryTargets,
       },
     )
+    if (submitted === false) {
+      setIsSubmitting(false)
+    }
   }
 
   if (!isOpen) {
@@ -657,8 +669,8 @@ export function StartNewPayPeriodPanel({
               <button type="button" onClick={() => setMode('edit')} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
                 Back to edit
               </button>
-              <button type="button" onClick={() => handleSubmit()} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-                Start new pay period
+              <button type="button" onClick={() => handleSubmit()} disabled={isSubmitting} className={`${buttonStyles.primary} w-full sm:w-auto`}>
+                {isSubmitting ? 'Starting pay period…' : 'Start new pay period'}
               </button>
             </div>
           </div>

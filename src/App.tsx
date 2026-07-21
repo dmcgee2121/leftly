@@ -1145,6 +1145,13 @@ function App() {
   const [isSetupOpen, setIsSetupOpen] = useState(false)
   const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
+  const [startNewPayPeriodInitialDraft, setStartNewPayPeriodInitialDraft] = useState<{
+    income: string
+    cadence: PayCadence
+    startDate: string
+    endDate: string
+  } | null>(null)
+  const [isCorrectingCurrentPeriodDates, setIsCorrectingCurrentPeriodDates] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
   const allCategories = useMemo(() => getAllCategories(customCategories), [customCategories])
   const resolvedCategoryOrder = useMemo(() => reconcileCategoryOrder(categoryOrder, customCategories), [categoryOrder, customCategories])
@@ -1726,6 +1733,10 @@ function App() {
       ? 'more'
       : activeTab
 
+  const datesDifferFromActivePeriod = Boolean(
+    payPeriod && (payPeriodDraft.startDate !== payPeriod.startDate || payPeriodDraft.endDate !== payPeriod.endDate),
+  )
+
   const deleteCategoryCounts = useMemo(() => {
     if (!deletingCategory) {
       return null
@@ -2001,6 +2012,14 @@ function App() {
       return
     }
 
+    const datesDifferFromActivePeriod = Boolean(
+      payPeriod && (payPeriodDraft.startDate !== payPeriod.startDate || payPeriodDraft.endDate !== payPeriod.endDate),
+    )
+    if (datesDifferFromActivePeriod && !isCorrectingCurrentPeriodDates) {
+      setPayPeriodError('These dates are different from your active pay period. Use Start new pay period to save the current period to History before beginning the next one.')
+      return
+    }
+
     const nextPeriod: BudgetPeriod = {
       cadence: payPeriodDraft.cadence,
       income,
@@ -2010,7 +2029,8 @@ function App() {
 
     setPayPeriod(nextPeriod)
     setPayPeriodDraft(getDraftFromPeriod(nextPeriod))
-    setIncomeSuccess('Income saved.')
+    setIsCorrectingCurrentPeriodDates(false)
+    setIncomeSuccess(payPeriod ? 'Current pay period updated.' : 'First pay period started.')
   }
 
   function handleAddBill(event: FormEvent<HTMLFormElement>) {
@@ -2541,13 +2561,18 @@ function App() {
     }
 
     const snapshot = createPayPeriodSnapshot(payPeriod, bills, expenses, categoryTargets)
-    addPayPeriodSnapshot(snapshot)
+    if (!addPayPeriodSnapshot(snapshot)) {
+      setPayPeriodError('Leftly could not save the current pay period to History. Your active pay period was not changed.')
+      setIncomeSuccess('')
+      return false
+    }
     setPayPeriodHistory((current) => [snapshot, ...current])
     return true
   }
 
-  function openStartNewPayPeriod() {
+  function openStartNewPayPeriod(initialDraft?: typeof startNewPayPeriodInitialDraft) {
     setActiveTab('income')
+    setStartNewPayPeriodInitialDraft(initialDraft ?? null)
     setIsStartNewPayPeriodOpen(true)
   }
 
@@ -2556,7 +2581,7 @@ function App() {
     options: { generateRecurring: boolean; carryoverBills: Bill[]; carryCategoryTargets: boolean },
   ) {
     if (!archiveActivePayPeriod()) {
-      return
+      return false
     }
 
     const sourcePeriodKey = payPeriod ? getRecurringPeriodKey(payPeriod) : ''
@@ -2590,6 +2615,8 @@ function App() {
     setPayPeriod(period)
     setCategoryTargets(options.carryCategoryTargets ? categoryTargets : {})
     setIsStartNewPayPeriodOpen(false)
+    setStartNewPayPeriodInitialDraft(null)
+    setIsCorrectingCurrentPeriodDates(false)
     setSelectedHistoryId(null)
     setEditingItem(null)
     setActiveTab('income')
@@ -2601,6 +2628,7 @@ function App() {
       successParts.push(`Carried over ${carriedOverCount} unpaid bill${carriedOverCount === 1 ? '' : 's'}.`)
     }
     setIncomeSuccess(successParts.join(' '))
+    return true
   }
 
   function handleStartFromHistory(result: {
@@ -2611,7 +2639,7 @@ function App() {
     copyManualExpenses: boolean
   }) {
     if (!archiveActivePayPeriod()) {
-      return
+      return false
     }
 
     setPayPeriod(result.period)
@@ -2624,6 +2652,7 @@ function App() {
     setIsStartNewPayPeriodOpen(false)
     setEditingItem(null)
     setActiveTab('overview')
+    return true
   }
 
   function loadDemoData() {
@@ -3953,7 +3982,11 @@ function App() {
                   categoryTargetCount={Object.keys(categoryTargets).length}
                   isOpen={isStartNewPayPeriodOpen}
                   defaultPayCadence={preferences.defaultPayCadence}
-                  onClose={() => setIsStartNewPayPeriodOpen(false)}
+                  initialDraft={startNewPayPeriodInitialDraft ?? undefined}
+                  onClose={() => {
+                    setIsStartNewPayPeriodOpen(false)
+                    setStartNewPayPeriodInitialDraft(null)
+                  }}
                   onSubmit={handleStartNewPayPeriod}
                 />
               ) : null}
@@ -3964,8 +3997,8 @@ function App() {
                     ? 'Set the paycheck Leftly is tracking right now, or start the next pay period when you are ready.'
                     : 'Add your income and pay period dates below to create the paycheck Leftly should track first.'}
                 </p>
-                <button type="button" onClick={openStartNewPayPeriod} className="button-secondary w-full sm:w-auto">
-                  Start new pay period
+                <button type="button" onClick={() => openStartNewPayPeriod(payPeriodDraft)} className="button-secondary w-full sm:w-auto">
+                  {payPeriod ? 'Start new pay period' : 'Start first pay period'}
                 </button>
               </div>
 
@@ -3973,7 +4006,9 @@ function App() {
                 <div className="leftly-panel-section">
                   <div className="grid gap-1">
                     <p className="leftly-panel-label">Paycheck details</p>
-                    <p className="leftly-panel-copy">Enter the paycheck you want Leftly to track right now.</p>
+                    <p className="leftly-panel-copy">
+                      {payPeriod ? 'Update the current pay period here. Use Start new pay period when these details belong to the next period.' : 'Enter the paycheck you want Leftly to track first.'}
+                    </p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -4036,13 +4071,36 @@ function App() {
                   </div>
                 </div>
 
+                {payPeriod && datesDifferFromActivePeriod && !isCorrectingCurrentPeriodDates ? (
+                  <div className="leftly-banner-warning grid gap-3 sm:flex sm:items-center sm:justify-between">
+                    <p>These dates appear to represent another pay period. Use Start new pay period to save the current period to History first.</p>
+                    <div className="flex flex-col gap-2 sm:shrink-0">
+                      <button type="button" onClick={() => openStartNewPayPeriod(payPeriodDraft)} className="button-primary w-full sm:w-auto">
+                        Start new pay period with these values
+                      </button>
+                      <button type="button" onClick={() => { setIsCorrectingCurrentPeriodDates(true); setPayPeriodError('') }} className="button-secondary w-full sm:w-auto">
+                        Correct current period dates
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {payPeriod && isCorrectingCurrentPeriodDates ? (
+                  <div className="leftly-banner-warning flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p>This edits the current period in place and does not create a History snapshot.</p>
+                    <button type="button" onClick={() => { setIsCorrectingCurrentPeriodDates(false); setPayPeriodDraft(getDraftFromPeriod(payPeriod)); setPayPeriodError('') }} className="button-secondary w-full sm:w-auto">
+                      Cancel date correction
+                    </button>
+                  </div>
+                ) : null}
+
                 {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
                 {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
 
                 <div className="leftly-sheet-footer">
                   <div className="leftly-action-grid">
                     <button type="submit" className="button-primary w-full sm:w-auto">
-                      Save pay period
+                      {payPeriod ? (isCorrectingCurrentPeriodDates ? 'Apply date correction' : 'Update current pay period') : 'Start first pay period'}
                     </button>
                   </div>
                 </div>

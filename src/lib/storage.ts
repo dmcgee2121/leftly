@@ -291,8 +291,10 @@ function isLeftlyPreferences(value: unknown): value is LeftlyPreferences {
 function writeJson(key: string, value: unknown) {
   try {
     window.localStorage.setItem(key, JSON.stringify(value))
+    return true
   } catch {
     // Ignore storage failures so the app keeps running.
+    return false
   }
 }
 
@@ -458,7 +460,7 @@ export function loadPayPeriodHistory(): PayPeriodSnapshot[] {
 }
 
 export function savePayPeriodHistory(history: PayPeriodSnapshot[]) {
-  writeJson(PAY_PERIOD_HISTORY_KEY, history)
+  return writeJson(PAY_PERIOD_HISTORY_KEY, history)
 }
 
 export function loadCategoryTargets(): CategoryTargets {
@@ -471,7 +473,12 @@ export function saveCategoryTargets(targets: CategoryTargets | undefined) {
 
 export function addPayPeriodSnapshot(snapshot: PayPeriodSnapshot) {
   const history = loadPayPeriodHistory()
-  savePayPeriodHistory([snapshot, ...history])
+  const nextHistory = [snapshot, ...history]
+  if (!savePayPeriodHistory(nextHistory)) {
+    return false
+  }
+
+  return loadPayPeriodHistory().some((item) => item.id === snapshot.id)
 }
 
 export function deletePayPeriodSnapshot(id: string) {

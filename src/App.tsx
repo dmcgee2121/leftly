@@ -1733,10 +1733,6 @@ function App() {
       ? 'more'
       : activeTab
 
-  const datesDifferFromActivePeriod = Boolean(
-    payPeriod && (payPeriodDraft.startDate !== payPeriod.startDate || payPeriodDraft.endDate !== payPeriod.endDate),
-  )
-
   const deleteCategoryCounts = useMemo(() => {
     if (!deletingCategory) {
       return null
@@ -2030,7 +2026,13 @@ function App() {
     setPayPeriod(nextPeriod)
     setPayPeriodDraft(getDraftFromPeriod(nextPeriod))
     setIsCorrectingCurrentPeriodDates(false)
-    setIncomeSuccess(payPeriod ? 'Current pay period updated.' : 'First pay period started.')
+    setIncomeSuccess(
+      payPeriod
+        ? isCorrectingCurrentPeriodDates
+          ? 'Current pay period dates corrected. No History snapshot was created.'
+          : 'Current pay period updated.'
+        : 'First pay period started.',
+    )
   }
 
   function handleAddBill(event: FormEvent<HTMLFormElement>) {
@@ -2620,7 +2622,7 @@ function App() {
     setSelectedHistoryId(null)
     setEditingItem(null)
     setActiveTab('income')
-    const successParts = ['New pay period started and the previous one was saved to History.']
+    const successParts = ['New pay period started. The previous period was saved to History.']
     if (period.rolloverAmount && period.rolloverAmount > 0) {
       successParts.push(`Rollover applied: ${formatCurrency(period.rolloverAmount)}.`)
     }
@@ -3971,7 +3973,7 @@ function App() {
           ) : null}
 
           {activeTab === 'income' ? (
-            <SectionShell title="Income" description="Update paycheck income and pay period dates.">
+            <SectionShell title="Income" description="Keep today’s pay period clear, then use the next-period wizard when it is time to roll over.">
               <MoreBackBar onBack={openMoreMenu} />
 
               {isStartNewPayPeriodOpen ? (
@@ -3991,120 +3993,60 @@ function App() {
                 />
               ) : null}
 
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm leading-6 text-slate-400">
-                  {payPeriod
-                    ? 'Set the paycheck Leftly is tracking right now, or start the next pay period when you are ready.'
-                    : 'Add your income and pay period dates below to create the paycheck Leftly should track first.'}
-                </p>
-                <button type="button" onClick={() => openStartNewPayPeriod(payPeriodDraft)} className="button-secondary w-full sm:w-auto">
-                  {payPeriod ? 'Start new pay period' : 'Start first pay period'}
-                </button>
-              </div>
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
+                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
+                  <div className="leftly-panel-section">
+                    <div className="grid gap-1">
+                      <p className="leftly-panel-label">Current pay period</p>
+                      <p className="leftly-panel-copy">
+                        {payPeriod ? 'This is the period Leftly is tracking now. Income can be edited; cadence and dates stay locked unless you deliberately correct a mistake.' : 'Create your first pay period so Leftly knows which paycheck to track.'}
+                      </p>
+                    </div>
 
-              <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
-                <div className="leftly-panel-section">
-                  <div className="grid gap-1">
-                    <p className="leftly-panel-label">Paycheck details</p>
-                    <p className="leftly-panel-copy">
-                      {payPeriod ? 'Update the current pay period here. Use Start new pay period when these details belong to the next period.' : 'Enter the paycheck you want Leftly to track first.'}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Cadence">
-                      <select
-                        value={payPeriodDraft.cadence}
-                        onChange={(event) =>
-                          setPayPeriodDraft((current) => ({
-                            ...current,
-                            cadence: event.target.value as PayCadence,
-                          }))
-                        }
-                      >
-                        {cadenceOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Income amount">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={payPeriodDraft.income}
-                        onChange={(event) =>
-                          setPayPeriodDraft((current) => ({
-                            ...current,
-                            income: event.target.value,
-                          }))
-                        }
-                        placeholder="3200"
-                      />
-                    </Field>
-                    <Field label="Start date">
-                      <input
-                        type="date"
-                        value={payPeriodDraft.startDate}
-                        onChange={(event) =>
-                          setPayPeriodDraft((current) => ({
-                            ...current,
-                            startDate: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field label="End date">
-                      <input
-                        type="date"
-                        value={payPeriodDraft.endDate}
-                        onChange={(event) =>
-                          setPayPeriodDraft((current) => ({
-                            ...current,
-                            endDate: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                  </div>
-                </div>
-
-                {payPeriod && datesDifferFromActivePeriod && !isCorrectingCurrentPeriodDates ? (
-                  <div className="leftly-banner-warning grid gap-3 sm:flex sm:items-center sm:justify-between">
-                    <p>These dates appear to represent another pay period. Use Start new pay period to save the current period to History first.</p>
-                    <div className="flex flex-col gap-2 sm:shrink-0">
-                      <button type="button" onClick={() => openStartNewPayPeriod(payPeriodDraft)} className="button-primary w-full sm:w-auto">
-                        Start new pay period with these values
-                      </button>
-                      <button type="button" onClick={() => { setIsCorrectingCurrentPeriodDates(true); setPayPeriodError('') }} className="button-secondary w-full sm:w-auto">
-                        Correct current period dates
-                      </button>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Cadence">
+                        <select disabled={Boolean(payPeriod)} value={payPeriodDraft.cadence} onChange={(event) => setPayPeriodDraft((current) => ({ ...current, cadence: event.target.value as PayCadence }))}>
+                          {cadenceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Income amount">
+                        <input type="number" min="0" step="0.01" value={payPeriodDraft.income} onChange={(event) => setPayPeriodDraft((current) => ({ ...current, income: event.target.value }))} placeholder="3200" />
+                      </Field>
+                      <Field label="Start date">
+                        <input disabled={Boolean(payPeriod) && !isCorrectingCurrentPeriodDates} type="date" value={payPeriodDraft.startDate} onChange={(event) => setPayPeriodDraft((current) => ({ ...current, startDate: event.target.value }))} />
+                      </Field>
+                      <Field label="End date">
+                        <input disabled={Boolean(payPeriod) && !isCorrectingCurrentPeriodDates} type="date" value={payPeriodDraft.endDate} onChange={(event) => setPayPeriodDraft((current) => ({ ...current, endDate: event.target.value }))} />
+                      </Field>
                     </div>
                   </div>
-                ) : null}
 
-                {payPeriod && isCorrectingCurrentPeriodDates ? (
-                  <div className="leftly-banner-warning flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <p>This edits the current period in place and does not create a History snapshot.</p>
-                    <button type="button" onClick={() => { setIsCorrectingCurrentPeriodDates(false); setPayPeriodDraft(getDraftFromPeriod(payPeriod)); setPayPeriodError('') }} className="button-secondary w-full sm:w-auto">
-                      Cancel date correction
-                    </button>
-                  </div>
-                ) : null}
+                  {payPeriod && !isCorrectingCurrentPeriodDates ? (
+                    <div className="leftly-shell-soft grid gap-3 p-4">
+                      <div><p className="leftly-panel-label">Need to fix a mistake?</p><p className="mt-1 text-sm leading-6 text-slate-400">Correct the current period in place. This does not create a History snapshot.</p></div>
+                      <button type="button" onClick={() => { setIsCorrectingCurrentPeriodDates(true); setPayPeriodError('') }} className="button-secondary w-full sm:w-auto sm:justify-self-start">Correct current period dates</button>
+                    </div>
+                  ) : null}
 
-                {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
-                {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
+                  {payPeriod && isCorrectingCurrentPeriodDates ? (
+                    <div className="leftly-banner-warning grid gap-3">
+                      <p>This edits the current period in place. It does not create a History snapshot and should only be used to correct a mistake.</p>
+                      <button type="button" onClick={() => { setIsCorrectingCurrentPeriodDates(false); setPayPeriodDraft(getDraftFromPeriod(payPeriod)); setPayPeriodError('') }} className="button-secondary w-full sm:w-auto sm:justify-self-start">Cancel date correction</button>
+                    </div>
+                  ) : null}
 
-                <div className="leftly-sheet-footer">
-                  <div className="leftly-action-grid">
-                    <button type="submit" className="button-primary w-full sm:w-auto">
-                      {payPeriod ? (isCorrectingCurrentPeriodDates ? 'Apply date correction' : 'Update current pay period') : 'Start first pay period'}
-                    </button>
-                  </div>
-                </div>
-              </form>
+                  {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
+                  {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
+                  <div className="leftly-sheet-footer"><div className="leftly-action-grid"><button type="submit" className="button-secondary w-full sm:w-auto">{payPeriod ? (isCorrectingCurrentPeriodDates ? 'Apply date correction' : 'Update current period') : 'Start first pay period'}</button></div></div>
+                </form>
+
+                <section className="leftly-shell leftly-shell-accent flex flex-col p-4 sm:p-5">
+                  <div className="grid gap-1"><p className="leftly-panel-label">Next pay period</p><h3 className="text-xl font-semibold text-white">Ready for the next paycheck?</h3><p className="leftly-panel-copy">Starting the next period saves the current period to History. The wizard handles rollover, unpaid-bill carryover, Bill Plan generation, and category-target carryover.</p></div>
+                  <div className="mt-5 flex-1" />
+                  <button type="button" onClick={() => openStartNewPayPeriod(payPeriodDraft)} className="button-primary w-full">{payPeriod ? 'Start next pay period' : 'Start first pay period'}</button>
+                  {payPeriod ? <p className="mt-2 text-xs leading-5 text-slate-400">This is the primary action for moving to a new pay period. It creates exactly one History snapshot before rollover.</p> : <p className="mt-2 text-xs leading-5 text-slate-400">Your first period will be created without a History snapshot.</p>}
+                </section>
+              </div>
             </SectionShell>
           ) : null}
 

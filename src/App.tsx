@@ -88,6 +88,7 @@ import { PayPeriodCalendar } from './components/PayPeriodCalendar'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 import { HelpAboutFeedbackSection } from './components/HelpAboutFeedbackSection'
 import { AppOverlay } from './components/AppOverlay'
+import { ConfirmActionOverlay, type ConfirmActionDetail } from './components/ConfirmActionOverlay'
 import { getLeftlyCloudConfig } from './lib/cloudConfig'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
@@ -95,7 +96,7 @@ type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help
 type TabKey = MainTabKey | MoreMenuKey
 type OverlayKey = Extract<TabKey, 'quick-add' | 'more'>
 type ContentTabKey = Exclude<TabKey, OverlayKey>
-type ActiveOverlay = OverlayKey | 'history-detail' | null
+type ActiveOverlay = OverlayKey | 'history-detail' | 'confirm-action' | null
 type HistorySort = 'newest' | 'oldest' | 'highest-leftly' | 'lowest-leftly'
 type PayPeriodDraft = {
   cadence: PayCadence
@@ -143,6 +144,25 @@ type CategorySummary = {
   billCount: number
   expenseCount: number
   manualExpenseCount: number
+}
+
+type PendingConfirmation = {
+  kind:
+    | 'bill'
+    | 'expense'
+    | 'history'
+    | 'recurring'
+    | 'import'
+    | 'demo'
+    | 'reset'
+    | 'category'
+    | 'empty-archive'
+    | 'setup-draft'
+  title: string
+  description: string
+  details: ConfirmActionDetail[]
+  confirmLabel: string
+  execute: () => void
 }
 
 type CurrentPeriodItemFilter = 'all' | 'bills' | 'expenses' | 'set-asides' | 'unpaid-bills' | 'paid-bills'
@@ -1097,6 +1117,10 @@ function App() {
   const hasMountedScreenTransitionRef = useRef(false)
   const [activeTab, setActiveTab] = useState<ContentTabKey>(getInitialActiveTab)
   const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay>(null)
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null)
+  const [isConfirming, setIsConfirming] = useState(false)
+  const confirmationPreviousOverlayRef = useRef<ActiveOverlay>(null)
+  const confirmationTriggerRef = useRef<HTMLElement | null>(null)
   const [screenTransitionPhase, setScreenTransitionPhase] = useState<'a' | 'b'>('a')
   const [payPeriod, setPayPeriod] = useState<BudgetPeriod | null>(initialPayPeriod)
   const [bills, setBills] = useState<Bill[]>(initialBills)
@@ -1153,6 +1177,40 @@ function App() {
   } | null>(null)
   const [isCorrectingCurrentPeriodDates, setIsCorrectingCurrentPeriodDates] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
+
+  function requestConfirmation(confirmation: PendingConfirmation) {
+    if (pendingConfirmation || isConfirming) {
+      return
+    }
+    confirmationPreviousOverlayRef.current = activeOverlay === 'confirm-action' ? null : activeOverlay
+    confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setPendingConfirmation(confirmation)
+    setActiveOverlay('confirm-action')
+  }
+
+  function cancelConfirmation() {
+    setPendingConfirmation(null)
+    setIsConfirming(false)
+    const previousOverlay = confirmationPreviousOverlayRef.current
+    confirmationPreviousOverlayRef.current = null
+    setActiveOverlay(previousOverlay)
+    window.setTimeout(() => confirmationTriggerRef.current?.focus(), 0)
+  }
+
+  function confirmPendingAction() {
+    if (!pendingConfirmation || isConfirming) {
+      return
+    }
+    setIsConfirming(true)
+    pendingConfirmation.execute()
+  }
+
+  function finishConfirmation(nextOverlay: ActiveOverlay = null) {
+    setPendingConfirmation(null)
+    setIsConfirming(false)
+    confirmationPreviousOverlayRef.current = null
+    setActiveOverlay(nextOverlay)
+  }
   const allCategories = useMemo(() => getAllCategories(customCategories), [customCategories])
   const resolvedCategoryOrder = useMemo(() => reconcileCategoryOrder(categoryOrder, customCategories), [categoryOrder, customCategories])
   const visibleExpandedCategories = useMemo(() => {
@@ -1723,7 +1781,13 @@ function App() {
   )
 
   const activeBottomNavTab: MainTabKey = activeOverlay
-    ? activeOverlay === 'history-detail' ? 'history' : activeOverlay
+    ? activeOverlay === 'history-detail'
+      ? 'history'
+      : activeOverlay === 'confirm-action'
+        ? activeTab === 'income' || activeTab === 'bill' || activeTab === 'expense' || activeTab === 'categories' || activeTab === 'data' || activeTab === 'help'
+          ? 'more'
+          : activeTab
+        : activeOverlay
     : activeTab === 'income' ||
         activeTab === 'bill' ||
         activeTab === 'expense' ||
@@ -1945,25 +2009,31 @@ function App() {
       }
 
       const importSummary = parsed.backup.summary ?? getLeftlyBackupSummary(parsed.backup)
-      if (
-        !window.confirm(
-          `Import this Leftly backup from ${file.name}?\n\nIt will replace the current data saved on this device.\n\nThis backup includes ${formatBackupSummary(importSummary).join(', ')}.\n\nOlder Leftly backups still work even if they do not include newer metadata. Export a fresh backup first if you want to keep what is currently saved here.`,
-        )
-      ) {
-        return
-      }
-
-      saveLeftlyBackup(parsed.backup)
-      clearSetupDraft()
-      reloadLocalStateFromStorage()
-      setPayPeriodError('')
-      setBillError('')
-      setExpenseError('')
-      setIncomeSuccess('')
-      setBillSuccess('')
-      setExpenseSuccess('')
-      setBillStatus('')
-      setDataMessage(`Backup imported from ${file.name}. Leftly restored the saved data from that backup.`)
+      requestConfirmation({
+        kind: 'import',
+        title: 'Import and replace local data',
+        description: `Import the validated backup file “${file.name}”. Current local data will be replaced.`,
+        details: [
+          { label: 'Filename', value: file.name },
+          { label: 'Backup summary', value: formatBackupSummary(importSummary).join(', ') },
+          { label: 'Before importing', value: 'Export your current data first if you may need it later.' },
+        ],
+        confirmLabel: 'Import and replace local data',
+        execute: () => {
+          saveLeftlyBackup(parsed.backup)
+          clearSetupDraft()
+          reloadLocalStateFromStorage()
+          setPayPeriodError('')
+          setBillError('')
+          setExpenseError('')
+          setIncomeSuccess('')
+          setBillSuccess('')
+          setExpenseSuccess('')
+          setBillStatus('')
+          setDataMessage(`Backup imported from ${file.name}. Leftly restored the saved data from that backup.`)
+          finishConfirmation()
+        },
+      })
     } finally {
       setIsImportingBackup(false)
     }
@@ -2322,6 +2392,32 @@ function App() {
     if (!deletingCategory) {
       return
     }
+    const summary = deleteCategorySummary
+    if (summary?.requiresReplacement && (!deleteReplacementCategory || deleteReplacementCategory === deletingCategory)) {
+      setCategoryError('Choose a replacement category before deleting this one.')
+      return
+    }
+    requestConfirmation({
+      kind: 'category',
+      title: `Delete category “${deletingCategory}”`,
+      description: summary?.requiresReplacement
+        ? `Delete ${deletingCategory} and reassign its current and historical references to ${deleteReplacementCategory}.`
+        : `Delete ${deletingCategory} and remove its target records.`,
+      details: [
+        { label: 'Current references', value: summary?.currentReferenceCount ?? 0 },
+        { label: 'Historical references', value: summary?.historicalReferenceCount ?? 0 },
+        { label: 'Active targets removed', value: summary?.activeTargetCount ?? 0 },
+        { label: 'History target records removed', value: summary?.historicalTargetSnapshotCount ?? 0 },
+      ],
+      confirmLabel: 'Delete category',
+      execute: () => performDeleteCustomCategory(),
+    })
+  }
+
+  function performDeleteCustomCategory() {
+    if (!deletingCategory) {
+      return
+    }
 
     const summary = deleteCategorySummary
     const currentReferenceCount = summary?.currentReferenceCount ?? 0
@@ -2384,14 +2480,7 @@ function App() {
       setCategoryStatus(
         `Category deleted. Reassigned ${currentReferenceCount} current item(s) and ${historicalReferenceCount} historical item(s). Removed ${activeTargetCount} active target and ${historicalTargetSnapshotCount} historical target record${historicalTargetSnapshotCount === 1 ? '' : 's'}.`,
       )
-      return
-    }
-
-    if (
-      !window.confirm(
-        `Delete custom category "${deletingCategory}"? This cannot be undone.\n\nActive targets removed: ${activeTargetCount}\nHistorical target records removed: ${historicalTargetSnapshotCount}\n\nTargets are removed, not transferred to another category.`,
-      )
-    ) {
+      finishConfirmation()
       return
     }
 
@@ -2415,6 +2504,7 @@ function App() {
     setCategoryStatus(
       `Category deleted: ${deletingCategory}. Removed ${activeTargetCount} active target and ${historicalTargetSnapshotCount} historical target record${historicalTargetSnapshotCount === 1 ? '' : 's'}.`,
     )
+    finishConfirmation()
   }
 
   function reloadLocalStateFromStorage() {
@@ -2548,17 +2638,46 @@ function App() {
     setRecurringTemplates((current) => current.map((item) => (item.id === template.id ? template : item)))
   }
 
-  function deleteRecurringTemplate(id: string) {
-    setRecurringTemplates((current) => current.filter((template) => template.id !== id))
+  function deleteRecurringTemplate(template: RecurringItemTemplate) {
+    requestConfirmation({
+      kind: 'recurring',
+      title: `Delete Bill Plan item “${template.name}”`,
+      description: 'Deleting this template stops the plan item from being used in future generation. Already-generated current-period items are not retroactively removed.',
+      details: [
+        { label: 'Amount', value: formatCurrency(template.amount) },
+        { label: 'Schedule', value: formatPlanSchedule(template) },
+        { label: 'Plan', value: normalizeRecurringPlanName(template.planName) },
+        { label: 'Status', value: template.isActive ? 'Active' : 'Inactive' },
+        ...(template.setAsideEnabled ? [{ label: 'Set-aside', value: formatCurrency(template.setAsideAmount ?? 0) }] : []),
+      ],
+      confirmLabel: 'Delete Bill Plan item',
+      execute: () => {
+        setRecurringTemplates((current) => current.filter((item) => item.id !== template.id))
+        finishConfirmation()
+      },
+    })
   }
 
-  function archiveActivePayPeriod() {
+  function archiveActivePayPeriod(onConfirmed?: () => void, skipEmptyConfirmation = false) {
     if (!payPeriod) {
       return true
     }
 
     const hasData = payPeriod.income > 0 || bills.length > 0 || expenses.length > 0
-    if (!hasData && !window.confirm('This pay period is empty. Archive it anyway?')) {
+    if (!hasData && !skipEmptyConfirmation) {
+      requestConfirmation({
+        kind: 'empty-archive',
+        title: 'Archive empty pay period',
+        description: 'This pay period has no income, bills, or expenses. Confirm to save an empty snapshot before continuing.',
+        details: [{ label: 'What happens next', value: 'The empty period is saved to History, then the requested new-period flow continues once.' }],
+        confirmLabel: 'Archive empty pay period',
+        execute: () => {
+          if (archiveActivePayPeriod(onConfirmed, true)) {
+            onConfirmed?.()
+          }
+          finishConfirmation()
+        },
+      })
       return false
     }
 
@@ -2581,8 +2700,9 @@ function App() {
   function handleStartNewPayPeriod(
     period: BudgetPeriod,
     options: { generateRecurring: boolean; carryoverBills: Bill[]; carryCategoryTargets: boolean },
+    skipArchive = false,
   ) {
-    if (!archiveActivePayPeriod()) {
+    if (!skipArchive && !archiveActivePayPeriod(() => handleStartNewPayPeriod(period, options, true))) {
       return false
     }
 
@@ -2639,8 +2759,9 @@ function App() {
     expenses: Expense[]
     categoryTargets: CategoryTargets
     copyManualExpenses: boolean
-  }) {
-    if (!archiveActivePayPeriod()) {
+  },
+  skipArchive = false) {
+    if (!skipArchive && !archiveActivePayPeriod(() => handleStartFromHistory(result, true))) {
       return false
     }
 
@@ -2658,13 +2779,20 @@ function App() {
   }
 
   function loadDemoData() {
-    if (
-      !window.confirm(
-        'Load demo data on this device? Demo data adds a sample pay period, bills, and expenses so you can explore Leftly. It replaces the current data saved in this browser. Export a backup first if you may want to restore your current data later.',
-      )
-    ) {
-      return
-    }
+    requestConfirmation({
+      kind: 'demo',
+      title: 'Load demo and replace local data',
+      description: 'Current local data will be replaced with the existing Leftly demo dataset.',
+      details: [
+        { label: 'Demo includes', value: 'A sample pay period, bills, expenses, Bill Plan items, and example categories.' },
+        { label: 'Before loading', value: 'Export a JSON backup first if you may want to restore your current data.' },
+      ],
+      confirmLabel: 'Load demo and replace local data',
+      execute: () => performLoadDemoData(),
+    })
+  }
+
+  function performLoadDemoData() {
 
     const today = new Date()
     const startDate = formatIsoDate(today)
@@ -3044,14 +3172,49 @@ function App() {
     setIsSetupOpen(false)
     resetDrafts(DEFAULT_PREFERENCES)
     setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod, DEFAULT_PREFERENCES.defaultPayCadence))
+    finishConfirmation()
   }
 
   function deleteBill(id: string) {
-    setBills((current) => current.filter((bill) => bill.id !== id))
+    const bill = bills.find((item) => item.id === id)
+    if (!bill) return
+    requestConfirmation({
+      kind: 'bill',
+      title: `Delete bill “${bill.name}”`,
+      description: 'This bill will be removed from the active pay period. Your other calculations will update from the remaining items.',
+      details: [
+        { label: 'Amount', value: formatCurrency(bill.amount) },
+        { label: 'Status', value: bill.isPaid ? 'Paid' : 'Unpaid' },
+        { label: 'Due date', value: bill.dueDate || 'Not set' },
+      ],
+      confirmLabel: 'Delete bill',
+      execute: () => {
+        setBills((current) => current.filter((item) => item.id !== id))
+        finishConfirmation()
+      },
+    })
   }
 
   function deleteExpense(id: string) {
-    setExpenses((current) => current.filter((expense) => expense.id !== id))
+    const expense = expenses.find((item) => item.id === id)
+    if (!expense) return
+    const classification = expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned expense' : 'Manual expense'
+    const label = expense.setAsideForTemplateId ? 'set-aside' : expense.isPlanned ? 'planned expense' : 'expense'
+    requestConfirmation({
+      kind: 'expense',
+      title: `Delete ${label} “${expense.name}”`,
+      description: 'This item will be removed from the active pay period. Its classification and remaining calculations will be preserved.',
+      details: [
+        { label: 'Amount', value: formatCurrency(expense.amount) },
+        { label: 'Date', value: expense.date || 'Not set' },
+        { label: 'Classification', value: classification },
+      ],
+      confirmLabel: expense.setAsideForTemplateId ? 'Delete set-aside' : expense.isPlanned ? 'Delete planned expense' : 'Delete expense',
+      execute: () => {
+        setExpenses((current) => current.filter((item) => item.id !== id))
+        finishConfirmation()
+      },
+    })
   }
 
   function startEditBill(bill: Bill) {
@@ -3071,27 +3234,44 @@ function App() {
   }
 
   function deleteHistorySnapshot(id: string) {
-    if (!window.confirm('Delete this archived pay period from History? You can\'t undo this.')) {
+    const snapshot = payPeriodHistory.find((item) => item.id === id)
+    if (!snapshot) {
       return
     }
-
-    deletePayPeriodSnapshot(id)
-    setPayPeriodHistory((current) => current.filter((snapshot) => snapshot.id !== id))
-    if (selectedHistoryId === id) {
-      setActiveOverlay(null)
-      setSelectedHistoryId(null)
-    }
+    requestConfirmation({
+      kind: 'history',
+      title: `Delete archived period “${snapshot.label}”`,
+      description: 'This archived period will be permanently removed from this device. The active pay period and other snapshots will remain.',
+      details: [
+        { label: 'Date range', value: `${snapshot.startDate} to ${snapshot.endDate}` },
+        { label: 'Final Leftly', value: formatCurrency(snapshot.totals.leftover) },
+      ],
+      confirmLabel: 'Delete archived period',
+      execute: () => {
+        deletePayPeriodSnapshot(id)
+        setPayPeriodHistory((current) => current.filter((item) => item.id !== id))
+        const wasOpen = selectedHistoryId === id
+        setSelectedHistoryId(wasOpen ? null : selectedHistoryId)
+        finishConfirmation(wasOpen ? null : confirmationPreviousOverlayRef.current)
+      },
+    })
   }
 
   function handleReset() {
-    if (
-      !window.confirm(
-        'Reset all Leftly data on this device? This clears the saved Leftly data in this browser. Export a backup first if you may want to restore it later.',
-      )
-    ) {
-      return
-    }
+    requestConfirmation({
+      kind: 'reset',
+      title: 'Reset local data',
+      description: 'This will clear Leftly data saved on this device. Export a JSON backup first if you may need to restore it.',
+      details: [
+        { label: 'Will be cleared', value: 'Active pay period, bills, expenses, set-asides, Bill Plan, History, categories, targets, preferences, and setup draft' },
+        { label: 'Separate backups', value: 'Exported JSON and optional cloud backups are not deleted.' },
+      ],
+      confirmLabel: 'Reset local data',
+      execute: () => performReset(),
+    })
+  }
 
+  function performReset() {
     clearAllAppData()
     setPreferences({ ...DEFAULT_PREFERENCES })
     setPayPeriod(null)
@@ -3116,6 +3296,7 @@ function App() {
     setDataError('')
     setSetupSuccess('')
     resetDrafts(DEFAULT_PREFERENCES)
+    finishConfirmation()
   }
 
   function toggleCategory(category: BudgetCategory) {
@@ -3524,6 +3705,19 @@ function App() {
                     categories={allCategories}
                     activeBudgetPeriod={payPeriod}
                     onClose={() => setIsSetupOpen(false)}
+                    onClearDraft={(clearDraft) =>
+                      requestConfirmation({
+                        kind: 'setup-draft',
+                        title: 'Restart setup draft',
+                        description: 'Only the saved setup draft will be cleared. Your active pay period and saved budget data will not change.',
+                        details: [{ label: 'Data affected', value: 'Saved setup draft only' }],
+                        confirmLabel: 'Restart setup draft',
+                        execute: () => {
+                          clearDraft()
+                          finishConfirmation()
+                        },
+                      })
+                    }
                     onFinish={handleFinishSetup}
                   />
                 ) : (
@@ -5035,6 +5229,18 @@ function App() {
           />
         ) : null}
       </AppOverlay>
+      {pendingConfirmation ? (
+        <ConfirmActionOverlay
+          isOpen={activeOverlay === 'confirm-action'}
+          title={pendingConfirmation.title}
+          description={pendingConfirmation.description}
+          details={pendingConfirmation.details}
+          confirmLabel={pendingConfirmation.confirmLabel}
+          isSubmitting={isConfirming}
+          onCancel={cancelConfirmation}
+          onConfirm={confirmPendingAction}
+        />
+      ) : null}
       <input
         ref={landingBackupInputRef}
         type="file"

@@ -72,7 +72,7 @@ export function RecurringSection({
   templates: RecurringItemTemplate[]
   onAddTemplate: (template: RecurringItemTemplate) => void
   onUpdateTemplate: (template: RecurringItemTemplate) => void
-  onDeleteTemplate: (id: string) => void
+  onDeleteTemplate: (template: RecurringItemTemplate) => void
 }) {
   const [draft, setDraft] = useState<RecurringDraft>({
     name: '',
@@ -900,15 +900,7 @@ export function RecurringSection({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (!window.confirm(`Delete ${template.name} from Bill Plan? You can't undo this.`)) {
-                                    return
-                                  }
-                                  if (editingTemplateId === template.id) {
-                                    resetForm()
-                                  }
-                                  onDeleteTemplate(template.id)
-                                }}
+                                onClick={() => onDeleteTemplate(template)}
                                 className={buttonStyles.danger + ' w-full'}
                               >
                                 Delete

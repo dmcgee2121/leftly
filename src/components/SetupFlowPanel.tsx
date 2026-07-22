@@ -65,12 +65,14 @@ export function SetupFlowPanel({
   categories,
   activeBudgetPeriod,
   onClose,
+  onClearDraft,
   onFinish,
 }: {
   defaultPayCadence: PayCadence
   categories: BudgetCategory[]
   activeBudgetPeriod: BudgetPeriod | null
   onClose: () => void
+  onClearDraft: (clearDraft: () => void) => void
   onFinish: (result: SetupResult) => void
 }) {
   const [draft, setDraft] = useState<SetupDraft>(() => loadOrCreateDraft(activeBudgetPeriod, defaultPayCadence, categories))
@@ -250,10 +252,6 @@ export function SetupFlowPanel({
   }
 
   function clearDraft() {
-    if (!window.confirm('Restart only the saved setup draft? This clears the draft and does not change your active pay period or any saved budget data.')) {
-      return
-    }
-
     clearSetupDraft()
     setError('')
     const nextDraft = getInitialDraft(defaultPayCadence)
@@ -317,7 +315,7 @@ export function SetupFlowPanel({
       </>,
       stepTitle,
       onClose,
-      clearDraft,
+      () => onClearDraft(clearDraft),
     )
   }
 
@@ -372,7 +370,7 @@ export function SetupFlowPanel({
       </>,
       stepTitle,
       onClose,
-      clearDraft,
+      () => onClearDraft(clearDraft),
     )
   }
 
@@ -571,7 +569,7 @@ export function SetupFlowPanel({
     </form>,
     stepTitle,
     onClose,
-    clearDraft,
+    () => onClearDraft(clearDraft),
   )
 }
 

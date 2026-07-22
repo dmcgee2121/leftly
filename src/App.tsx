@@ -3994,10 +3994,10 @@ function App() {
               ) : null}
 
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
-                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleSavePayPeriod}>
+                <form className="order-2 grid gap-4 leftly-shell p-4 sm:p-5 xl:order-1" onSubmit={handleSavePayPeriod}>
                   <div className="leftly-panel-section">
                     <div className="grid gap-1">
-                      <p className="leftly-panel-label">Current pay period</p>
+                      <p className="leftly-panel-label">{payPeriod ? 'Current pay period' : 'First pay period'}</p>
                       <p className="leftly-panel-copy">
                         {payPeriod ? 'This is the period Leftly is tracking now. Income can be edited; cadence and dates stay locked unless you deliberately correct a mistake.' : 'Create your first pay period so Leftly knows which paycheck to track.'}
                       </p>
@@ -4037,15 +4037,17 @@ function App() {
 
                   {payPeriodError ? <FormMessage>{payPeriodError}</FormMessage> : null}
                   {incomeSuccess ? <SuccessMessage>{incomeSuccess}</SuccessMessage> : null}
-                  <div className="leftly-sheet-footer"><div className="leftly-action-grid"><button type="submit" className="button-secondary w-full sm:w-auto">{payPeriod ? (isCorrectingCurrentPeriodDates ? 'Apply date correction' : 'Update current period') : 'Start first pay period'}</button></div></div>
+                  <div className="leftly-sheet-footer"><div className="leftly-action-grid"><button type="submit" className={`${payPeriod ? 'button-secondary' : 'button-primary'} w-full sm:w-auto`}>{payPeriod ? (isCorrectingCurrentPeriodDates ? 'Apply date correction' : 'Update current period') : 'Create your first pay period'}</button></div></div>
                 </form>
 
-                <section className="leftly-shell leftly-shell-accent flex flex-col p-4 sm:p-5">
-                  <div className="grid gap-1"><p className="leftly-panel-label">Next pay period</p><h3 className="text-xl font-semibold text-white">Ready for the next paycheck?</h3><p className="leftly-panel-copy">Starting the next period saves the current period to History. The wizard handles rollover, unpaid-bill carryover, Bill Plan generation, and category-target carryover.</p></div>
-                  <div className="mt-5 flex-1" />
-                  <button type="button" onClick={() => openStartNewPayPeriod(payPeriodDraft)} className="button-primary w-full">{payPeriod ? 'Start next pay period' : 'Start first pay period'}</button>
-                  {payPeriod ? <p className="mt-2 text-xs leading-5 text-slate-400">This is the primary action for moving to a new pay period. It creates exactly one History snapshot before rollover.</p> : <p className="mt-2 text-xs leading-5 text-slate-400">Your first period will be created without a History snapshot.</p>}
-                </section>
+                {payPeriod ? (
+                  <section className="order-1 leftly-shell leftly-shell-accent flex flex-col p-4 sm:p-5 xl:order-2">
+                    <div className="grid gap-1"><p className="leftly-panel-label">Next pay period</p><h3 className="text-xl font-semibold text-white">Ready for the next paycheck?</h3><p className="leftly-panel-copy">Starting the next period saves the current period to History. The wizard handles rollover, unpaid-bill carryover, Bill Plan generation, and category-target carryover.</p></div>
+                    <div className="mt-5 flex-1" />
+                    <button type="button" onClick={() => openStartNewPayPeriod(payPeriodDraft)} className="button-primary w-full">Start next pay period</button>
+                    <p className="mt-2 text-xs leading-5 text-slate-400">This is the primary action for moving to a new pay period. It creates exactly one History snapshot before rollover.</p>
+                  </section>
+                ) : null}
               </div>
             </SectionShell>
           ) : null}

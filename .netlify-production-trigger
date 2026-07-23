@@ -1,2 +1,3 @@
-Production deployment requested on 2026-07-22.
-Verified application commit: 6e01fbddd998799735ac9e992ba2b40dcdf4d645
+Production deployment requested on 2026-07-23.
+Verified application commit: 969565f1353c3aea1decdaf069f1402434fab8be
+Includes completed Phase 5 destructive-action safety and Phase 6 installable offline PWA experience.

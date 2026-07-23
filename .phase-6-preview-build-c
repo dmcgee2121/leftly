@@ -1,0 +1,3 @@
+Phase 6 preview build C marker.
+Purpose: trigger the same-origin service-worker update lifecycle test for Issue #38.
+Do not merge this preview-only file.

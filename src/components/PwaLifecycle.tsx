@@ -1,21 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
-import { useRegisterSW } from 'virtual:pwa-register/react'
+import { useEffect, useState } from 'react'
+import type { PwaLifecycleState } from './usePwaLifecycle'
 
-export function PwaLifecycle({ isBlockingInteraction }: { isBlockingInteraction: boolean }) {
+export function PwaLifecycle({ isBlockingInteraction, pwa }: { isBlockingInteraction: boolean; pwa: PwaLifecycleState }) {
   const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    offlineReady: [offlineReady],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegisterError(error) {
-      console.warn('Leftly service worker registration failed.', error)
-    },
-  })
+    offlineCapabilityStatus,
+    needRefresh,
+    isUpdating,
+    dismissUpdate,
+    acceptUpdate,
+  } = pwa
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
-  const [offlineReadyDismissed, setOfflineReadyDismissed] = useState(false)
-  const [updateDismissed, setUpdateDismissed] = useState(false)
-  const [isUpdating, setIsUpdating] = useState(false)
-  const reloadStartedRef = useRef(false)
+  const [readyMessageDismissed, setReadyMessageDismissed] = useState(false)
 
   useEffect(() => {
     function handleOnline() {
@@ -34,18 +29,8 @@ export function PwaLifecycle({ isBlockingInteraction }: { isBlockingInteraction:
     }
   }, [])
 
-  async function acceptUpdate() {
-    if (isUpdating || reloadStartedRef.current) {
-      return
-    }
-
-    reloadStartedRef.current = true
-    setIsUpdating(true)
-    await updateServiceWorker(true)
-  }
-
-  const showOfflineReady = offlineReady && !offlineReadyDismissed
-  const showUpdatePrompt = needRefresh && !updateDismissed && !isBlockingInteraction
+  const showOfflineReady = offlineCapabilityStatus === 'ready' && !readyMessageDismissed
+  const showUpdatePrompt = needRefresh && !isBlockingInteraction
 
   return (
     <>
@@ -67,7 +52,7 @@ export function PwaLifecycle({ isBlockingInteraction }: { isBlockingInteraction:
           className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-30 mx-auto flex max-w-xl items-start justify-between gap-3 rounded-2xl border border-emerald-400/25 bg-slate-950/95 px-4 py-3 text-sm leading-6 text-emerald-100 shadow-lg shadow-slate-950/30 backdrop-blur md:bottom-4"
         >
           <p>Leftly is ready to use offline on this device.</p>
-          <button type="button" onClick={() => setOfflineReadyDismissed(true)} className="button-secondary shrink-0 px-3 py-2 text-xs">
+          <button type="button" onClick={() => setReadyMessageDismissed(true)} className="button-secondary shrink-0 px-3 py-2 text-xs">
             Dismiss
           </button>
         </div>
@@ -84,10 +69,7 @@ export function PwaLifecycle({ isBlockingInteraction }: { isBlockingInteraction:
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={() => {
-                setUpdateDismissed(true)
-                setNeedRefresh(false)
-              }}
+              onClick={dismissUpdate}
               disabled={isUpdating}
               className="button-secondary w-full sm:w-auto"
             >

@@ -5080,7 +5080,15 @@ function App() {
               description="Start here for the beta tester guide, feedback template, and the basics on local-first Leftly data."
             >
               <MoreBackBar onBack={openMoreMenu} />
-              <HelpAboutFeedbackSection canInstall={pwa.canInstall} isInstalled={pwa.isInstalled} onInstall={pwa.install} />
+              <HelpAboutFeedbackSection
+                canInstall={pwa.canInstall}
+                hasInstallPrompt={pwa.hasInstallPrompt}
+                isInstalled={pwa.isInstalled}
+                onInstall={pwa.install}
+                offlineCapabilityStatus={pwa.offlineCapabilityStatus}
+                isRetryingOfflineSetup={pwa.isRetryingOfflineSetup}
+                onRetryOfflineSetup={pwa.retryOfflineSetup}
+              />
             </SectionShell>
           ) : null}
 
@@ -5248,7 +5256,7 @@ function App() {
           onConfirm={confirmPendingAction}
         />
       ) : null}
-      <PwaLifecycle isBlockingInteraction={isBlockingInteraction} />
+      <PwaLifecycle isBlockingInteraction={isBlockingInteraction} pwa={pwa} />
       <input
         ref={landingBackupInputRef}
         type="file"

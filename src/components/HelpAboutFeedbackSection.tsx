@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { OfflineCapabilityStatus } from './usePwaLifecycle'
 
 const checklistItems = [
   'Start a new paycheck setup.',
@@ -30,12 +31,20 @@ One thing I would change:
 
 export function HelpAboutFeedbackSection({
   canInstall,
+  hasInstallPrompt,
   isInstalled,
   onInstall,
+  offlineCapabilityStatus,
+  isRetryingOfflineSetup,
+  onRetryOfflineSetup,
 }: {
   canInstall: boolean
+  hasInstallPrompt: boolean
   isInstalled: boolean
   onInstall: () => void
+  offlineCapabilityStatus: OfflineCapabilityStatus
+  isRetryingOfflineSetup: boolean
+  onRetryOfflineSetup: () => void
 }) {
   const [copyMessage, setCopyMessage] = useState('')
 
@@ -139,12 +148,36 @@ export function HelpAboutFeedbackSection({
             device unless you export a backup or use optional cloud backup.
           </p>
         </div>
+        <div className="leftly-shell-faint grid gap-2 p-3" role="status" aria-live="polite">
+          <p className="text-sm font-semibold text-white">Offline access</p>
+          {offlineCapabilityStatus === 'preparing' ? (
+            <p className="text-sm leading-6 text-slate-300">Preparing Leftly for offline use. Keep this page open and connected.</p>
+          ) : offlineCapabilityStatus === 'ready' ? (
+            <p className="text-sm leading-6 text-emerald-200">Offline access is ready on this device.</p>
+          ) : offlineCapabilityStatus === 'error' ? (
+            <>
+              <p className="text-sm leading-6 text-rose-200">Leftly could not finish offline setup. Stay connected and retry.</p>
+              <button type="button" onClick={onRetryOfflineSetup} disabled={isRetryingOfflineSetup} className="button-secondary w-full sm:w-fit">
+                {isRetryingOfflineSetup ? 'Retrying offline setup…' : 'Retry offline setup'}
+              </button>
+            </>
+          ) : (
+            <p className="text-sm leading-6 text-slate-400">This browser does not support Leftly&apos;s offline app features.</p>
+          )}
+        </div>
         {isInstalled ? (
           <p className="text-sm leading-6 text-emerald-200" role="status">Leftly is running in installed app mode.</p>
         ) : canInstall ? (
           <button type="button" onClick={onInstall} className="button-primary w-full sm:w-auto">
             Install Leftly
           </button>
+        ) : hasInstallPrompt && offlineCapabilityStatus === 'preparing' ? (
+          <>
+            <button type="button" disabled className="button-primary w-full sm:w-auto">
+              Install Leftly
+            </button>
+            <p className="text-sm leading-6 text-slate-400">Installation is available, but Leftly is finishing offline setup first.</p>
+          </>
         ) : (
           <p className="text-sm leading-6 text-slate-400">
             Use your browser menu and choose Add to Home screen or Install app when available. Browser wording varies.

@@ -31,6 +31,18 @@ export function usePwaLifecycle(): PwaLifecycleState {
   const [isUpdating, setIsUpdating] = useState(false)
   const [reloadStarted, setReloadStarted] = useState(false)
   const observedRegistrations = useRef(new WeakSet<ServiceWorkerRegistration>())
+  const observedWorkers = useRef(new WeakSet<ServiceWorker>())
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null)
+  const serviceWorkerUrlRef = useRef<string | null>(null)
+  const statusRef = useRef(offlineCapabilityStatus)
+  const lastUpdateCheckAt = useRef(0)
+  const updateCheckRunning = useRef(false)
+  const registrationCleanup = useRef<(() => void)[]>([])
+  const setNeedRefreshRef = useRef<(value: boolean) => void>(() => undefined)
+
+  useEffect(() => {
+    statusRef.current = offlineCapabilityStatus
+  }, [offlineCapabilityStatus])
 
   const confirmRegistration = useCallback(async (candidate: ServiceWorkerRegistration) => {
     try {
@@ -65,32 +77,97 @@ export function usePwaLifecycle(): PwaLifecycleState {
     }
 
     observedRegistrations.current.add(candidate)
-    const handleStateChange = () => {
-      const worker = candidate.installing ?? candidate.waiting ?? candidate.active
-      if (worker?.state === 'activated') {
-        void confirmRegistration(candidate)
-      } else if (worker?.state === 'redundant' && !candidate.active) {
-        setOfflineCapabilityStatus('error')
+    const observeWorker = (worker: ServiceWorker | null) => {
+      if (!worker || observedWorkers.current.has(worker)) {
+        return
       }
+
+      observedWorkers.current.add(worker)
+      const handleStateChange = () => {
+        if (worker.state === 'installed' && candidate.active) {
+          setNeedRefreshRef.current(true)
+        }
+        if (worker.state === 'activated') {
+          void confirmRegistration(candidate)
+        }
+      }
+      worker.addEventListener('statechange', handleStateChange)
+      registrationCleanup.current.push(() => worker.removeEventListener('statechange', handleStateChange))
+      handleStateChange()
     }
 
-    candidate.addEventListener('updatefound', () => {
-      candidate.installing?.addEventListener('statechange', handleStateChange)
-      handleStateChange()
-    })
-    candidate.installing?.addEventListener('statechange', handleStateChange)
-    candidate.waiting?.addEventListener('statechange', handleStateChange)
-    candidate.active?.addEventListener('statechange', handleStateChange)
+    const handleUpdateFound = () => {
+      observeWorker(candidate.installing)
+    }
+    candidate.addEventListener('updatefound', handleUpdateFound)
+    registrationCleanup.current.push(() => candidate.removeEventListener('updatefound', handleUpdateFound))
+    observeWorker(candidate.installing)
+    observeWorker(candidate.waiting)
+    observeWorker(candidate.active)
+    if (candidate.waiting) {
+      setNeedRefreshRef.current(true)
+    }
     void confirmRegistration(candidate)
   }, [confirmRegistration])
 
+  const checkForPwaUpdate = useCallback(async () => {
+    const candidate = registrationRef.current
+    const swUrl = serviceWorkerUrlRef.current
+    const now = Date.now()
+
+    if (
+      !supportsServiceWorkers() ||
+      !candidate ||
+      !swUrl ||
+      !navigator.onLine ||
+      candidate.installing ||
+      updateCheckRunning.current ||
+      now - lastUpdateCheckAt.current < 60_000
+    ) {
+      return
+    }
+
+    lastUpdateCheckAt.current = now
+    updateCheckRunning.current = true
+    try {
+      if (candidate.waiting) {
+        setNeedRefreshRef.current(true)
+        return
+      }
+
+      const serviceWorkerUrl = new URL(swUrl, window.location.href).href
+      const response = await fetch(serviceWorkerUrl, {
+        cache: 'no-store',
+        headers: { 'cache-control': 'no-cache' },
+      })
+      if (!response.ok) {
+        throw new Error(`Service-worker check returned ${response.status}.`)
+      }
+
+      await candidate.update()
+      if (candidate.waiting) {
+        setNeedRefreshRef.current(true)
+      }
+    } catch (error) {
+      console.warn('Leftly service-worker update check failed.', {
+        scope: candidate.scope,
+        url: swUrl,
+        error,
+      })
+    } finally {
+      updateCheckRunning.current = false
+    }
+  }, [])
+
   const handleRegisteredSW = useCallback((swUrl: string, registered: ServiceWorkerRegistration | undefined) => {
+    serviceWorkerUrlRef.current = swUrl
     if (!registered) {
       setOfflineCapabilityStatus('error')
       console.warn('Leftly service worker registration returned no registration.', { swUrl })
       return
     }
 
+    registrationRef.current = registered
     setRegistration(registered)
     console.info('Leftly service worker registered.', {
       url: swUrl,
@@ -114,6 +191,44 @@ export function usePwaLifecycle(): PwaLifecycleState {
     onRegisteredSW: handleRegisteredSW,
     onRegisterError: handleRegisterError,
   })
+
+  useEffect(() => {
+    setNeedRefreshRef.current = setNeedRefresh
+  }, [setNeedRefresh])
+
+  useEffect(() => {
+    const cleanup = registrationCleanup.current
+    return () => {
+      cleanup.splice(0).forEach((removeListener) => removeListener())
+    }
+  }, [])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => void checkForPwaUpdate(), 60 * 60 * 1_000)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void checkForPwaUpdate()
+      }
+    }
+    const handleOnline = () => void checkForPwaUpdate()
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('online', handleOnline)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [checkForPwaUpdate])
+
+  useEffect(() => {
+    if (!registration || statusRef.current !== 'ready') {
+      return undefined
+    }
+
+    const initialConfirmedCheck = window.setTimeout(() => void checkForPwaUpdate(), 2_000)
+    return () => window.clearTimeout(initialConfirmedCheck)
+  }, [checkForPwaUpdate, registration, offlineCapabilityStatus])
 
   useEffect(() => {
     if (!supportsServiceWorkers()) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 
 export type OfflineCapabilityStatus = 'unsupported' | 'preparing' | 'ready' | 'error'
@@ -30,6 +30,59 @@ export function usePwaLifecycle(): PwaLifecycleState {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [reloadStarted, setReloadStarted] = useState(false)
+  const observedRegistrations = useRef(new WeakSet<ServiceWorkerRegistration>())
+
+  const confirmRegistration = useCallback(async (candidate: ServiceWorkerRegistration) => {
+    try {
+      const readyRegistration = await navigator.serviceWorker.ready
+      if (readyRegistration.active?.state === 'activated' || candidate.active?.state === 'activated') {
+        setOfflineCapabilityStatus('ready')
+        return
+      }
+
+      console.warn('Leftly service worker is registered but not activated yet.', {
+        scope: candidate.scope,
+        active: candidate.active?.state,
+        waiting: candidate.waiting?.state,
+        installing: candidate.installing?.state,
+        controller: Boolean(navigator.serviceWorker.controller),
+      })
+    } catch (error) {
+      setOfflineCapabilityStatus('error')
+      console.warn('Leftly could not confirm an active service worker.', {
+        scope: candidate.scope,
+        active: candidate.active?.state,
+        waiting: candidate.waiting?.state,
+        installing: candidate.installing?.state,
+        error,
+      })
+    }
+  }, [])
+
+  const observeRegistration = useCallback((candidate: ServiceWorkerRegistration) => {
+    if (observedRegistrations.current.has(candidate)) {
+      return
+    }
+
+    observedRegistrations.current.add(candidate)
+    const handleStateChange = () => {
+      const worker = candidate.installing ?? candidate.waiting ?? candidate.active
+      if (worker?.state === 'activated') {
+        void confirmRegistration(candidate)
+      } else if (worker?.state === 'redundant' && !candidate.active) {
+        setOfflineCapabilityStatus('error')
+      }
+    }
+
+    candidate.addEventListener('updatefound', () => {
+      candidate.installing?.addEventListener('statechange', handleStateChange)
+      handleStateChange()
+    })
+    candidate.installing?.addEventListener('statechange', handleStateChange)
+    candidate.waiting?.addEventListener('statechange', handleStateChange)
+    candidate.active?.addEventListener('statechange', handleStateChange)
+    void confirmRegistration(candidate)
+  }, [confirmRegistration])
 
   const handleRegisteredSW = useCallback((swUrl: string, registered: ServiceWorkerRegistration | undefined) => {
     if (!registered) {
@@ -46,8 +99,8 @@ export function usePwaLifecycle(): PwaLifecycleState {
       waiting: Boolean(registered.waiting),
       installing: Boolean(registered.installing),
     })
-    void confirmActiveRegistration(registered, setOfflineCapabilityStatus)
-  }, [])
+    observeRegistration(registered)
+  }, [observeRegistration])
 
   const handleRegisterError = useCallback((error: unknown) => {
     setOfflineCapabilityStatus('error')
@@ -68,16 +121,24 @@ export function usePwaLifecycle(): PwaLifecycleState {
     }
 
     function handleControllerChange() {
-      if (navigator.serviceWorker.controller) {
-        setOfflineCapabilityStatus('ready')
+      const controller = navigator.serviceWorker.controller
+      if (controller?.state === 'activated') {
+        void navigator.serviceWorker.ready.then((readyRegistration) => {
+          if (readyRegistration.active?.state === 'activated') {
+            setOfflineCapabilityStatus('ready')
+          }
+        })
       }
     }
 
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
     void navigator.serviceWorker.ready.then((readyRegistration) => {
-      if (readyRegistration.active || navigator.serviceWorker.controller) {
+      if (readyRegistration.active?.state === 'activated') {
         setOfflineCapabilityStatus('ready')
       }
+    }).catch((error) => {
+      setOfflineCapabilityStatus('error')
+      console.warn('Leftly service worker readiness check failed.', error)
     })
 
     return () => navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
@@ -125,23 +186,23 @@ export function usePwaLifecycle(): PwaLifecycleState {
     setIsRetryingOfflineSetup(true)
     setOfflineCapabilityStatus('preparing')
     try {
+      await updateServiceWorker(false)
       const currentRegistration = registration ?? (await navigator.serviceWorker.getRegistration())
       if (!currentRegistration) {
-        console.info('Retrying Leftly service worker setup with an explicit page reload.')
-        window.location.reload()
-        return
+        throw new Error('No service-worker registration is available for retry.')
       }
 
       setRegistration(currentRegistration)
+      observeRegistration(currentRegistration)
       await currentRegistration.update()
-      await confirmActiveRegistration(currentRegistration, setOfflineCapabilityStatus)
+      await confirmRegistration(currentRegistration)
     } catch (error) {
       setOfflineCapabilityStatus('error')
       console.warn('Leftly service worker retry failed.', error)
     } finally {
       setIsRetryingOfflineSetup(false)
     }
-  }, [isRetryingOfflineSetup, offlineCapabilityStatus, registration])
+  }, [confirmRegistration, isRetryingOfflineSetup, observeRegistration, offlineCapabilityStatus, registration, updateServiceWorker])
 
   const acceptUpdate = useCallback(async () => {
     if (isUpdating || reloadStarted) {
@@ -188,34 +249,6 @@ function supportsServiceWorkers() {
 
 function getInitialCapabilityStatus(): OfflineCapabilityStatus {
   return supportsServiceWorkers() ? 'preparing' : 'unsupported'
-}
-
-async function confirmActiveRegistration(
-  registration: ServiceWorkerRegistration,
-  setStatus: (status: OfflineCapabilityStatus) => void,
-) {
-  if (!supportsServiceWorkers()) {
-    setStatus('unsupported')
-    return
-  }
-
-  try {
-    const readyRegistration = await navigator.serviceWorker.ready
-    if (readyRegistration.active || registration.active || navigator.serviceWorker.controller) {
-      setStatus('ready')
-      return
-    }
-    setStatus('error')
-  } catch (error) {
-    setStatus('error')
-    console.warn('Leftly could not confirm an active service worker.', {
-      scope: registration.scope,
-      active: Boolean(registration.active),
-      waiting: Boolean(registration.waiting),
-      installing: Boolean(registration.installing),
-      error,
-    })
-  }
 }
 
 function detectInstalledMode() {

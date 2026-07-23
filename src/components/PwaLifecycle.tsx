@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PwaLifecycleState } from './usePwaLifecycle'
 
 export function PwaLifecycle({ isBlockingInteraction, pwa }: { isBlockingInteraction: boolean; pwa: PwaLifecycleState }) {
@@ -11,6 +11,14 @@ export function PwaLifecycle({ isBlockingInteraction, pwa }: { isBlockingInterac
   } = pwa
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
   const [readyMessageDismissed, setReadyMessageDismissed] = useState(false)
+  const previousCapabilityStatus = useRef(offlineCapabilityStatus)
+
+  useEffect(() => {
+    if (offlineCapabilityStatus === 'ready' && previousCapabilityStatus.current !== 'ready') {
+      setReadyMessageDismissed(false)
+    }
+    previousCapabilityStatus.current = offlineCapabilityStatus
+  }, [offlineCapabilityStatus])
 
   useEffect(() => {
     function handleOnline() {

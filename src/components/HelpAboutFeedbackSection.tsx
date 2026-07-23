@@ -28,7 +28,15 @@ Would I actually use Leftly for a real paycheck?
 One thing I would change:
 `
 
-export function HelpAboutFeedbackSection() {
+export function HelpAboutFeedbackSection({
+  canInstall,
+  isInstalled,
+  onInstall,
+}: {
+  canInstall: boolean
+  isInstalled: boolean
+  onInstall: () => void
+}) {
   const [copyMessage, setCopyMessage] = useState('')
 
   async function handleCopyTemplate() {
@@ -121,6 +129,27 @@ export function HelpAboutFeedbackSection() {
           Leftly works without an account and does not connect to bank accounts. Your budget stays on this device in
           this browser unless you export a backup or manually use optional cloud backup.
         </p>
+      </div>
+
+      <div className="leftly-shell-soft grid gap-3 p-4">
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold text-white">Install Leftly</p>
+          <p className="text-sm leading-6 text-slate-300">
+            Install Leftly on supported devices to open it like an app. Your budget still stays on this browser and
+            device unless you export a backup or use optional cloud backup.
+          </p>
+        </div>
+        {isInstalled ? (
+          <p className="text-sm leading-6 text-emerald-200" role="status">Leftly is running in installed app mode.</p>
+        ) : canInstall ? (
+          <button type="button" onClick={onInstall} className="button-primary w-full sm:w-auto">
+            Install Leftly
+          </button>
+        ) : (
+          <p className="text-sm leading-6 text-slate-400">
+            Use your browser menu and choose Add to Home screen or Install app when available. Browser wording varies.
+          </p>
+        )}
       </div>
 
       <div className="leftly-shell-soft grid gap-2 p-4">

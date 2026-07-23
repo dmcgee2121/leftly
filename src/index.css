@@ -5,6 +5,7 @@
 @layer components {
   .leftly-page {
     @apply relative min-h-screen overflow-x-hidden bg-[#040814] text-slate-100;
+    padding-top: env(safe-area-inset-top);
   }
 
   .leftly-shell {

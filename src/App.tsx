@@ -89,6 +89,8 @@ import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 import { HelpAboutFeedbackSection } from './components/HelpAboutFeedbackSection'
 import { AppOverlay } from './components/AppOverlay'
 import { ConfirmActionOverlay, type ConfirmActionDetail } from './components/ConfirmActionOverlay'
+import { PwaLifecycle } from './components/PwaLifecycle'
+import { usePwaLifecycle } from './components/usePwaLifecycle'
 import { getLeftlyCloudConfig } from './lib/cloudConfig'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
@@ -1109,6 +1111,7 @@ function MiniStat({
 }
 
 function App() {
+  const pwa = usePwaLifecycle()
   const landingBackupInputRef = useRef<HTMLInputElement | null>(null)
   const mainContentRef = useRef<HTMLDivElement | null>(null)
   const quickAddNameInputRef = useRef<HTMLInputElement | null>(null)
@@ -1796,6 +1799,10 @@ function App() {
         activeTab === 'help'
       ? 'more'
       : activeTab
+
+  const isBlockingInteraction = Boolean(
+    activeOverlay || editingItem || isSetupOpen || isApplyBillPlanOpen || isStartNewPayPeriodOpen || isCorrectingCurrentPeriodDates,
+  )
 
   const deleteCategoryCounts = useMemo(() => {
     if (!deletingCategory) {
@@ -5073,7 +5080,7 @@ function App() {
               description="Start here for the beta tester guide, feedback template, and the basics on local-first Leftly data."
             >
               <MoreBackBar onBack={openMoreMenu} />
-              <HelpAboutFeedbackSection />
+              <HelpAboutFeedbackSection canInstall={pwa.canInstall} isInstalled={pwa.isInstalled} onInstall={pwa.install} />
             </SectionShell>
           ) : null}
 
@@ -5241,6 +5248,7 @@ function App() {
           onConfirm={confirmPendingAction}
         />
       ) : null}
+      <PwaLifecycle isBlockingInteraction={isBlockingInteraction} />
       <input
         ref={landingBackupInputRef}
         type="file"

@@ -93,13 +93,14 @@ import { PwaLifecycle } from './components/PwaLifecycle'
 import { usePwaLifecycle } from './components/usePwaLifecycle'
 import { getLeftlyCloudConfig } from './lib/cloudConfig'
 import { buildForecast, parseForecastIncome, type ForecastViewModel } from './lib/forecast'
+import { buildPayPeriodInsights, type InsightBillMeasure, type InsightComparison, type InsightRange, type PayPeriodInsights } from './lib/insights'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
 type TabKey = MainTabKey | MoreMenuKey
 type OverlayKey = Extract<TabKey, 'quick-add' | 'more'>
 type ContentTabKey = Exclude<TabKey, OverlayKey>
-type ActiveOverlay = OverlayKey | 'history-detail' | 'forecast' | 'confirm-action' | null
+type ActiveOverlay = OverlayKey | 'history-detail' | 'forecast' | 'insights' | 'confirm-action' | null
 type HistorySort = 'newest' | 'oldest' | 'highest-leftly' | 'lowest-leftly'
 type PayPeriodDraft = {
   cadence: PayCadence
@@ -762,6 +763,157 @@ function getSnapshotTopExpenseCategories(expenses: Expense[]) {
     .slice(0, 3)
 }
 
+function HistoryInsightsSummaryCard({
+  insights,
+  formatCurrency,
+  onViewInsights,
+}: {
+  insights: PayPeriodInsights
+  formatCurrency: (value: number) => string
+  onViewInsights: () => void
+}) {
+  return (
+    <section className="leftly-overview-section mb-5" aria-label="Pay period insights summary">
+      <OverviewSectionHeader
+        title="Pay period insights"
+        description="Descriptive summaries from archived pay periods. The active period is not included."
+        aside={<Badge muted>{insights.availableSnapshots} archived</Badge>}
+      />
+      {insights.availableSnapshots === 0 ? (
+        <EmptyState title="Insights will appear after archiving a pay period" text="Start a new pay period to save the current period in History, then review its recorded income, bills, spending, and leftover." compact />
+      ) : (
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="min-w-0">
+            <p className="text-xs text-slate-400">Selected range: {insights.rangeLabel}</p>
+            <p className="mt-1 text-xs text-slate-500">Based on {insights.selectedCount} archived pay period{insights.selectedCount === 1 ? '' : 's'}.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <MiniStat label="Average leftover" value={formatCurrency(insights.averages.leftover)} dense />
+              <MiniStat label="Average income" value={formatCurrency(insights.averages.income)} dense />
+              <MiniStat label="Average bills" value={formatCurrency(insights.averages.bills)} dense />
+              <MiniStat label="Average spending excluding set-asides" value={formatCurrency(insights.averages.spendingExcludingSetAsides)} dense />
+            </div>
+            {insights.selectedCount === 1 ? <p className="mt-3 text-xs leading-5 text-slate-400">This is a descriptive summary. Comparisons require at least two archived periods.</p> : null}
+          </div>
+          <button type="button" className="button-secondary w-full sm:w-auto" onClick={onViewInsights} aria-label="View pay period insights details">View insights</button>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function PayPeriodInsightsPanel({
+  insights,
+  onRangeChange,
+  formatCurrency,
+}: {
+  insights: PayPeriodInsights
+  onRangeChange: (range: InsightRange) => void
+  formatCurrency: (value: number) => string
+}) {
+  if (insights.availableSnapshots === 0 || insights.selectedCount === 0) {
+    return <EmptyState title="No insights available" text="Insights use archived pay periods only. Archive a pay period to begin building this descriptive history." />
+  }
+
+  const followThroughRows: Array<[string, InsightBillMeasure]> = [
+    ['Paid on or before due date', insights.billFollowThrough.paidOnOrBeforeDue],
+    ['Paid after due date', insights.billFollowThrough.paidAfterDue],
+    ['Paid date unavailable', insights.billFollowThrough.paidDateUnavailable],
+    ['Unpaid at archive', insights.billFollowThrough.unpaidAtArchive],
+    ['Carried over', insights.billFollowThrough.carriedOver],
+  ]
+
+  return (
+    <div className="grid gap-5">
+      <div className="leftly-shell-soft grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-5">
+        <div>
+          <label className="leftly-field sm:max-w-xs">
+            <span>Temporary range</span>
+            <span className="leftly-input-shell">
+              <select value={insights.range} onChange={(event) => onRangeChange(event.target.value === 'all' ? 'all' : Number(event.target.value) as InsightRange)}>
+                <option value="3">Last 3 archived periods</option>
+                <option value="6">Last 6 archived periods</option>
+                <option value="12">Last 12 archived periods</option>
+                <option value="all">All archived periods</option>
+              </select>
+            </span>
+          </label>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Analyzing {insights.selectedCount} archived pay period{insights.selectedCount === 1 ? '' : 's'}: {insights.rangeLabel}.</p>
+          {insights.excludedSnapshotCount > 0 ? <p className="mt-1 text-xs leading-5 text-amber-100/80">{insights.excludedSnapshotCount} archived record{insights.excludedSnapshotCount === 1 ? '' : 's'} excluded because its date range is invalid.</p> : null}
+        </div>
+        <Badge muted>{insights.state === 'single' ? 'Descriptive summary' : insights.state === 'comparison' ? 'Two-period comparison' : 'Range summary'}</Badge>
+      </div>
+
+      <section aria-labelledby="insights-summary-title">
+        <h3 id="insights-summary-title" className="text-base font-semibold text-white">Summary averages</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <MiniStat label="Average income" value={formatCurrency(insights.averages.income)} dense />
+          <MiniStat label="Average bills" value={formatCurrency(insights.averages.bills)} dense />
+          <MiniStat label="Average spending excluding set-asides" value={formatCurrency(insights.averages.spendingExcludingSetAsides)} dense />
+          <MiniStat label="Average set-asides" value={formatCurrency(insights.averages.setAsides)} dense />
+          <MiniStat label="Average leftover" value={formatCurrency(insights.averages.leftover)} dense />
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-400">Totals across selected periods: income {formatCurrency(insights.totals.income)}, bills {formatCurrency(insights.totals.bills)}, spending {formatCurrency(insights.totals.spendingExcludingSetAsides)}, set-asides {formatCurrency(insights.totals.setAsides)}, leftover {formatCurrency(insights.totals.leftover)}.</p>
+      </section>
+
+      {insights.comparison ? (
+        <section aria-labelledby="insights-comparison-title">
+          <h3 id="insights-comparison-title" className="text-base font-semibold text-white">Latest versus previous</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{insights.comparison.periodsLabel}</p>
+          <div className="mt-3 grid gap-2">
+            {([
+              ['Income', insights.comparison.metrics.income],
+              ['Bills', insights.comparison.metrics.bills],
+              ['Spending excluding set-asides', insights.comparison.metrics.spendingExcludingSetAsides],
+              ['Set-asides', insights.comparison.metrics.setAsides],
+              ['Leftover', insights.comparison.metrics.leftover],
+            ] as Array<[string, InsightComparison]>).map(([label, metric]) => <InsightComparisonRow key={label} label={label} metric={metric} formatCurrency={formatCurrency} />)}
+          </div>
+        </section>
+      ) : <EmptyState title="Comparison not available" text="At least two valid archived pay periods are needed for a direct comparison." compact />}
+
+      <section aria-labelledby="insights-categories-title">
+        <h3 id="insights-categories-title" className="text-base font-semibold text-white">Category spending</h3>
+        <p className="mt-1 text-sm leading-6 text-slate-400">Archived expenses excluding set-asides, sorted by total across the selected range.</p>
+        {insights.categories.length > 0 ? <div className="mt-3 grid gap-2">{insights.categories.map((category) => <div key={category.category} className="leftly-shell-soft p-3"><div className="flex items-start justify-between gap-3"><p className="min-w-0 break-words text-sm font-semibold text-white">{category.category}</p><p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(category.total)}</p></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800" role="progressbar" aria-label={`${category.category}: ${formatCurrency(category.total)} across selected periods`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(category.share * 100)}><div className="h-full rounded-full bg-cyan-400/70" style={{ width: `${Math.min(100, category.share * 100)}%` }} /></div><p className="mt-2 text-xs leading-5 text-slate-400">{formatCurrency(category.average)} average per period · {(category.share * 100).toFixed(1)}% of selected spending · {category.count} entr{category.count === 1 ? 'y' : 'ies'}</p></div>)}</div> : <p className="mt-2 text-sm leading-6 text-slate-400">No non-set-aside expenses were recorded in the selected periods.</p>}
+      </section>
+
+      <section aria-labelledby="insights-bills-title">
+        <h3 id="insights-bills-title" className="text-base font-semibold text-white">Bill follow-through</h3>
+        <p className="mt-1 text-sm leading-6 text-slate-400">Recorded bill statuses across the selected archived periods. Carried over is counted separately.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">{followThroughRows.map(([label, measure]) => <div key={label} className="leftly-shell-soft flex items-center justify-between gap-3 p-3"><span className="min-w-0 break-words text-sm text-slate-300">{label}</span><span className="shrink-0 text-right text-sm font-semibold text-white">{measure.count} · {formatCurrency(measure.amount)}</span></div>)}</div>
+      </section>
+
+      <section aria-labelledby="insights-patterns-title">
+        <h3 id="insights-patterns-title" className="text-base font-semibold text-white">Repeated bill-attention patterns</h3>
+        {insights.repeatedBillAttention.length > 0 ? <div className="mt-3 grid gap-2">{insights.repeatedBillAttention.map((pattern) => <div key={pattern.label} className="leftly-shell-soft p-3"><p className="break-words text-sm font-semibold text-white">{pattern.label}</p><p className="mt-1 text-xs leading-5 text-slate-400">Repeated attention · appeared in {pattern.appearances} periods · {pattern.latePaid} late payment{pattern.latePaid === 1 ? '' : 's'} · {pattern.unpaidAtArchive} unpaid at archive · {pattern.carriedOver} carryover{pattern.carriedOver === 1 ? '' : 's'}</p></div>)}</div> : <p className="mt-2 text-sm leading-6 text-slate-400">No repeated bill-attention pattern appears in the selected history.</p>}
+      </section>
+
+      <section className="leftly-shell-soft p-4" aria-labelledby="insights-methodology-title">
+        <h3 id="insights-methodology-title" className="text-base font-semibold text-white">Methodology and definitions</h3>
+        <ul className="mt-2 grid gap-1 text-sm leading-6 text-slate-400">
+          <li>Insights use archived pay periods only; the active period is not included in averages.</li>
+          <li>Spending excludes set-asides. Bills and spending are separate measures.</li>
+          <li>A late payment requires a recorded paid date after the due date. Paid bills without a paid date are not classified as on-time or late.</li>
+          <li>Carryover is counted separately, and results describe recorded history only.</li>
+          <li>These insights are not financial advice or a guarantee about future periods.</li>
+        </ul>
+      </section>
+    </div>
+  )
+}
+
+function InsightComparisonRow({
+  label,
+  metric,
+  formatCurrency,
+}: {
+  label: string
+  metric: InsightComparison
+  formatCurrency: (value: number) => string
+}) {
+  return <div className="leftly-shell-soft grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center"><p className="min-w-0 break-words text-sm font-semibold text-white">{label}</p><span className="text-xs text-slate-400">Latest {formatCurrency(metric.latest)}</span><span className="text-xs text-slate-400">Previous {formatCurrency(metric.previous)}</span><span className="text-xs font-semibold text-slate-200">{metric.direction === 'unchanged' ? 'Unchanged' : `${metric.direction === 'up' ? 'Up' : 'Down'} ${formatCurrency(Math.abs(metric.difference))}`}</span></div>
+}
+
 function HistorySection({
   snapshots,
   selectedSnapshot,
@@ -1181,6 +1333,7 @@ function App() {
   } | null>(null)
   const [isCorrectingCurrentPeriodDates, setIsCorrectingCurrentPeriodDates] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
+  const [insightRange, setInsightRange] = useState<InsightRange>(() => (initialPayPeriodHistory.length < 6 ? 'all' : 6))
   const [forecastIncomeDraft, setForecastIncomeDraft] = useState('')
   const [forecastIncomeError, setForecastIncomeError] = useState('')
   const [includeForecastCarryover, setIncludeForecastCarryover] = useState(false)
@@ -1752,6 +1905,10 @@ function App() {
     () => payPeriodHistory.find((snapshot) => snapshot.id === selectedHistoryId) ?? null,
     [payPeriodHistory, selectedHistoryId],
   )
+  const payPeriodInsights = useMemo(
+    () => buildPayPeriodInsights(payPeriodHistory, insightRange),
+    [insightRange, payPeriodHistory],
+  )
 
   const forecast = useMemo(
     () => buildForecast({
@@ -1845,6 +2002,8 @@ function App() {
         ? activeTab === 'income' || activeTab === 'bill' || activeTab === 'expense' || activeTab === 'categories' || activeTab === 'data' || activeTab === 'help'
           ? 'more'
           : activeTab
+        : activeOverlay === 'insights'
+          ? 'history'
         : activeOverlay === 'forecast'
           ? 'overview'
         : activeOverlay
@@ -2285,6 +2444,19 @@ function App() {
     overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setSelectedHistoryId(id)
     setActiveOverlay('history-detail')
+  }
+
+  function openPayPeriodInsights() {
+    if (activeOverlay || payPeriodHistory.length === 0) return
+    overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setSelectedHistoryId(null)
+    setInsightRange(payPeriodHistory.length < 6 ? 'all' : 6)
+    setActiveOverlay('insights')
+  }
+
+  function closePayPeriodInsights() {
+    setActiveOverlay(null)
+    window.setTimeout(() => overlayTriggerRef.current?.focus(), 0)
   }
 
   function closeHistorySnapshot(restoreFocus = true) {
@@ -5089,6 +5261,11 @@ function App() {
 
           {activeTab === 'history' ? (
             <SectionShell title="History" description="Review archived pay periods saved locally in this browser.">
+              <HistoryInsightsSummaryCard
+                insights={payPeriodInsights}
+                formatCurrency={formatCurrency}
+                onViewInsights={openPayPeriodInsights}
+              />
               {historyStartSnapshot ? (
                 <div className="mb-5">
                   <StartFromHistoryPanel
@@ -5306,6 +5483,22 @@ function App() {
             setForecastIncomeError('')
             setIncludeForecastCarryover(false)
           }}
+        />
+      </AppOverlay>
+      <AppOverlay
+        id="leftly-pay-period-insights-overlay"
+        isOpen={activeOverlay === 'insights'}
+        title="Pay period insights"
+        description="Descriptive summaries from archived pay periods only."
+        desktopPresentation="dialog"
+        desktopSize="wide"
+        closeLabel="Close pay period insights"
+        onClose={closePayPeriodInsights}
+      >
+        <PayPeriodInsightsPanel
+          insights={payPeriodInsights}
+          onRangeChange={setInsightRange}
+          formatCurrency={formatCurrency}
         />
       </AppOverlay>
       <AppOverlay

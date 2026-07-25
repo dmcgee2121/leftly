@@ -1786,7 +1786,7 @@ function App() {
   function updateForecastIncome(value: string) {
     setForecastIncomeDraft(value)
     if (value.trim() === '' || parseForecastIncome(value) === null) {
-      setForecastIncomeError('Enter a non-negative amount with up to two decimal places.')
+      setForecastIncomeError('Enter a non-negative amount, such as $1,250.00.')
     } else {
       setForecastIncomeError('')
     }

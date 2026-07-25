@@ -120,7 +120,18 @@ export function buildForecast(params: {
 }
 
 export function parseForecastIncome(value: string): number | null {
-  if (!/^\d+(\.\d{1,2})?$/.test(value.trim())) return null
-  const parsed = Number(value)
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const withoutCurrency = trimmed.startsWith('$') ? trimmed.slice(1) : trimmed
+  if (!withoutCurrency || withoutCurrency.includes('$')) return null
+
+  const hasCommas = withoutCurrency.includes(',')
+  const validNumber = hasCommas
+    ? /^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(withoutCurrency)
+    : /^(?:\d+(\.\d{1,2})?|\.\d{1,2})$/.test(withoutCurrency)
+  if (!validNumber) return null
+
+  const parsed = Number(withoutCurrency.replaceAll(',', ''))
   return Number.isFinite(parsed) && parsed >= 0 ? dollars(parsed) : null
 }

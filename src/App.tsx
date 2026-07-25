@@ -92,13 +92,14 @@ import { ConfirmActionOverlay, type ConfirmActionDetail } from './components/Con
 import { PwaLifecycle } from './components/PwaLifecycle'
 import { usePwaLifecycle } from './components/usePwaLifecycle'
 import { getLeftlyCloudConfig } from './lib/cloudConfig'
+import { buildForecast, parseForecastIncome, type ForecastViewModel } from './lib/forecast'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
 type TabKey = MainTabKey | MoreMenuKey
 type OverlayKey = Extract<TabKey, 'quick-add' | 'more'>
 type ContentTabKey = Exclude<TabKey, OverlayKey>
-type ActiveOverlay = OverlayKey | 'history-detail' | 'confirm-action' | null
+type ActiveOverlay = OverlayKey | 'history-detail' | 'forecast' | 'confirm-action' | null
 type HistorySort = 'newest' | 'oldest' | 'highest-leftly' | 'lowest-leftly'
 type PayPeriodDraft = {
   cadence: PayCadence
@@ -1180,6 +1181,9 @@ function App() {
   } | null>(null)
   const [isCorrectingCurrentPeriodDates, setIsCorrectingCurrentPeriodDates] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
+  const [forecastIncomeDraft, setForecastIncomeDraft] = useState('')
+  const [forecastIncomeError, setForecastIncomeError] = useState('')
+  const [includeForecastCarryover, setIncludeForecastCarryover] = useState(false)
 
   function requestConfirmation(confirmation: PendingConfirmation) {
     if (pendingConfirmation || isConfirming) {
@@ -1749,6 +1753,57 @@ function App() {
     [payPeriodHistory, selectedHistoryId],
   )
 
+  const forecast = useMemo(
+    () => buildForecast({
+      period: payPeriod,
+      templates: recurringTemplates,
+      unpaidBills: bills,
+      expectedIncome: payPeriod?.income,
+      includeCarryover: includeForecastCarryover,
+    }),
+    [bills, includeForecastCarryover, payPeriod, recurringTemplates],
+  )
+
+  const defaultForecastIncome = payPeriod?.income ?? 0
+
+  function openForecast() {
+    if (activeOverlay) return
+    overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setForecastIncomeDraft(String(defaultForecastIncome))
+    setForecastIncomeError('')
+    setIncludeForecastCarryover(false)
+    setActiveOverlay('forecast')
+  }
+
+  function closeForecast() {
+    setActiveOverlay(null)
+    setForecastIncomeDraft('')
+    setForecastIncomeError('')
+    setIncludeForecastCarryover(false)
+    window.setTimeout(() => overlayTriggerRef.current?.focus(), 0)
+  }
+
+  function updateForecastIncome(value: string) {
+    setForecastIncomeDraft(value)
+    if (value.trim() === '' || parseForecastIncome(value) === null) {
+      setForecastIncomeError('Enter a non-negative amount with up to two decimal places.')
+    } else {
+      setForecastIncomeError('')
+    }
+  }
+
+  const forecastScenarioIncome = parseForecastIncome(forecastIncomeDraft) ?? defaultForecastIncome
+  const forecastScenario = useMemo(
+    () => buildForecast({
+      period: payPeriod,
+      templates: recurringTemplates,
+      unpaidBills: bills,
+      expectedIncome: forecastScenarioIncome,
+      includeCarryover: includeForecastCarryover,
+    }),
+    [bills, forecastScenarioIncome, includeForecastCarryover, payPeriod, recurringTemplates],
+  )
+
   useEffect(() => {
     if (activeOverlay === 'history-detail' && !selectedHistorySnapshot) {
       const cleanupTimer = window.setTimeout(() => {
@@ -1790,6 +1845,8 @@ function App() {
         ? activeTab === 'income' || activeTab === 'bill' || activeTab === 'expense' || activeTab === 'categories' || activeTab === 'data' || activeTab === 'help'
           ? 'more'
           : activeTab
+        : activeOverlay === 'forecast'
+          ? 'overview'
         : activeOverlay
     : activeTab === 'income' ||
         activeTab === 'bill' ||
@@ -3751,6 +3808,10 @@ function App() {
                   </div>
 
                   <div className="lg:col-span-2">
+                    <NextPaycheckForecastCard forecast={forecast} formatCurrency={formatCurrency} onView={openForecast} />
+                  </div>
+
+                  <div className="lg:col-span-2">
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader
                         title="Quick actions"
@@ -5222,6 +5283,32 @@ function App() {
         {moreOverlayContent}
       </AppOverlay>
       <AppOverlay
+        id="leftly-forecast-overlay"
+        isOpen={activeOverlay === 'forecast'}
+        title="Next paycheck forecast"
+        description="An estimate based on your current pay-period cadence and enabled Bill Plan items."
+        desktopPresentation="dialog"
+        desktopSize="wide"
+        closeLabel="Close next paycheck forecast"
+        onClose={closeForecast}
+      >
+        <ForecastDetail
+          forecast={forecastScenario}
+          incomeDraft={forecastIncomeDraft}
+          incomeError={forecastIncomeError}
+          includeCarryover={includeForecastCarryover}
+          defaultIncome={defaultForecastIncome}
+          formatCurrency={formatCurrency}
+          onIncomeChange={updateForecastIncome}
+          onCarryoverChange={setIncludeForecastCarryover}
+          onReset={() => {
+            setForecastIncomeDraft(String(defaultForecastIncome))
+            setForecastIncomeError('')
+            setIncludeForecastCarryover(false)
+          }}
+        />
+      </AppOverlay>
+      <AppOverlay
         id="leftly-history-detail-overlay"
         isOpen={activeOverlay === 'history-detail' && Boolean(selectedHistorySnapshot)}
         title={selectedHistorySnapshot?.label ?? 'Archived pay period'}
@@ -5787,6 +5874,131 @@ function FinancialPulseHero({
         {totals.totalSetAside > 0 ? <OverviewStat label="Set-asides" value={formatCurrency(totals.totalSetAside)} /> : null}
       </div>
     </section>
+  )
+}
+
+function forecastStatusLabel(status: ForecastViewModel['status']) {
+  return status === 'shortfall' ? 'Projected shortfall' : status === 'allocated' ? 'Fully allocated' : 'Projected cushion'
+}
+
+function forecastStatusClass(status: ForecastViewModel['status']) {
+  return status === 'shortfall' ? 'text-rose-100' : status === 'allocated' ? 'text-slate-100' : 'text-emerald-100'
+}
+
+function NextPaycheckForecastCard({
+  forecast,
+  formatCurrency,
+  onView,
+}: {
+  forecast: ForecastViewModel
+  formatCurrency: (value: number) => string
+  onView: () => void
+}) {
+  return (
+    <section className="leftly-overview-section" aria-label="Next paycheck forecast">
+      <OverviewSectionHeader
+        title="Next paycheck forecast"
+        description="A transparent estimate from your current pay-period cadence and Bill Plan."
+        aside={<Badge muted>Estimate</Badge>}
+      />
+      {!forecast.available ? (
+        <EmptyState title="Forecast unavailable" text={forecast.unavailableReason ?? 'Set a valid active pay period to estimate the next paycheck.'} compact />
+      ) : (
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="min-w-0">
+            <p className="text-xs text-slate-400">
+              Estimated {formatHistoryPeriodLabel(forecast.forecastStart, forecast.forecastEnd)}
+            </p>
+            <p className="mt-2 break-words text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">{formatCurrency(forecast.projectedLeft)}</p>
+            <p className={`mt-2 text-sm font-semibold ${forecastStatusClass(forecast.status)}`}>{forecastStatusLabel(forecast.status)}</p>
+            <div className="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
+              <span>Expected income <strong className="text-slate-200">{formatCurrency(forecast.expectedIncome)}</strong></span>
+              <span>Scheduled bills <strong className="text-slate-200">{formatCurrency(forecast.scheduledBillTotal)}</strong></span>
+            </div>
+          </div>
+          <button type="button" className="button-secondary w-full sm:w-auto" onClick={onView} aria-label="View next paycheck forecast details">
+            View forecast
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ForecastDetail({
+  forecast,
+  incomeDraft,
+  incomeError,
+  includeCarryover,
+  defaultIncome,
+  formatCurrency,
+  onIncomeChange,
+  onCarryoverChange,
+  onReset,
+}: {
+  forecast: ForecastViewModel
+  incomeDraft: string
+  incomeError: string
+  includeCarryover: boolean
+  defaultIncome: number
+  formatCurrency: (value: number) => string
+  onIncomeChange: (value: string) => void
+  onCarryoverChange: (value: boolean) => void
+  onReset: () => void
+}) {
+  if (!forecast.available) {
+    return <EmptyState title="Forecast unavailable" text={forecast.unavailableReason ?? 'Set a valid active pay period before opening a forecast.'} />
+  }
+
+  return (
+    <div className="grid gap-5">
+      <div className="leftly-shell-soft grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+        <div><p className="leftly-panel-label">Estimated period</p><p className="mt-1 text-sm font-semibold text-white">{formatHistoryPeriodLabel(forecast.forecastStart, forecast.forecastEnd)}</p></div>
+        <div><p className="leftly-panel-label">Projected result</p><p className={`mt-1 break-words text-xl font-semibold ${forecastStatusClass(forecast.status)}`}>{formatCurrency(forecast.projectedLeft)}</p><p className="mt-1 text-xs text-slate-400">{forecastStatusLabel(forecast.status)}</p></div>
+        <div><p className="leftly-panel-label">Default income</p><p className="mt-1 text-sm font-semibold text-white">{formatCurrency(defaultIncome)}</p></div>
+      </div>
+
+      <div className="leftly-shell-soft grid gap-4 p-4 sm:p-5">
+        <div><p className="leftly-panel-label">What-if income</p><p className="leftly-panel-copy">Temporarily test a different next paycheck. This is not saved.</p></div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <Field label="Expected income">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={incomeDraft}
+              onChange={(event) => onIncomeChange(event.target.value)}
+              aria-invalid={Boolean(incomeError)}
+              aria-describedby={incomeError ? 'forecast-income-error' : undefined}
+            />
+          </Field>
+          <button type="button" className="button-secondary w-full sm:w-auto" onClick={onReset}>Reset</button>
+        </div>
+        {incomeError ? <p id="forecast-income-error" className="text-sm text-rose-200" role="alert">{incomeError}</p> : null}
+      </div>
+
+      <div className="leftly-shell-soft grid gap-3 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <input id="forecast-carryover" type="checkbox" checked={includeCarryover} onChange={(event) => onCarryoverChange(event.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-400 focus:ring-cyan-400" />
+          <div><label htmlFor="forecast-carryover" className="font-semibold text-white">Include potential carryover</label><p className="mt-1 text-sm leading-6 text-slate-400">Subtract currently unpaid active-period bills as a scenario only. This does not change closeout or bill status.</p></div>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-sm"><span className="text-slate-400">Potential unpaid carryover</span><strong className="text-amber-100">{formatCurrency(forecast.potentialCarryoverTotal)}</strong></div>
+      </div>
+
+      <section aria-labelledby="forecast-bills-title">
+        <h3 id="forecast-bills-title" className="text-base font-semibold text-white">Scheduled Bill Plan items</h3>
+        {forecast.projectedBills.length === 0 ? <p className="mt-2 text-sm leading-6 text-slate-400">No scheduled Bill Plan items fall in this estimated period.</p> : (
+          <ul className="mt-3 grid gap-2" aria-label="Projected Bill Plan bills">
+            {forecast.projectedBills.map((bill) => <li key={`${bill.templateId}:${bill.dueDate}`} className="leftly-compact-list-card"><div className="min-w-0"><p className="break-words text-sm font-semibold text-white">{bill.name}</p><p className="mt-1 text-xs text-slate-400">{bill.dueDate} · {bill.category}</p></div><p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p></li>)}
+          </ul>
+        )}
+      </section>
+
+      <div className="grid gap-2 text-sm leading-6 text-slate-400">
+        <p><strong className="text-slate-200">Formula:</strong> {formatCurrency(forecast.expectedIncome)} − {formatCurrency(forecast.scheduledBillTotal)}{includeCarryover ? ` − ${formatCurrency(forecast.potentialCarryoverTotal)}` : ''} = {formatCurrency(forecast.projectedLeft)}.</p>
+        <p><strong className="text-slate-200">Assumptions:</strong> current-period income, the current period&apos;s inclusive date length, enabled Bill Plan bills in this range, and potential unpaid carryover only when enabled.</p>
+        <p><strong className="text-slate-200">Not included:</strong> unplanned spending, new bills, unentered income changes, bank balances, pending transactions, or a guaranteed future result.</p>
+      </div>
+    </div>
   )
 }
 

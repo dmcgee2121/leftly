@@ -1,0 +1,3 @@
+Temporary Netlify preview marker for Phase 7 forecast testing.
+Verified application commit: 3ad4dbf12d769357c47a3e2cabd4bed7fcb5edb1
+Do not merge this preview branch.

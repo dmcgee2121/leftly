@@ -24,6 +24,7 @@ export type InsightBillFollowThrough = {
   paidOnOrBeforeDue: InsightBillMeasure
   paidAfterDue: InsightBillMeasure
   paidDateUnavailable: InsightBillMeasure
+  timingDateUnavailable: InsightBillMeasure
   unpaidAtArchive: InsightBillMeasure
   carriedOver: InsightBillMeasure
 }
@@ -38,8 +39,11 @@ export type RepeatedBillAttention = {
 
 export type PayPeriodInsights = {
   range: InsightRange
+  totalArchivedSnapshots: number
   availableSnapshots: number
   excludedSnapshotCount: number
+  excludedDateSnapshotCount: number
+  excludedMoneySnapshotCount: number
   selectedSnapshots: PayPeriodSnapshot[]
   selectedCount: number
   rangeLabel: string
@@ -98,7 +102,13 @@ function formatRange(start: string, end: string) {
 }
 
 function safeCents(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.round(value * 100) : null
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isFinite(value * 100)) return null
+  return Math.round(value * 100)
+}
+
+function safeAmountCents(value: unknown) {
+  const amount = safeCents(value)
+  return amount !== null && amount >= 0 ? amount : null
 }
 
 function fromCents(value: number) {
@@ -109,35 +119,43 @@ function safeArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
 function billAmount(bill: Bill) {
-  const amount = safeCents(bill.amount)
-  return amount === null ? 0 : amount
+  return safeAmountCents(bill.amount)
 }
 
 function expenseAmount(expense: Expense) {
-  const amount = safeCents(expense.amount)
-  return amount === null ? 0 : amount
+  return safeAmountCents(expense.amount)
 }
 
 function snapshotBills(snapshot: PayPeriodSnapshot) {
-  return safeArray<Bill>(snapshot.bills)
+  return safeArray<Bill>(snapshot.bills).filter(isRecord) as Bill[]
 }
 
 function snapshotExpenses(snapshot: PayPeriodSnapshot) {
-  return safeArray<Expense>(snapshot.expenses)
+  return safeArray<Expense>(snapshot.expenses).filter(isRecord) as Expense[]
 }
 
 function totalBills(snapshot: PayPeriodSnapshot) {
-  const stored = safeCents(snapshot.totals?.totalBills)
-  return stored === null ? snapshotBills(snapshot).reduce((sum, bill) => sum + billAmount(bill), 0) : stored
+  const stored = safeAmountCents(snapshot.totals?.totalBills)
+  return stored === null ? snapshotBills(snapshot).reduce((sum, bill) => sum + (billAmount(bill) ?? 0), 0) : stored
 }
 
 function spending(snapshot: PayPeriodSnapshot) {
-  return snapshotExpenses(snapshot).reduce((sum, expense) => sum + (expense.setAsideForTemplateId ? 0 : expenseAmount(expense)), 0)
+  return snapshotExpenses(snapshot).reduce((sum, expense) => {
+    const amount = expenseAmount(expense)
+    return expense.setAsideForTemplateId || amount === null ? sum : sum + amount
+  }, 0)
 }
 
 function setAsides(snapshot: PayPeriodSnapshot) {
-  return snapshotExpenses(snapshot).reduce((sum, expense) => sum + (expense.setAsideForTemplateId ? expenseAmount(expense) : 0), 0)
+  return snapshotExpenses(snapshot).reduce((sum, expense) => {
+    const amount = expenseAmount(expense)
+    return expense.setAsideForTemplateId && amount !== null ? sum + amount : sum
+  }, 0)
 }
 
 function snapshotMetric(snapshot: PayPeriodSnapshot, metric: 'income' | 'leftover') {
@@ -153,7 +171,7 @@ function compare(latest: number, previous: number): InsightComparison {
 function isValidSnapshot(snapshot: PayPeriodSnapshot) {
   const start = dateValue(snapshot?.startDate)
   const end = dateValue(snapshot?.endDate)
-  return start !== null && end !== null && start <= end
+  return start !== null && end !== null && start <= end && safeCents(snapshot?.income) !== null && safeCents(snapshot?.totals?.leftover) !== null
 }
 
 function billAttention(snapshot: PayPeriodSnapshot, bill: Bill) {
@@ -161,14 +179,21 @@ function billAttention(snapshot: PayPeriodSnapshot, bill: Bill) {
   const paidDate = dateValue(bill.paidDate)
   const late = Boolean(bill.isPaid && dueDate !== null && paidDate !== null && paidDate > dueDate)
   const onOrBefore = Boolean(bill.isPaid && dueDate !== null && paidDate !== null && paidDate <= dueDate)
-  const paidDateUnavailable = Boolean(bill.isPaid && !onOrBefore && !late)
+  const paidDateUnavailable = Boolean(bill.isPaid && dueDate !== null && paidDate === null)
+  const timingDateUnavailable = Boolean(bill.isPaid && dueDate === null)
   const unpaid = bill.isPaid === false
   const carried = Boolean(bill.carriedOverFromPayPeriodId)
-  return { dueDate, paidDate, late, onOrBefore, paidDateUnavailable, unpaid, carried, amount: billAmount(bill), snapshotId: snapshot.id }
+  return { dueDate, paidDate, late, onOrBefore, paidDateUnavailable, timingDateUnavailable, unpaid, carried, amount: billAmount(bill), snapshotId: snapshot.id }
 }
 
 export function buildPayPeriodInsights(snapshots: PayPeriodSnapshot[], range: InsightRange): PayPeriodInsights {
-  const valid = safeArray<PayPeriodSnapshot>(snapshots).filter(isValidSnapshot).sort((left, right) => {
+  const allSnapshots = safeArray<PayPeriodSnapshot>(snapshots)
+  const dateValidSnapshots = allSnapshots.filter((snapshot) => {
+    const start = dateValue(snapshot?.startDate)
+    const end = dateValue(snapshot?.endDate)
+    return start !== null && end !== null && start <= end
+  })
+  const valid = dateValidSnapshots.filter(isValidSnapshot).sort((left, right) => {
     return (dateValue(left.startDate) as number) - (dateValue(right.startDate) as number) || (dateValue(left.endDate) as number) - (dateValue(right.endDate) as number)
   })
   const selected = range === 'all' ? valid : valid.slice(-range)
@@ -192,6 +217,7 @@ export function buildPayPeriodInsights(snapshots: PayPeriodSnapshot[], range: In
     for (const expense of snapshotExpenses(snapshot)) {
       if (expense.setAsideForTemplateId) continue
       const amount = expenseAmount(expense)
+      if (amount === null || typeof expense.category !== 'string' || !expense.category.trim()) continue
       totalCategorySpending += amount
       const current = categories.get(expense.category) ?? { total: 0, count: 0 }
       current.total += amount
@@ -208,6 +234,7 @@ export function buildPayPeriodInsights(snapshots: PayPeriodSnapshot[], range: In
     paidOnOrBeforeDue: { count: 0, amount: 0 },
     paidAfterDue: { count: 0, amount: 0 },
     paidDateUnavailable: { count: 0, amount: 0 },
+    timingDateUnavailable: { count: 0, amount: 0 },
     unpaidAtArchive: { count: 0, amount: 0 },
     carriedOver: { count: 0, amount: 0 },
   }
@@ -218,25 +245,31 @@ export function buildPayPeriodInsights(snapshots: PayPeriodSnapshot[], range: In
       const attention = billAttention(snapshot, bill)
       if (attention.onOrBefore) {
         followThrough.paidOnOrBeforeDue.count += 1
-        followThrough.paidOnOrBeforeDue.amount += attention.amount
+        followThrough.paidOnOrBeforeDue.amount += attention.amount ?? 0
       } else if (attention.late) {
         followThrough.paidAfterDue.count += 1
-        followThrough.paidAfterDue.amount += attention.amount
+        followThrough.paidAfterDue.amount += attention.amount ?? 0
       } else if (attention.paidDateUnavailable) {
         followThrough.paidDateUnavailable.count += 1
-        followThrough.paidDateUnavailable.amount += attention.amount
+        followThrough.paidDateUnavailable.amount += attention.amount ?? 0
+      } else if (attention.timingDateUnavailable) {
+        followThrough.timingDateUnavailable.count += 1
+        followThrough.timingDateUnavailable.amount += attention.amount ?? 0
       } else if (attention.unpaid) {
         followThrough.unpaidAtArchive.count += 1
-        followThrough.unpaidAtArchive.amount += attention.amount
+        followThrough.unpaidAtArchive.amount += attention.amount ?? 0
       }
       if (attention.carried) {
         followThrough.carriedOver.count += 1
-        followThrough.carriedOver.amount += attention.amount
+        followThrough.carriedOver.amount += attention.amount ?? 0
       }
 
-      const fallbackKey = `${typeof bill.name === 'string' ? bill.name.trim().toLocaleLowerCase() : ''}:${typeof bill.category === 'string' ? bill.category : ''}`
-      const key = bill.templateId || fallbackKey
-      const group = billGroups.get(key) ?? { label: bill.name || 'Unnamed bill', appearances: 0, latePaid: 0, unpaidAtArchive: 0, carriedOver: 0, periodIds: new Set<string>() }
+      const normalizeGroupPart = (value: unknown) => typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').toLocaleLowerCase() : ''
+      const fallbackKey = `fallback:${normalizeGroupPart(bill.name)}:${normalizeGroupPart(bill.category)}`
+      const templateKey = typeof bill.templateId === 'string' && bill.templateId.trim() ? `template:${bill.templateId.trim()}` : null
+      const key = templateKey ?? fallbackKey
+      const displayLabel = typeof bill.name === 'string' && bill.name.trim() ? bill.name : 'Unnamed bill'
+      const group = billGroups.get(key) ?? { label: displayLabel, appearances: 0, latePaid: 0, unpaidAtArchive: 0, carriedOver: 0, periodIds: new Set<string>() }
       if (!group.periodIds.has(snapshot.id)) {
         group.periodIds.add(snapshot.id)
         group.appearances += 1
@@ -263,6 +296,7 @@ export function buildPayPeriodInsights(snapshots: PayPeriodSnapshot[], range: In
     paidOnOrBeforeDue: { ...followThrough.paidOnOrBeforeDue, amount: fromCents(followThrough.paidOnOrBeforeDue.amount) },
     paidAfterDue: { ...followThrough.paidAfterDue, amount: fromCents(followThrough.paidAfterDue.amount) },
     paidDateUnavailable: { ...followThrough.paidDateUnavailable, amount: fromCents(followThrough.paidDateUnavailable.amount) },
+    timingDateUnavailable: { ...followThrough.timingDateUnavailable, amount: fromCents(followThrough.timingDateUnavailable.amount) },
     unpaidAtArchive: { ...followThrough.unpaidAtArchive, amount: fromCents(followThrough.unpaidAtArchive.amount) },
     carriedOver: { ...followThrough.carriedOver, amount: fromCents(followThrough.carriedOver.amount) },
   }
@@ -287,8 +321,11 @@ export function buildPayPeriodInsights(snapshots: PayPeriodSnapshot[], range: In
 
   return {
     range,
+    totalArchivedSnapshots: allSnapshots.length,
     availableSnapshots: valid.length,
-    excludedSnapshotCount: safeArray<PayPeriodSnapshot>(snapshots).length - valid.length,
+    excludedSnapshotCount: allSnapshots.length - valid.length,
+    excludedDateSnapshotCount: allSnapshots.length - dateValidSnapshots.length,
+    excludedMoneySnapshotCount: dateValidSnapshots.length - valid.length,
     selectedSnapshots: selected,
     selectedCount,
     rangeLabel: selectedCount > 0 ? formatRange(selected[0].startDate, selected[selectedCount - 1].endDate) : 'No archived periods selected',

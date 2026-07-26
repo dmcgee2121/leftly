@@ -777,7 +777,7 @@ function HistoryInsightsSummaryCard({
       <OverviewSectionHeader
         title="Pay period insights"
         description="Descriptive summaries from archived pay periods. The active period is not included."
-        aside={<Badge muted>{insights.availableSnapshots} archived</Badge>}
+        aside={<Badge muted>{insights.availableSnapshots} analyzed · {insights.totalArchivedSnapshots} archived</Badge>}
       />
       {insights.availableSnapshots === 0 ? (
         <EmptyState title="Insights will appear after archiving a pay period" text="Start a new pay period to save the current period in History, then review its recorded income, bills, spending, and leftover." compact />
@@ -786,6 +786,7 @@ function HistoryInsightsSummaryCard({
           <div className="min-w-0">
             <p className="text-xs text-slate-400">Selected range: {insights.rangeLabel}</p>
             <p className="mt-1 text-xs text-slate-500">Based on {insights.selectedCount} archived pay period{insights.selectedCount === 1 ? '' : 's'}.</p>
+            {insights.excludedSnapshotCount > 0 ? <p className="mt-1 text-xs leading-5 text-slate-500">{insights.excludedSnapshotCount} archived record{insights.excludedSnapshotCount === 1 ? '' : 's'} excluded because required dates or amounts were unavailable.</p> : null}
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <MiniStat label="Average leftover" value={formatCurrency(insights.averages.leftover)} dense />
               <MiniStat label="Average income" value={formatCurrency(insights.averages.income)} dense />
@@ -818,6 +819,7 @@ function PayPeriodInsightsPanel({
     ['Paid on or before due date', insights.billFollowThrough.paidOnOrBeforeDue],
     ['Paid after due date', insights.billFollowThrough.paidAfterDue],
     ['Paid date unavailable', insights.billFollowThrough.paidDateUnavailable],
+    ['Timing date unavailable', insights.billFollowThrough.timingDateUnavailable],
     ['Unpaid at archive', insights.billFollowThrough.unpaidAtArchive],
     ['Carried over', insights.billFollowThrough.carriedOver],
   ]
@@ -838,7 +840,7 @@ function PayPeriodInsightsPanel({
             </span>
           </label>
           <p className="mt-2 text-sm leading-6 text-slate-400">Analyzing {insights.selectedCount} archived pay period{insights.selectedCount === 1 ? '' : 's'}: {insights.rangeLabel}.</p>
-          {insights.excludedSnapshotCount > 0 ? <p className="mt-1 text-xs leading-5 text-amber-100/80">{insights.excludedSnapshotCount} archived record{insights.excludedSnapshotCount === 1 ? '' : 's'} excluded because its date range is invalid.</p> : null}
+          {insights.excludedSnapshotCount > 0 ? <p className="mt-1 text-xs leading-5 text-amber-100/80">{insights.excludedSnapshotCount} archived record{insights.excludedSnapshotCount === 1 ? '' : 's'} excluded because required dates or amounts were unavailable.</p> : null}
         </div>
         <Badge muted>{insights.state === 'single' ? 'Descriptive summary' : insights.state === 'comparison' ? 'Two-period comparison' : 'Range summary'}</Badge>
       </div>
@@ -894,6 +896,7 @@ function PayPeriodInsightsPanel({
           <li>Insights use archived pay periods only; the active period is not included in averages.</li>
           <li>Spending excludes set-asides. Bills and spending are separate measures.</li>
           <li>A late payment requires a recorded paid date after the due date. Paid bills without a paid date are not classified as on-time or late.</li>
+          <li>A paid bill with an unavailable due date is shown separately as timing date unavailable.</li>
           <li>Carryover is counted separately, and results describe recorded history only.</li>
           <li>These insights are not financial advice or a guarantee about future periods.</li>
         </ul>

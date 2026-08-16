@@ -57,6 +57,11 @@ export function DataSection({
   const cloudConfig = getLeftlyCloudConfig()
   const meta = loadDataSafetyMeta()
   const [diagnostics, setDiagnostics] = useState<StorageDiagnostics | null>(null)
+  const [cloudStatus, setCloudStatus] = useState(() => {
+    if (!cloudConfig.enabled) return 'Disabled'
+    if (cloudConfig.mode === 'missing-config') return 'Unavailable'
+    return 'Loading'
+  })
 
   useEffect(() => {
     let mounted = true
@@ -81,7 +86,7 @@ export function DataSection({
           <DataStatus label="Local data" value={diagnostics ? (diagnostics.readable && diagnostics.writable ? 'Local data available' : 'Needs attention') : 'Checking…'} />
           <DataStatus label="JSON export" value={meta?.lastJsonExportInitiatedAt ? `Initiated ${formatRecoveryTimestamp(meta.lastJsonExportInitiatedAt)}` : 'No export recorded on this device'} />
           <DataStatus label="Last restore" value={meta?.lastRestoreSource && (meta.lastJsonImportRestoredAt || meta.lastCloudRestoreAt) ? `${meta.lastRestoreSource === 'json' ? 'JSON import' : 'Cloud restore'} · ${formatRecoveryTimestamp(meta.lastRestoreSource === 'json' ? meta.lastJsonImportRestoredAt : meta.lastCloudRestoreAt)}` : 'No activity recorded on this device.'} />
-          <DataStatus label="Cloud" value={!cloudConfig.enabled ? 'Disabled' : 'Available when signed in'} />
+          <DataStatus label="Cloud" value={cloudStatus} />
         </div>
       </section>
       <div className="leftly-shell-soft grid gap-3 border-cyan-400/15 bg-cyan-400/5 p-4">
@@ -242,6 +247,7 @@ export function DataSection({
         cloudConfig={cloudConfig}
         backupSummary={backupSummary}
         onLocalDataReloaded={onLocalDataReloaded}
+        onCloudStatusChange={setCloudStatus}
       />
 
       <input

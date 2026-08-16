@@ -4,7 +4,7 @@ import type { Session } from '@supabase/supabase-js'
 import { getLeftlyCloudConfig } from '../lib/cloudConfig'
 import { fetchLatestCloudBackup, uploadCurrentLocalBackup, type CloudBackupSnapshot } from '../lib/cloudBackups'
 import { getLeftlySupabaseClient } from '../lib/supabaseClient'
-import { recordRestore, restoreLeftlyBackup, type LeftlyBackupSummary } from '../lib/storage'
+import { clearSetupDraft, recordRestore, restoreLeftlyBackup, type LeftlyBackupSummary } from '../lib/storage'
 import { buildRestorePreview, formatRecoveryTimestamp } from '../lib/backupRecovery'
 
 const buttonStyles = {
@@ -18,9 +18,10 @@ type CloudBackupSectionProps = {
   cloudConfig: ReturnType<typeof getLeftlyCloudConfig>
   backupSummary: LeftlyBackupSummary
   onLocalDataReloaded: () => void
+  onCloudStatusChange?: (status: string) => void
 }
 
-export function CloudBackupSection({ cloudConfig, backupSummary, onLocalDataReloaded }: CloudBackupSectionProps) {
+export function CloudBackupSection({ cloudConfig, backupSummary, onLocalDataReloaded, onCloudStatusChange }: CloudBackupSectionProps) {
   if (!cloudConfig.enabled) {
     return null
   }
@@ -43,15 +44,17 @@ export function CloudBackupSection({ cloudConfig, backupSummary, onLocalDataRelo
     )
   }
 
-  return <CloudBackupShell backupSummary={backupSummary} onLocalDataReloaded={onLocalDataReloaded} />
+  return <CloudBackupShell backupSummary={backupSummary} onLocalDataReloaded={onLocalDataReloaded} onCloudStatusChange={onCloudStatusChange} />
 }
 
 function CloudBackupShell({
   backupSummary,
   onLocalDataReloaded,
+  onCloudStatusChange,
 }: {
   backupSummary: LeftlyBackupSummary
   onLocalDataReloaded: () => void
+  onCloudStatusChange?: (status: string) => void
 }) {
   const [session, setSession] = useState<Session | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -159,6 +162,16 @@ function CloudBackupShell({
       mounted = false
     }
   }, [session])
+
+  useEffect(() => {
+    if (!onCloudStatusChange) return
+    if (!supabase) onCloudStatusChange('Unavailable')
+    else if (authLoading || isLoadingCloudBackup) onCloudStatusChange('Loading')
+    else if (cloudError) onCloudStatusChange('Unavailable')
+    else if (!session) onCloudStatusChange('Signed out')
+    else if (!latestCloudBackup) onCloudStatusChange('No cloud snapshot yet')
+    else onCloudStatusChange(`Latest confirmed snapshot · ${formatRecoveryTimestamp(latestCloudBackup.row.updated_at)}`)
+  }, [authLoading, cloudError, isLoadingCloudBackup, latestCloudBackup, onCloudStatusChange, session, supabase])
 
   if (!supabase) {
     return (
@@ -296,6 +309,7 @@ function CloudBackupShell({
         return
       }
       recordRestore('cloud')
+      clearSetupDraft()
       onLocalDataReloaded()
       setCloudNotice('Cloud snapshot restored to this device.')
       setCloudNoticeTone('success')
@@ -320,6 +334,17 @@ function CloudBackupShell({
   const cloudPreview = latestCloudBackup
     ? buildRestorePreview({ source: 'cloud', backup: latestCloudBackup.backup, current: backupSummary, sourceLabel: 'Latest cloud snapshot' })
     : null
+
+  const cloudPreviewDetails = cloudPreview
+    ? [
+        { label: 'Cloud snapshot', value: cloudBackupDate },
+        { label: 'Backup format', value: cloudPreview.backupFormat },
+        { label: 'Backup timestamp', value: cloudPreview.exportedAt ? formatRecoveryTimestamp(cloudPreview.exportedAt) : 'Time unavailable' },
+        { label: 'Active pay period', value: cloudPreview.activePayPeriod.present ? cloudPreview.activePayPeriod.range ?? 'Present' : 'None' },
+        ...cloudPreview.comparison.map((row) => ({ label: row.label, value: `Current: ${row.current} · Incoming: ${row.incoming}` })),
+        { label: 'Replacement scope', value: cloudPreview.replacementScope.join(', ') },
+      ]
+    : undefined
 
   return (
     <div className="leftly-shell-soft grid gap-4 p-4">
@@ -531,6 +556,7 @@ function CloudBackupShell({
               ? `The cloud copy stays online. ${cloudPreview?.comparison.map((row) => `${row.label}: current ${row.current}, incoming ${row.incoming}`).join(' · ') ?? cloudRestoreSummary}. Export JSON first if you want a portable safety copy.`
               : 'Restore stays disabled until a snapshot exists.'
           }
+          details={cloudPreviewDetails}
           confirmLabel={isRestoring ? 'Restoring...' : 'Confirm restore'}
           onConfirm={confirmRestoreFlow}
           onCancel={() => setIsRestoreConfirmOpen(false)}
@@ -555,6 +581,7 @@ function ConfirmSheet({
   title,
   description,
   secondaryDescription,
+  details,
   confirmLabel,
   onConfirm,
   onCancel,
@@ -562,6 +589,7 @@ function ConfirmSheet({
   title: string
   description: string
   secondaryDescription?: string
+  details?: Array<{ label: string; value: string }>
   confirmLabel: string
   onConfirm: () => void
   onCancel: () => void
@@ -571,6 +599,16 @@ function ConfirmSheet({
       <p className="text-sm font-semibold text-white">{title}</p>
       <p className="mt-1 text-sm leading-6 text-slate-300">{description}</p>
       {secondaryDescription ? <p className="mt-2 text-sm leading-6 text-slate-400">{secondaryDescription}</p> : null}
+      {details ? (
+        <dl className="mt-3 grid gap-2">
+          {details.map((detail) => (
+            <div key={detail.label} className="grid gap-1 rounded-xl border border-slate-800/80 bg-slate-950/35 px-3 py-2 sm:grid-cols-[minmax(0,auto)_minmax(0,1fr)] sm:gap-3">
+              <dt className="text-xs font-semibold text-slate-500">{detail.label}</dt>
+              <dd className="break-words text-xs leading-5 text-slate-300">{detail.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <button type="button" onClick={onConfirm} className={`${buttonStyles.primary} w-full`}>
           {confirmLabel}

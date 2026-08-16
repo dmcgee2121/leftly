@@ -31,8 +31,9 @@ export function buildRestorePreview(params: {
   current: LeftlyBackupSummary
   sourceLabel?: string
 }): RestorePreview {
-  const incoming = params.backup.summary ?? deriveBackupSummary(params.backup)
+  const incoming = isUsableSummary(params.backup.summary) ? params.backup.summary : deriveBackupSummary(params.backup)
   const active = params.backup.activeBudgetPeriod
+  const hasValidActiveRange = Boolean(active && validTimestamp(`${active.startDate}T00:00:00`) && validTimestamp(`${active.endDate}T00:00:00`))
   const rows = [
     ['Bills', params.current.billCount, incoming.billCount],
     ['Expenses', params.current.expenseCount, incoming.expenseCount],
@@ -48,12 +49,15 @@ export function buildRestorePreview(params: {
     sourceLabel: params.sourceLabel ?? (params.source === 'json' ? 'JSON backup' : 'Cloud snapshot'),
     backupFormat: `v${params.backup.version}`,
     exportedAt: validTimestamp(params.backup.exportedAt) ? params.backup.exportedAt : null,
-    activePayPeriod: { present: Boolean(active), range: active ? `${active.startDate} to ${active.endDate}` : null },
+    activePayPeriod: { present: Boolean(active), range: hasValidActiveRange ? `${active?.startDate} to ${active?.endDate}` : null },
     incoming,
     current: params.current,
     comparison: rows.map(([label, current, incomingValue]) => ({ label, current: String(current), incoming: String(incomingValue) })),
     replacementScope: ['Active pay period', 'Bills and expenses', 'Bill Plan items', 'History', 'Categories, preferences, and display settings'],
-    warnings: validTimestamp(params.backup.exportedAt) ? [] : ['Backup timestamp is unavailable.'],
+    warnings: [
+      ...(validTimestamp(params.backup.exportedAt) ? [] : ['Backup timestamp is unavailable.']),
+      ...(active && !hasValidActiveRange ? ['Active pay-period date range is unavailable.'] : []),
+    ],
   }
 }
 
@@ -68,6 +72,18 @@ function deriveBackupSummary(backup: LeftlyBackup): LeftlyBackupSummary {
     displaySettingsIncluded: backup.categoryOrderMode !== undefined && backup.sortMode !== undefined,
     preferencesIncluded: backup.preferences !== undefined,
   }
+}
+
+function isUsableSummary(summary: unknown): summary is LeftlyBackupSummary {
+  if (!summary || typeof summary !== 'object') return false
+  const value = summary as Record<string, unknown>
+  const counts = ['billCount', 'expenseCount', 'recurringTemplateCount', 'historySnapshotCount', 'categoryCount']
+  return (
+    typeof value.hasActivePayPeriod === 'boolean' &&
+    counts.every((key) => typeof value[key] === 'number' && Number.isFinite(value[key]) && Number.isInteger(value[key]) && (value[key] as number) >= 0) &&
+    typeof value.displaySettingsIncluded === 'boolean' &&
+    typeof value.preferencesIncluded === 'boolean'
+  )
 }
 
 export type StorageDiagnostics = {

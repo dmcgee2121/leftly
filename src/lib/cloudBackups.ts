@@ -53,11 +53,11 @@ function normalizeSummary(value: unknown, backup: LeftlyBackup): LeftlyBackupSum
   if (
     summary &&
     typeof summary.hasActivePayPeriod === 'boolean' &&
-    typeof summary.billCount === 'number' &&
-    typeof summary.expenseCount === 'number' &&
-    typeof summary.recurringTemplateCount === 'number' &&
-    typeof summary.historySnapshotCount === 'number' &&
-    typeof summary.categoryCount === 'number' &&
+    typeof summary.billCount === 'number' && Number.isInteger(summary.billCount) && summary.billCount >= 0 &&
+    typeof summary.expenseCount === 'number' && Number.isInteger(summary.expenseCount) && summary.expenseCount >= 0 &&
+    typeof summary.recurringTemplateCount === 'number' && Number.isInteger(summary.recurringTemplateCount) && summary.recurringTemplateCount >= 0 &&
+    typeof summary.historySnapshotCount === 'number' && Number.isInteger(summary.historySnapshotCount) && summary.historySnapshotCount >= 0 &&
+    typeof summary.categoryCount === 'number' && Number.isInteger(summary.categoryCount) && summary.categoryCount >= 0 &&
     typeof summary.displaySettingsIncluded === 'boolean' &&
     typeof summary.preferencesIncluded === 'boolean'
   ) {

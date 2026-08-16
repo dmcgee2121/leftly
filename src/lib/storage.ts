@@ -32,6 +32,19 @@ const PREFERENCES_KEY = 'leftly.preferences'
 const ACTIVE_TAB_KEY = 'leftly.activeTab'
 const SETUP_DRAFT_KEY = 'leftly.setupDraft'
 export const DATA_SAFETY_META_KEY = 'leftly.dataSafetyMeta'
+const RESTORE_STORAGE_KEYS = [
+  ACTIVE_BUDGET_KEY,
+  BILLS_KEY,
+  EXPENSES_KEY,
+  RECURRING_TEMPLATES_KEY,
+  PAY_PERIOD_HISTORY_KEY,
+  CATEGORY_TARGETS_KEY,
+  CUSTOM_CATEGORIES_KEY,
+  CATEGORY_ORDER_KEY,
+  CATEGORY_ORDER_KEY + '.mode',
+  SORT_MODE_KEY,
+  PREFERENCES_KEY,
+] as const
 
 const DEFAULT_SORT_MODE: SortMode = 'amount-desc'
 const DEFAULT_CATEGORY_ORDER: CategoryOrderMode = 'total-desc'
@@ -428,7 +441,7 @@ export function saveLeftlyBackup(backup: LeftlyBackup) {
   savePreferences(backup.preferences ?? DEFAULT_PREFERENCES)
 }
 
-export type RestoreResult = { ok: true } | { ok: false; error: string; failedKeys?: string[] }
+export type RestoreResult = { ok: true } | { ok: false; error: string; failedKeys?: string[]; rollbackFailedKeys?: string[] }
 
 export function restoreLeftlyBackup(backup: LeftlyBackup): RestoreResult {
   const normalizedPayPeriodHistory = normalizePayPeriodHistory(backup.payPeriodHistory)
@@ -456,6 +469,15 @@ export function restoreLeftlyBackup(backup: LeftlyBackup): RestoreResult {
     [PREFERENCES_KEY, normalizePreferences(backup.preferences ?? DEFAULT_PREFERENCES)],
   ]
 
+  const previousValues = new Map<string, string | null>()
+  try {
+    for (const key of RESTORE_STORAGE_KEYS) {
+      previousValues.set(key, window.localStorage.getItem(key))
+    }
+  } catch {
+    return { ok: false, error: 'Restore could not start because browser storage could not be read. Keep the original JSON or cloud backup.' }
+  }
+
   saveLeftlyBackup(backup)
   const failedKeys = expected.filter(([key, value]) => {
     try {
@@ -465,9 +487,28 @@ export function restoreLeftlyBackup(backup: LeftlyBackup): RestoreResult {
       return true
     }
   }).map(([key]) => key)
-  return failedKeys.length > 0
-    ? { ok: false, error: 'Restore could not be verified in browser storage. Keep the original JSON or cloud backup and try again.', failedKeys }
-    : { ok: true }
+  if (failedKeys.length === 0) return { ok: true }
+
+  const rollbackFailedKeys: string[] = []
+  for (const key of RESTORE_STORAGE_KEYS) {
+    try {
+      const previous = previousValues.get(key) ?? null
+      if (previous === null) window.localStorage.removeItem(key)
+      else window.localStorage.setItem(key, previous)
+      if (window.localStorage.getItem(key) !== previous) rollbackFailedKeys.push(key)
+    } catch {
+      rollbackFailedKeys.push(key)
+    }
+  }
+  const rollbackMessage = rollbackFailedKeys.length === 0
+    ? ' The previous local values were restored as a best-effort rollback.'
+    : ` Best-effort rollback also could not verify: ${rollbackFailedKeys.join(', ')}.`
+  return {
+    ok: false,
+    error: `Restore could not be verified in browser storage. Keep the original JSON or cloud backup.${rollbackMessage} Local storage cannot guarantee atomic rollback.`,
+    failedKeys,
+    rollbackFailedKeys,
+  }
 }
 
 export function loadActiveBudgetPeriod(): BudgetPeriod | null {

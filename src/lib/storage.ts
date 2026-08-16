@@ -31,6 +31,7 @@ const CUSTOM_CATEGORIES_KEY = 'leftly.customCategories'
 const PREFERENCES_KEY = 'leftly.preferences'
 const ACTIVE_TAB_KEY = 'leftly.activeTab'
 const SETUP_DRAFT_KEY = 'leftly.setupDraft'
+export const DATA_SAFETY_META_KEY = 'leftly.dataSafetyMeta'
 
 const DEFAULT_SORT_MODE: SortMode = 'amount-desc'
 const DEFAULT_CATEGORY_ORDER: CategoryOrderMode = 'total-desc'
@@ -69,6 +70,49 @@ export type LeftlyBackup = {
   categoryOrderMode?: CategoryOrderMode
   sortMode?: SortMode
   preferences?: LeftlyPreferences
+}
+
+export type LeftlyDataSafetyMeta = {
+  version: 1
+  lastJsonExportInitiatedAt?: string
+  lastJsonImportRestoredAt?: string
+  lastCloudRestoreAt?: string
+  lastRestoreSource?: 'json' | 'cloud'
+}
+
+function isValidOperationalTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value))
+}
+
+function isLeftlyDataSafetyMeta(value: unknown): value is LeftlyDataSafetyMeta {
+  if (!value || typeof value !== 'object' || (value as Record<string, unknown>).version !== 1) return false
+  const meta = value as Record<string, unknown>
+  return (
+    (meta.lastJsonExportInitiatedAt === undefined || isValidOperationalTimestamp(meta.lastJsonExportInitiatedAt)) &&
+    (meta.lastJsonImportRestoredAt === undefined || isValidOperationalTimestamp(meta.lastJsonImportRestoredAt)) &&
+    (meta.lastCloudRestoreAt === undefined || isValidOperationalTimestamp(meta.lastCloudRestoreAt)) &&
+    (meta.lastRestoreSource === undefined || meta.lastRestoreSource === 'json' || meta.lastRestoreSource === 'cloud')
+  )
+}
+
+export function loadDataSafetyMeta(): LeftlyDataSafetyMeta | null {
+  const value = readJson<unknown>(DATA_SAFETY_META_KEY, null)
+  return isLeftlyDataSafetyMeta(value) ? value : null
+}
+
+export function updateDataSafetyMeta(update: Partial<Omit<LeftlyDataSafetyMeta, 'version'>>) {
+  const current = loadDataSafetyMeta() ?? { version: 1 as const }
+  writeJson(DATA_SAFETY_META_KEY, { ...current, ...update, version: 1 as const })
+}
+
+export function recordJsonExportInitiated(at = new Date().toISOString()) {
+  updateDataSafetyMeta({ lastJsonExportInitiatedAt: at })
+}
+
+export function recordRestore(source: 'json' | 'cloud', at = new Date().toISOString()) {
+  updateDataSafetyMeta(source === 'json'
+    ? { lastJsonImportRestoredAt: at, lastRestoreSource: source }
+    : { lastCloudRestoreAt: at, lastRestoreSource: source })
 }
 
 export function buildLeftlyBackup(params: {
@@ -384,6 +428,48 @@ export function saveLeftlyBackup(backup: LeftlyBackup) {
   savePreferences(backup.preferences ?? DEFAULT_PREFERENCES)
 }
 
+export type RestoreResult = { ok: true } | { ok: false; error: string; failedKeys?: string[] }
+
+export function restoreLeftlyBackup(backup: LeftlyBackup): RestoreResult {
+  const normalizedPayPeriodHistory = normalizePayPeriodHistory(backup.payPeriodHistory)
+  const customCategories = deriveCustomCategories({
+    explicitCustomCategories: backup.customCategories,
+    bills: backup.bills,
+    expenses: backup.expenses,
+    recurringTemplates: backup.recurringTemplates,
+    payPeriodHistory: normalizedPayPeriodHistory,
+    categoryTargets: normalizeCategoryTargets(backup.categoryTargets),
+    preferences: backup.preferences ?? DEFAULT_PREFERENCES,
+    setupDraft: null,
+  })
+  const expected: Array<[string, unknown]> = [
+    [ACTIVE_BUDGET_KEY, backup.activeBudgetPeriod],
+    [BILLS_KEY, backup.bills],
+    [EXPENSES_KEY, backup.expenses],
+    [RECURRING_TEMPLATES_KEY, backup.recurringTemplates],
+    [PAY_PERIOD_HISTORY_KEY, normalizedPayPeriodHistory],
+    [CATEGORY_TARGETS_KEY, normalizeCategoryTargets(backup.categoryTargets)],
+    [CUSTOM_CATEGORIES_KEY, customCategories],
+    [CATEGORY_ORDER_KEY, reconcileCategoryOrder(backup.categoryOrder ?? [...DEFAULT_CATEGORIES], customCategories)],
+    [CATEGORY_ORDER_KEY + '.mode', backup.categoryOrderMode ?? DEFAULT_CATEGORY_ORDER],
+    [SORT_MODE_KEY, backup.sortMode ?? DEFAULT_SORT_MODE],
+    [PREFERENCES_KEY, normalizePreferences(backup.preferences ?? DEFAULT_PREFERENCES)],
+  ]
+
+  saveLeftlyBackup(backup)
+  const failedKeys = expected.filter(([key, value]) => {
+    try {
+      const stored = window.localStorage.getItem(key)
+      return stored !== JSON.stringify(value)
+    } catch {
+      return true
+    }
+  }).map(([key]) => key)
+  return failedKeys.length > 0
+    ? { ok: false, error: 'Restore could not be verified in browser storage. Keep the original JSON or cloud backup and try again.', failedKeys }
+    : { ok: true }
+}
+
 export function loadActiveBudgetPeriod(): BudgetPeriod | null {
   return readJson<BudgetPeriod | null>(ACTIVE_BUDGET_KEY, null)
 }
@@ -612,6 +698,7 @@ export function clearAllAppData() {
     window.localStorage.removeItem(PREFERENCES_KEY)
     window.localStorage.removeItem(ACTIVE_TAB_KEY)
     window.localStorage.removeItem(SETUP_DRAFT_KEY)
+    window.localStorage.removeItem(DATA_SAFETY_META_KEY)
   } catch {
     // Ignore storage failures so the app keeps running.
   }

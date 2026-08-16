@@ -4,7 +4,8 @@ import type { Session } from '@supabase/supabase-js'
 import { getLeftlyCloudConfig } from '../lib/cloudConfig'
 import { fetchLatestCloudBackup, uploadCurrentLocalBackup, type CloudBackupSnapshot } from '../lib/cloudBackups'
 import { getLeftlySupabaseClient } from '../lib/supabaseClient'
-import { saveLeftlyBackup, type LeftlyBackupSummary } from '../lib/storage'
+import { recordRestore, restoreLeftlyBackup, type LeftlyBackupSummary } from '../lib/storage'
+import { buildRestorePreview, formatRecoveryTimestamp } from '../lib/backupRecovery'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -288,7 +289,13 @@ function CloudBackupShell({
         return
       }
 
-      saveLeftlyBackup(snapshot.backup)
+      const result = restoreLeftlyBackup(snapshot.backup)
+      if (!result.ok) {
+        setCloudError(result.error)
+        setCloudNoticeTone('danger')
+        return
+      }
+      recordRestore('cloud')
       onLocalDataReloaded()
       setCloudNotice('Cloud snapshot restored to this device.')
       setCloudNoticeTone('success')
@@ -301,7 +308,7 @@ function CloudBackupShell({
     }
   }
 
-  const cloudBackupDate = latestCloudBackup ? formatCloudDate(latestCloudBackup.row.updated_at) : 'No cloud snapshot yet'
+  const cloudBackupDate = latestCloudBackup ? formatRecoveryTimestamp(latestCloudBackup.row.updated_at) : 'No cloud snapshot yet'
   const cloudBackupSummary = latestCloudBackup?.summary ?? null
   const hasCloudBackup = Boolean(latestCloudBackup)
   const cloudBackupState = latestCloudBackup
@@ -310,6 +317,9 @@ function CloudBackupShell({
       ? 'No cloud snapshot yet'
       : 'Sign in to manage cloud snapshots'
   const cloudRestoreSummary = cloudBackupSummary ? formatCloudBackupSummary(cloudBackupSummary) : ''
+  const cloudPreview = latestCloudBackup
+    ? buildRestorePreview({ source: 'cloud', backup: latestCloudBackup.backup, current: backupSummary, sourceLabel: 'Latest cloud snapshot' })
+    : null
 
   return (
     <div className="leftly-shell-soft grid gap-4 p-4">
@@ -515,14 +525,10 @@ function CloudBackupShell({
       {isRestoreConfirmOpen ? (
         <ConfirmSheet
           title="Restore latest snapshot"
-          description={
-            latestCloudBackup
-              ? `This replaces the local data on this device with the cloud snapshot saved on ${cloudBackupDate}.`
-              : 'No cloud snapshot is loaded yet. Upload one before restoring.'
-          }
+          description={latestCloudBackup ? `This replaces all current Leftly data on this device with the cloud snapshot from ${cloudBackupDate}.` : 'No cloud snapshot is loaded yet. Upload one before restoring.'}
           secondaryDescription={
             latestCloudBackup
-              ? `The cloud copy stays saved online. ${cloudRestoreSummary ? `Backup contents: ${cloudRestoreSummary}. ` : ''}Export JSON first if you want a portable safety copy before overwriting this device.`
+              ? `The cloud copy stays online. ${cloudPreview?.comparison.map((row) => `${row.label}: current ${row.current}, incoming ${row.incoming}`).join(' · ') ?? cloudRestoreSummary}. Export JSON first if you want a portable safety copy.`
               : 'Restore stays disabled until a snapshot exists.'
           }
           confirmLabel={isRestoring ? 'Restoring...' : 'Confirm restore'}
@@ -532,21 +538,6 @@ function CloudBackupShell({
       ) : null}
     </div>
   )
-}
-
-function formatCloudDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date)
 }
 
 function formatCloudBackupSummary(summary: LeftlyBackupSummary) {

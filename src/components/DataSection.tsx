@@ -1,5 +1,6 @@
-import { useRef } from 'react'
-import type { LeftlyBackupSummary } from '../lib/storage'
+import { useEffect, useRef, useState } from 'react'
+import { loadDataSafetyMeta, type LeftlyBackupSummary } from '../lib/storage'
+import { formatRecoveryTimestamp, runStorageDiagnostics, type StorageDiagnostics } from '../lib/backupRecovery'
 import type { BudgetCategory, LeftlyPreferences, PayCadence, QuickAddDateBehavior } from '../types/budget'
 import { getLeftlyCloudConfig } from '../lib/cloudConfig'
 import { CloudBackupSection } from './CloudBackupSection'
@@ -54,9 +55,35 @@ export function DataSection({
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const cloudConfig = getLeftlyCloudConfig()
+  const meta = loadDataSafetyMeta()
+  const [diagnostics, setDiagnostics] = useState<StorageDiagnostics | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    runStorageDiagnostics().then((result) => { if (mounted) setDiagnostics(result) })
+    return () => { mounted = false }
+  }, [])
+
+  const formatBytes = (value?: number) => {
+    if (value === undefined || !Number.isFinite(value)) return 'Not reported by this browser'
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`
+  }
 
   return (
     <div className="grid gap-4">
+      <section className="leftly-shell-soft grid gap-3 border-cyan-400/15 bg-cyan-400/5 p-4" aria-labelledby="backup-recovery-title">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="backup-recovery-title" className="text-sm font-semibold text-white">Backup &amp; recovery</h2>
+          <Badge>Backup format v1</Badge>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <DataStatus label="Local data" value={diagnostics ? (diagnostics.readable && diagnostics.writable ? 'Local data available' : 'Needs attention') : 'Checking…'} />
+          <DataStatus label="JSON export" value={meta?.lastJsonExportInitiatedAt ? `Initiated ${formatRecoveryTimestamp(meta.lastJsonExportInitiatedAt)}` : 'No export recorded on this device'} />
+          <DataStatus label="Last restore" value={meta?.lastRestoreSource && (meta.lastJsonImportRestoredAt || meta.lastCloudRestoreAt) ? `${meta.lastRestoreSource === 'json' ? 'JSON import' : 'Cloud restore'} · ${formatRecoveryTimestamp(meta.lastRestoreSource === 'json' ? meta.lastJsonImportRestoredAt : meta.lastCloudRestoreAt)}` : 'No activity recorded on this device.'} />
+          <DataStatus label="Cloud" value={!cloudConfig.enabled ? 'Disabled' : 'Available when signed in'} />
+        </div>
+      </section>
       <div className="leftly-shell-soft grid gap-3 border-cyan-400/15 bg-cyan-400/5 p-4">
         <p className="text-sm font-semibold text-white">Stored on this device</p>
         <p className="text-sm leading-6 text-slate-300">
@@ -68,6 +95,31 @@ export function DataSection({
           format. CSV exports are spreadsheet-style copies only and cannot be imported back into Leftly.
         </p>
       </div>
+
+      <section className="leftly-shell-soft grid gap-3 p-4" aria-labelledby="storage-diagnostics-title">
+        <div>
+          <h2 id="storage-diagnostics-title" className="text-sm font-semibold text-white">Device storage diagnostics</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-400">These checks report browser storage access at a high level. They do not inspect or display budget values.</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <DataStatus label="Browser storage readable" value={diagnostics ? (diagnostics.readable ? 'Available' : 'Needs attention') : 'Checking…'} />
+          <DataStatus label="Browser storage writable" value={diagnostics ? (diagnostics.writable ? 'Available' : 'Needs attention') : 'Checking…'} />
+          <DataStatus label="Expected Leftly areas" value={diagnostics ? `${diagnostics.expectedKeys.present} of ${diagnostics.expectedKeys.total} present` : 'Checking…'} />
+          <DataStatus label="Browser storage usage" value={diagnostics ? `${formatBytes(diagnostics.usage.usage)} of ${formatBytes(diagnostics.usage.quota)} (approximate)` : 'Checking…'} />
+          <DataStatus label="Persistent storage" value={diagnostics?.persistent === 'persistent' ? 'Reported persistent' : diagnostics?.persistent === 'not-persistent' ? 'Not reported persistent' : 'Not reported by this browser'} />
+        </div>
+      </section>
+
+      <section className="leftly-shell-soft grid gap-3 p-4" aria-labelledby="move-leftly-title">
+        <h2 id="move-leftly-title" className="text-sm font-semibold text-white">Move Leftly to another device</h2>
+        <ol className="list-decimal space-y-1 pl-5 text-sm leading-6 text-slate-400">
+          <li>On the old device, open More &gt; Data and export a JSON backup.</li>
+          <li>Save or transfer the JSON file somewhere outside the browser.</li>
+          <li>On the new device, open More &gt; Data, choose Import JSON backup, review the summary, and confirm.</li>
+          <li>Verify the active pay period, Bill Plan, and History.</li>
+        </ol>
+        <p className="text-sm leading-6 text-slate-400">Optional cloud backup is an alternative when already configured. It is manual and stores one latest snapshot; it is not sync.</p>
+      </section>
 
       <div className="leftly-shell-soft grid gap-4 p-4">
         <div className="grid gap-1">
@@ -302,4 +354,12 @@ export function DataSection({
       ) : null}
     </div>
   )
+}
+
+function DataStatus({ label, value }: { label: string; value: string }) {
+  return <div className="leftly-data-stat"><p className="leftly-data-stat-label">{label}</p><p className="leftly-data-stat-value break-words">{value}</p></div>
+}
+
+function Badge({ children }: { children: string }) {
+  return <span className="leftly-chip leftly-chip-muted px-3 py-1 text-xs font-medium">{children}</span>
 }

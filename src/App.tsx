@@ -31,14 +31,16 @@ import {
   saveCustomCategories,
   saveExpenses,
   savePayPeriodHistory,
-  saveLeftlyBackup,
+  restoreLeftlyBackup,
+  recordJsonExportInitiated,
+  recordRestore,
   saveRecurringTemplates,
   saveSetupDraft,
   saveSortMode,
   serializeLeftlyBackup,
   DEFAULT_PREFERENCES,
 } from './lib/storage'
-import type { LeftlyBackupSummary } from './lib/storage'
+import { buildRestorePreview, formatRecoveryTimestamp } from './lib/backupRecovery'
 import {
   FALLBACK_CATEGORY,
   getAllCategories,
@@ -683,19 +685,6 @@ function getExpandedCategoriesFromItems(bills: Bill[], expenses: Expense[], cate
   }
 
   return seeded
-}
-
-function formatBackupSummary(summary: LeftlyBackupSummary) {
-  return [
-    summary.hasActivePayPeriod ? 'active pay period saved' : 'no active pay period',
-    `${summary.billCount} bill${summary.billCount === 1 ? '' : 's'}`,
-    `${summary.expenseCount} expense${summary.expenseCount === 1 ? '' : 's'}`,
-    `${summary.recurringTemplateCount} Bill Plan item${summary.recurringTemplateCount === 1 ? '' : 's'}`,
-    `${summary.historySnapshotCount} history snapshot${summary.historySnapshotCount === 1 ? '' : 's'}`,
-    `${summary.categoryCount} categor${summary.categoryCount === 1 ? 'y' : 'ies'} in saved order`,
-    summary.displaySettingsIncluded ? 'display settings included' : 'display settings not included',
-    summary.preferencesIncluded ? 'preferences included' : 'preferences not included',
-  ]
 }
 
 function formatArchivedDate(value: string) {
@@ -2204,8 +2193,9 @@ function App() {
     anchor.download = getBackupFilename()
     anchor.click()
     window.URL.revokeObjectURL(url)
+    recordJsonExportInitiated()
     setDataMessage(
-      `Backup exported as ${anchor.download}. Save it somewhere safe before resetting data or switching devices.`,
+      `JSON export initiated from this device as ${anchor.download}. Save the file somewhere outside the browser before resetting data or switching devices.`,
     )
   }
 
@@ -2234,19 +2224,29 @@ function App() {
         return
       }
 
-      const importSummary = parsed.backup.summary ?? getLeftlyBackupSummary(parsed.backup)
+      const preview = buildRestorePreview({ source: 'json', backup: parsed.backup, current: backupSummary, sourceLabel: file.name })
       requestConfirmation({
         kind: 'import',
         title: 'Import and replace local data',
-        description: `Import the validated backup file “${file.name}”. Current local data will be replaced.`,
+        description: `Review this validated JSON backup before replacing all current Leftly data on this device.`,
         details: [
           { label: 'Filename', value: file.name },
-          { label: 'Backup summary', value: formatBackupSummary(importSummary).join(', ') },
+          { label: 'Backup format', value: preview.backupFormat },
+          { label: 'Backup timestamp', value: preview.exportedAt ? formatRecoveryTimestamp(preview.exportedAt) : 'Time unavailable' },
+          ...preview.comparison.map((row) => ({ label: row.label, value: `Current: ${row.current} · Incoming: ${row.incoming}` })),
+          { label: 'Replacement scope', value: preview.replacementScope.join(', ') },
           { label: 'Before importing', value: 'Export your current data first if you may need it later.' },
         ],
         confirmLabel: 'Import and replace local data',
         execute: () => {
-          saveLeftlyBackup(parsed.backup)
+          const result = restoreLeftlyBackup(parsed.backup)
+          if (!result.ok) {
+            setDataError(result.error)
+            setDataMessage('')
+            finishConfirmation()
+            return
+          }
+          recordRestore('json')
           clearSetupDraft()
           reloadLocalStateFromStorage()
           setPayPeriodError('')
@@ -2256,7 +2256,7 @@ function App() {
           setBillSuccess('')
           setExpenseSuccess('')
           setBillStatus('')
-          setDataMessage(`Backup imported from ${file.name}. Leftly restored the saved data from that backup.`)
+          setDataMessage(`JSON backup restored from ${file.name}. The incoming data is now loaded on this device.`)
           finishConfirmation()
         },
       })

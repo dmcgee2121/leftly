@@ -89,12 +89,14 @@ import { StartFromHistoryPanel } from './components/StartFromHistoryPanel'
 import { PayPeriodCalendar } from './components/PayPeriodCalendar'
 import { StartNewPayPeriodPanel } from './components/StartNewPayPeriodPanel'
 import { HelpAboutFeedbackSection } from './components/HelpAboutFeedbackSection'
+import { PlanningHorizonDetail, PlanningHorizonSummary } from './components/PlanningHorizonPanel'
 import { AppOverlay } from './components/AppOverlay'
 import { ConfirmActionOverlay, type ConfirmActionDetail } from './components/ConfirmActionOverlay'
 import { PwaLifecycle } from './components/PwaLifecycle'
 import { usePwaLifecycle } from './components/usePwaLifecycle'
 import { getLeftlyCloudConfig } from './lib/cloudConfig'
 import { buildForecast, parseForecastIncome, type ForecastViewModel } from './lib/forecast'
+import { buildPlanningHorizon, getPlanningPlanNames, type PlanningHorizonLength, type PlanningPlanFilter } from './lib/planningHorizon'
 import { buildPayPeriodInsights, type InsightBillMeasure, type InsightComparison, type InsightRange, type PayPeriodInsights } from './lib/insights'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
@@ -102,7 +104,7 @@ type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help
 type TabKey = MainTabKey | MoreMenuKey
 type OverlayKey = Extract<TabKey, 'quick-add' | 'more'>
 type ContentTabKey = Exclude<TabKey, OverlayKey>
-type ActiveOverlay = OverlayKey | 'history-detail' | 'forecast' | 'insights' | 'confirm-action' | null
+type ActiveOverlay = OverlayKey | 'history-detail' | 'forecast' | 'insights' | 'planning-horizon' | 'confirm-action' | null
 type HistorySort = 'newest' | 'oldest' | 'highest-leftly' | 'lowest-leftly'
 type PayPeriodDraft = {
   cadence: PayCadence
@@ -1328,6 +1330,8 @@ function App() {
   const [insightRange, setInsightRange] = useState<InsightRange>(() => (initialPayPeriodHistory.length < 6 ? 'all' : 6))
   const [forecastIncomeDraft, setForecastIncomeDraft] = useState('')
   const [forecastIncomeError, setForecastIncomeError] = useState('')
+  const [planningHorizonLength, setPlanningHorizonLength] = useState<PlanningHorizonLength>(3)
+  const [planningPlanFilter, setPlanningPlanFilter] = useState<PlanningPlanFilter>('all')
   const [includeForecastCarryover, setIncludeForecastCarryover] = useState(false)
 
   function requestConfirmation(confirmation: PendingConfirmation) {
@@ -1703,6 +1707,16 @@ function App() {
     () => recurringTemplates.some((template) => template.isActive),
     [recurringTemplates],
   )
+  const planningPlanNames = useMemo(() => getPlanningPlanNames(recurringTemplates), [recurringTemplates])
+  const planningHorizon = useMemo(
+    () => buildPlanningHorizon({
+      activePayPeriod: payPeriod,
+      templates: recurringTemplates,
+      horizonLength: planningHorizonLength,
+      planFilter: planningPlanFilter,
+    }),
+    [payPeriod, planningHorizonLength, planningPlanFilter, recurringTemplates],
+  )
 
   const recentBills = useMemo(() => bills.slice(0, 3), [bills])
   const recurringBills = useMemo(() => bills.filter((bill) => bill.source === 'recurring'), [bills])
@@ -1932,6 +1946,21 @@ function App() {
     window.setTimeout(() => overlayTriggerRef.current?.focus(), 0)
   }
 
+  function openPlanningHorizon() {
+    if (activeOverlay) return
+    overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setPlanningHorizonLength(3)
+    setPlanningPlanFilter('all')
+    setActiveOverlay('planning-horizon')
+  }
+
+  function closePlanningHorizon() {
+    setActiveOverlay(null)
+    setPlanningHorizonLength(3)
+    setPlanningPlanFilter('all')
+    window.setTimeout(() => overlayTriggerRef.current?.focus(), 0)
+  }
+
   function updateForecastIncome(value: string) {
     setForecastIncomeDraft(value)
     if (value.trim() === '' || parseForecastIncome(value) === null) {
@@ -1998,6 +2027,8 @@ function App() {
           ? 'history'
         : activeOverlay === 'forecast'
           ? 'overview'
+        : activeOverlay === 'planning-horizon'
+          ? 'recurring'
         : activeOverlay
     : activeTab === 'income' ||
         activeTab === 'bill' ||
@@ -5159,6 +5190,7 @@ function App() {
                   </button>
                 </div>
               ) : null}
+              <PlanningHorizonSummary horizon={planningHorizon} formatCurrency={formatCurrency} onView={openPlanningHorizon} />
               {payPeriod ? (
                 <div className="mb-4 leftly-shell-soft p-4 sm:p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -5463,6 +5495,26 @@ function App() {
         }}
       >
         {moreOverlayContent}
+      </AppOverlay>
+      <AppOverlay
+        id="leftly-planning-horizon-overlay"
+        isOpen={activeOverlay === 'planning-horizon'}
+        title="Planning horizon"
+        description="Projected occurrences from active Bill Plan items across future estimated pay periods."
+        desktopPresentation="dialog"
+        desktopSize="wide"
+        closeLabel="Close planning horizon"
+        onClose={closePlanningHorizon}
+      >
+        <PlanningHorizonDetail
+          horizon={planningHorizon}
+          planNames={planningPlanNames}
+          planFilter={planningPlanFilter}
+          horizonLength={planningHorizonLength}
+          formatCurrency={formatCurrency}
+          onPlanFilterChange={setPlanningPlanFilter}
+          onHorizonLengthChange={setPlanningHorizonLength}
+        />
       </AppOverlay>
       <AppOverlay
         id="leftly-forecast-overlay"

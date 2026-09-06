@@ -1,4 +1,5 @@
 import { buildRecurringPreview } from './recurring'
+import { deriveNextDateOnlyRange } from './dateOnly'
 import type { Bill, BudgetPeriod, RecurringItemTemplate } from '../types/budget'
 
 export type ForecastStatus = 'cushion' | 'allocated' | 'shortfall'
@@ -23,27 +24,6 @@ export type ForecastViewModel = {
   potentialCarryoverTotal: number
   projectedLeft: number
   status: ForecastStatus
-}
-
-type DateParts = { year: number; month: number; day: number }
-
-function parseDateOnly(value: string): DateParts | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (!match) return null
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const date = new Date(year, month - 1, day)
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null
-  return { year, month, day }
-}
-
-function toDate(parts: DateParts) {
-  return new Date(parts.year, parts.month - 1, parts.day)
-}
-
-function formatDate(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 function cents(value: number) {
@@ -71,18 +51,10 @@ function unavailable(reason: string): ForecastViewModel {
 }
 
 export function deriveForecastRange(period: Pick<BudgetPeriod, 'startDate' | 'endDate'>) {
-  const start = parseDateOnly(period.startDate)
-  const end = parseDateOnly(period.endDate)
-  if (!start || !end) return null
-  const activeStart = toDate(start)
-  const activeEnd = toDate(end)
-  if (activeEnd < activeStart) return null
-  const duration = Math.round((Date.UTC(end.year, end.month - 1, end.day) - Date.UTC(start.year, start.month - 1, start.day)) / 86400000) + 1
-  const forecastStart = new Date(activeEnd)
-  forecastStart.setDate(forecastStart.getDate() + 1)
-  const forecastEnd = new Date(forecastStart)
-  forecastEnd.setDate(forecastEnd.getDate() + duration - 1)
-  return { forecastStart: formatDate(forecastStart), forecastEnd: formatDate(forecastEnd), duration }
+  const range = deriveNextDateOnlyRange(period.startDate, period.endDate)
+  return range
+    ? { forecastStart: range.startDate, forecastEnd: range.endDate, duration: range.duration }
+    : null
 }
 
 export function buildForecast(params: {

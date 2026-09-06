@@ -34,6 +34,10 @@ function dollars(value: number) {
   return cents(value) / 100
 }
 
+function centsToDollars(value: number) {
+  return value / 100
+}
+
 function unavailable(reason: string): ForecastViewModel {
   return {
     available: false,
@@ -73,10 +77,10 @@ export function buildForecast(params: {
   const projectedBills = preview.bills
     .map((bill) => ({ templateId: bill.templateId, name: bill.name, amount: bill.amount, dueDate: bill.dateLabel, category: bill.category }))
     .sort((left, right) => left.dueDate.localeCompare(right.dueDate) || left.name.localeCompare(right.name))
-  const scheduledBillTotal = dollars(projectedBills.reduce((sum, bill) => sum + cents(bill.amount), 0))
+  const scheduledBillTotal = centsToDollars(projectedBills.reduce((sum, bill) => sum + cents(bill.amount), 0))
   const potentialCarryoverItems = (params.unpaidBills ?? []).filter((bill) => !bill.isPaid).slice().sort((a, b) => a.name.localeCompare(b.name))
-  const potentialCarryoverTotal = dollars(potentialCarryoverItems.reduce((sum, bill) => sum + cents(bill.amount), 0))
-  const projectedLeft = dollars(cents(expectedIncome) - cents(scheduledBillTotal) - (params.includeCarryover ? cents(potentialCarryoverTotal) : 0))
+  const potentialCarryoverTotal = centsToDollars(potentialCarryoverItems.reduce((sum, bill) => sum + cents(bill.amount), 0))
+  const projectedLeft = centsToDollars(cents(expectedIncome) - cents(scheduledBillTotal) - (params.includeCarryover ? cents(potentialCarryoverTotal) : 0))
   return {
     available: true,
     forecastStart: range.forecastStart,

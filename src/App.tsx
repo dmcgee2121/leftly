@@ -98,6 +98,7 @@ import { getLeftlyCloudConfig } from './lib/cloudConfig'
 import { buildForecast, parseForecastIncome, type ForecastViewModel } from './lib/forecast'
 import { buildPlanningHorizon, getPlanningPlanNames, type PlanningHorizonLength, type PlanningPlanFilter } from './lib/planningHorizon'
 import { buildPayPeriodInsights, type InsightBillMeasure, type InsightComparison, type InsightRange, type PayPeriodInsights } from './lib/insights'
+import { buildQuickAddSuggestions, type QuickAddSuggestion } from './lib/quickAddSuggestions'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
@@ -1825,9 +1826,9 @@ function App() {
     return new Set(expenses.map((expense) => expense.category)).size
   }, [expenses, payPeriod])
 
-  const recentManualExpenses = useMemo(
-    () => expenses.filter((expense) => expense.source !== 'recurring').slice(0, 4),
-    [expenses],
+  const quickAddSuggestions = useMemo(
+    () => buildQuickAddSuggestions({ activeExpenses: expenses, payPeriodHistory, currentCategories: allCategories }),
+    [allCategories, expenses, payPeriodHistory],
   )
 
   const manualExpenses = useMemo(
@@ -1843,7 +1844,7 @@ function App() {
   const quickAddCategorySuggestions = useMemo(() => {
     const suggestions = new Set<BudgetCategory>([preferences.defaultCategory])
 
-    for (const expense of recentManualExpenses) {
+    for (const expense of quickAddSuggestions) {
       suggestions.add(expense.category)
       if (suggestions.size >= 5) {
         break
@@ -1860,7 +1861,7 @@ function App() {
     }
 
     return [...suggestions]
-  }, [expenses, preferences.defaultCategory, recentManualExpenses])
+  }, [expenses, preferences.defaultCategory, quickAddSuggestions])
 
   const currentPayPeriodReview = useMemo(() => {
     if (!payPeriod) {
@@ -2832,7 +2833,7 @@ function App() {
     }, 0)
   }
 
-  function applyQuickAddRecentExpense(expense: Expense) {
+  function applyQuickAddRecentExpense(expense: Pick<QuickAddSuggestion, 'name' | 'amount' | 'category'>) {
     setExpenseError('')
     setExpenseSuccess('')
     setExpenseDraft({
@@ -3680,28 +3681,30 @@ function App() {
 
   const quickAddOverlayContent = payPeriod ? (
     <div className="grid gap-4">
-      {recentManualExpenses.length > 0 ? (
+      {quickAddSuggestions.length > 0 ? (
         <div className="leftly-panel-section">
           <div className="grid gap-1">
             <p className="leftly-panel-label">Repeat recent</p>
-            <p className="leftly-panel-copy">Tap a recent manual expense to prefill the form.</p>
+            <p className="leftly-panel-copy">Tap a recent manual expense from this or an earlier pay period to prefill the form.</p>
           </div>
 
           <div className="grid gap-2">
-            {recentManualExpenses.slice(0, 3).map((expense) => (
+            {quickAddSuggestions.map((suggestion) => (
               <button
-                key={expense.id}
+                key={suggestion.key}
                 type="button"
-                onClick={() => applyQuickAddRecentExpense(expense)}
+                onClick={() => applyQuickAddRecentExpense(suggestion)}
                 className="leftly-quick-action"
+                aria-label={`Repeat ${suggestion.name}, ${formatCurrency(suggestion.amount)}, ${suggestion.category}, ${suggestion.source === 'current-period' ? 'This period' : 'Recent history'}`}
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-white">{expense.name}</span>
-                  <span className="mt-1 block text-xs leading-5 text-slate-400">
-                    {expense.category} · {expense.date}
+                  <span className="block break-words text-sm font-semibold text-white">{suggestion.name}</span>
+                  <span className="mt-1 block break-words text-xs leading-5 text-slate-400">
+                    {suggestion.category} · {suggestion.source === 'current-period' ? 'This period' : 'Recent history'}
+                    {suggestion.sourcePeriodLabel ? ` · ${suggestion.sourcePeriodLabel}` : ''}
                   </span>
                 </span>
-                <span className="shrink-0 text-sm font-semibold text-white">{formatCurrency(expense.amount)}</span>
+                <span className="shrink-0 text-sm font-semibold text-white">{formatCurrency(suggestion.amount)}</span>
               </button>
             ))}
           </div>

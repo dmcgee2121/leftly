@@ -73,7 +73,6 @@ import {
   type Expense,
   type LeftlyPreferences,
   type PayPeriodSnapshot,
-  type PayPeriodTotals,
   type PayCadence,
   type RecurringItemTemplate,
   type SortMode,
@@ -99,6 +98,7 @@ import { buildForecast, parseForecastIncome, type ForecastViewModel } from './li
 import { buildPlanningHorizon, getPlanningPlanNames, type PlanningHorizonLength, type PlanningPlanFilter } from './lib/planningHorizon'
 import { buildPayPeriodInsights, type InsightBillMeasure, type InsightComparison, type InsightRange, type PayPeriodInsights } from './lib/insights'
 import { buildQuickAddSuggestions, type QuickAddSuggestion } from './lib/quickAddSuggestions'
+import { calculatePayPeriodTotals } from './lib/budgetMath'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
@@ -532,26 +532,6 @@ function getUpcomingRecurringBills(templates: RecurringItemTemplate[], bills: Bi
   )
 
   return templates.filter((template) => template.isActive && template.kind === 'bill' && !presentTemplateIds.has(template.id))
-}
-
-function calculatePayPeriodTotals(period: BudgetPeriod, bills: Bill[], expenses: Expense[]): PayPeriodTotals {
-  const totalBills = bills.reduce((sum, bill) => sum + bill.amount, 0)
-  const paidBills = bills.filter((bill) => bill.isPaid).reduce((sum, bill) => sum + bill.amount, 0)
-  const unpaidBills = totalBills - paidBills
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0)
-  const totalSetAsides = expenses.filter((expense) => expense.setAsideForTemplateId).reduce((sum, expense) => sum + expense.amount, 0)
-  const safeToSpend = period.income - totalBills - totalExpenses
-  const leftover = period.income - unpaidBills - paidBills - totalExpenses
-
-  return {
-    totalBills,
-    paidBills,
-    unpaidBills,
-    totalExpenses,
-    totalSetAsides,
-    safeToSpend,
-    leftover,
-  }
 }
 
 function roundCurrencyAmount(amount: number) {

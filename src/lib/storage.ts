@@ -478,7 +478,34 @@ export function restoreLeftlyBackup(backup: LeftlyBackup): RestoreResult {
     return { ok: false, error: 'Restore could not start because browser storage could not be read. Keep the original JSON or cloud backup.' }
   }
 
-  saveLeftlyBackup(backup)
+  const rollback = () => {
+    const rollbackFailedKeys: string[] = []
+    for (const key of RESTORE_STORAGE_KEYS) {
+      try {
+        const previous = previousValues.get(key) ?? null
+        if (previous === null) window.localStorage.removeItem(key)
+        else window.localStorage.setItem(key, previous)
+        if (window.localStorage.getItem(key) !== previous) rollbackFailedKeys.push(key)
+      } catch {
+        rollbackFailedKeys.push(key)
+      }
+    }
+    return rollbackFailedKeys
+  }
+
+  try {
+    saveLeftlyBackup(backup)
+  } catch {
+    const rollbackFailedKeys = rollback()
+    const rollbackMessage = rollbackFailedKeys.length === 0
+      ? ' The previous local values were restored as a best-effort rollback.'
+      : ` Best-effort rollback also could not verify: ${rollbackFailedKeys.join(', ')}.`
+    return {
+      ok: false,
+      error: `Restore could not be completed before verification. Keep the original JSON or cloud backup.${rollbackMessage} Local storage cannot guarantee atomic rollback.`,
+      rollbackFailedKeys,
+    }
+  }
   const failedKeys = expected.filter(([key, value]) => {
     try {
       const stored = window.localStorage.getItem(key)
@@ -489,17 +516,7 @@ export function restoreLeftlyBackup(backup: LeftlyBackup): RestoreResult {
   }).map(([key]) => key)
   if (failedKeys.length === 0) return { ok: true }
 
-  const rollbackFailedKeys: string[] = []
-  for (const key of RESTORE_STORAGE_KEYS) {
-    try {
-      const previous = previousValues.get(key) ?? null
-      if (previous === null) window.localStorage.removeItem(key)
-      else window.localStorage.setItem(key, previous)
-      if (window.localStorage.getItem(key) !== previous) rollbackFailedKeys.push(key)
-    } catch {
-      rollbackFailedKeys.push(key)
-    }
-  }
+  const rollbackFailedKeys = rollback()
   const rollbackMessage = rollbackFailedKeys.length === 0
     ? ' The previous local values were restored as a best-effort rollback.'
     : ` Best-effort rollback also could not verify: ${rollbackFailedKeys.join(', ')}.`

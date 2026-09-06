@@ -2236,6 +2236,7 @@ function App() {
           { label: 'Active pay period', value: preview.activePayPeriod.present ? preview.activePayPeriod.range ?? 'Present' : 'None' },
           ...preview.comparison.map((row) => ({ label: row.label, value: `Current: ${row.current} · Incoming: ${row.incoming}` })),
           { label: 'Replacement scope', value: preview.replacementScope.join(', ') },
+          ...(preview.warnings.length > 0 ? [{ label: 'Notes', value: preview.warnings.join(' ') }] : []),
           { label: 'Before importing', value: 'Export your current data first if you may need it later.' },
         ],
         confirmLabel: 'Import and replace local data',

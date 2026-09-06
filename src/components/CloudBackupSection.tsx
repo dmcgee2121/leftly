@@ -72,6 +72,7 @@ function CloudBackupShell({
   const [isUploadConfirmOpen, setIsUploadConfirmOpen] = useState(false)
   const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false)
   const [latestCloudBackup, setLatestCloudBackup] = useState<CloudBackupSnapshot | null>(null)
+  const [cloudSnapshotLoaded, setCloudSnapshotLoaded] = useState(false)
 
   const supabase = getLeftlySupabaseClient()
   const signedInUserEmail = session?.user.email ?? session?.user.phone ?? ''
@@ -118,6 +119,7 @@ function CloudBackupShell({
       setSession(nextSession)
       if (!nextSession) {
         setLatestCloudBackup(null)
+        setCloudSnapshotLoaded(false)
       }
       setAuthError('')
       setAuthNotice('')
@@ -139,7 +141,6 @@ function CloudBackupShell({
     }
 
     let mounted = true
-
     fetchLatestCloudBackup()
       .then((snapshot) => {
         if (!mounted) {
@@ -157,6 +158,12 @@ function CloudBackupShell({
         setCloudError(error instanceof Error ? error.message : 'Unable to load the saved cloud snapshot.')
         setLatestCloudBackup(null)
       })
+      .finally(() => {
+        if (mounted) {
+          setCloudSnapshotLoaded(true)
+          setIsLoadingCloudBackup(false)
+        }
+      })
 
     return () => {
       mounted = false
@@ -166,12 +173,12 @@ function CloudBackupShell({
   useEffect(() => {
     if (!onCloudStatusChange) return
     if (!supabase) onCloudStatusChange('Unavailable')
-    else if (authLoading || isLoadingCloudBackup) onCloudStatusChange('Loading')
-    else if (cloudError) onCloudStatusChange('Unavailable')
+    else if (authLoading || isLoadingCloudBackup || (session && !cloudSnapshotLoaded)) onCloudStatusChange('Loading')
+    else if (authError || cloudError) onCloudStatusChange('Unavailable')
     else if (!session) onCloudStatusChange('Signed out')
     else if (!latestCloudBackup) onCloudStatusChange('No cloud snapshot yet')
     else onCloudStatusChange(`Latest confirmed snapshot · ${formatRecoveryTimestamp(latestCloudBackup.row.updated_at)}`)
-  }, [authLoading, cloudError, isLoadingCloudBackup, latestCloudBackup, onCloudStatusChange, session, supabase])
+  }, [authError, authLoading, cloudError, cloudSnapshotLoaded, isLoadingCloudBackup, latestCloudBackup, onCloudStatusChange, session, supabase])
 
   if (!supabase) {
     return (
@@ -263,8 +270,10 @@ function CloudBackupShell({
     try {
       const snapshot = await fetchLatestCloudBackup()
       setLatestCloudBackup(snapshot)
+      setCloudSnapshotLoaded(true)
       return snapshot
     } finally {
+      setCloudSnapshotLoaded(true)
       setIsLoadingCloudBackup(false)
     }
   }
@@ -343,6 +352,7 @@ function CloudBackupShell({
         { label: 'Active pay period', value: cloudPreview.activePayPeriod.present ? cloudPreview.activePayPeriod.range ?? 'Present' : 'None' },
         ...cloudPreview.comparison.map((row) => ({ label: row.label, value: `Current: ${row.current} · Incoming: ${row.incoming}` })),
         { label: 'Replacement scope', value: cloudPreview.replacementScope.join(', ') },
+        ...(cloudPreview.warnings.length > 0 ? [{ label: 'Notes', value: cloudPreview.warnings.join(' ') }] : []),
       ]
     : undefined
 

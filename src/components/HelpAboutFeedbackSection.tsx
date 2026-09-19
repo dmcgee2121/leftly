@@ -65,6 +65,16 @@ export function HelpAboutFeedbackSection({
   return (
     <div className="grid gap-3">
       <div className="leftly-shell-soft grid gap-2 p-4">
+        <p className="text-sm font-semibold text-white">Leftly</p>
+        <p className="text-sm text-slate-300">Version {__LEFTLY_VERSION__}</p>
+        <p className="text-sm leading-6 text-slate-400">Release candidate · Local-first paycheck budgeting</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+          <a className="font-medium text-cyan-200 underline decoration-cyan-400/70 underline-offset-4 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300" href="/privacy/">Privacy Policy</a>
+          <a className="font-medium text-cyan-200 underline decoration-cyan-400/70 underline-offset-4 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300" href="/support/">Support</a>
+        </div>
+      </div>
+
+      <div className="leftly-shell-soft grid gap-2 p-4">
         <p className="text-sm font-semibold text-white">How to test Leftly</p>
         <p className="text-sm leading-6 text-slate-300">
           Try a simple paycheck flow from start to finish. Sample or fake numbers are fine if you do not want to use

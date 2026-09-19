@@ -33,7 +33,11 @@ JSON export serializes backup format v1 in the browser; JSON import reads a user
 
 ## Permissions
 
-The current browser app uses browser storage, browser download/file-selection mechanisms for export/import, clipboard write for the optional feedback-template copy action, and optional PWA installation. It declares no native mobile permissions because no native projects exist yet. Final native permissions must be audited in Phase 16.
+The browser app uses browser storage, browser download/file-selection mechanisms for export/import, clipboard write for the optional feedback-template copy action, and optional PWA installation. The Capacitor native projects use WebView storage and user-initiated temporary cache files plus the native share sheet for JSON/CSV exports. The generated Android manifest declares only `android.permission.INTERNET`, required for optional Supabase auth/cloud backup; it declares no location, camera, microphone, contacts, notification, or storage permission. Final store declarations still require final native-build verification.
+
+## Native storage and auth notes
+
+Capacitor's WebView keeps `localStorage` in the app's local WebView data container; it persists across normal app restarts but is removed if the app is uninstalled or its app data is cleared. No storage migration or new Leftly storage key was added. Native JSON/CSV exports are written to cache only for the share/save operation and then deletion is attempted. Native magic-link auth uses the callback `com.leftly.app://auth/callback` with PKCE; the Supabase dashboard must allow-list that exact redirect URL before native cloud sign-in can complete in production.
 
 ## Apple App Privacy draft
 

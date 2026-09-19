@@ -4,13 +4,14 @@ import { VitePWA } from 'vite-plugin-pwa'
 import packageJson from './package.json'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   define: {
     __LEFTLY_VERSION__: JSON.stringify(packageJson.version),
   },
   plugins: [
     react(),
     VitePWA({
+      disable: mode === 'native',
       registerType: 'prompt',
       injectRegister: 'auto',
       strategies: 'generateSW',
@@ -50,4 +51,4 @@ export default defineConfig({
       },
     }),
   ],
-})
+}))

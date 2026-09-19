@@ -63,6 +63,9 @@ import {
   normalizeRecurringPlanName,
 } from './lib/recurring'
 import { createAllHistoryCsv, createCurrentPeriodCsv, createHistorySnapshotCsv, downloadCsv } from './lib/export'
+import { downloadTextFile, isNativePlatform } from './lib/native'
+import { App as CapacitorApp } from '@capacitor/app'
+import { Browser } from '@capacitor/browser'
 import {
   DEFAULT_CATEGORIES,
   type Bill,
@@ -1379,6 +1382,86 @@ function App() {
     confirmationPreviousOverlayRef.current = null
     setActiveOverlay(nextOverlay)
   }
+
+  useEffect(() => {
+    if (!isNativePlatform()) {
+      return undefined
+    }
+
+    let removed = false
+    let listener: { remove: () => Promise<void> } | null = null
+    void CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      if (activeOverlay) {
+        setActiveOverlay(null)
+        setPendingConfirmation(null)
+        setIsConfirming(false)
+        setSelectedHistoryId(null)
+        return
+      }
+
+      if (editingItem) {
+        setEditingItem(null)
+        return
+      }
+
+      if (isSetupOpen || isApplyBillPlanOpen || isStartNewPayPeriodOpen || isCorrectingCurrentPeriodDates) {
+        setIsSetupOpen(false)
+        setIsApplyBillPlanOpen(false)
+        setIsStartNewPayPeriodOpen(false)
+        setIsCorrectingCurrentPeriodDates(false)
+        return
+      }
+
+      if (activeTab !== 'overview') {
+        setActiveTab('overview')
+        return
+      }
+
+      if (canGoBack) {
+        window.history.back()
+      } else {
+        void CapacitorApp.exitApp()
+      }
+    }).then((nextListener) => {
+      if (removed) {
+        void nextListener.remove()
+      } else {
+        listener = nextListener
+      }
+    })
+
+    return () => {
+      removed = true
+      if (listener) {
+        void listener.remove()
+      }
+    }
+  }, [activeOverlay, activeTab, editingItem, isApplyBillPlanOpen, isCorrectingCurrentPeriodDates, isSetupOpen, isStartNewPayPeriodOpen])
+
+  useEffect(() => {
+    if (!isNativePlatform()) {
+      return undefined
+    }
+
+    const openExternalLink = (event: MouseEvent) => {
+      const anchor = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>('a[href]')
+      if (!anchor) {
+        return
+      }
+
+      const url = new URL(anchor.href, window.location.href)
+      if (url.protocol !== 'https:' || url.origin === window.location.origin) {
+        return
+      }
+
+      event.preventDefault()
+      void Browser.open({ url: url.href })
+    }
+
+    document.addEventListener('click', openExternalLink)
+    return () => document.removeEventListener('click', openExternalLink)
+  }, [])
+
   const allCategories = useMemo(() => getAllCategories(customCategories), [customCategories])
   const resolvedCategoryOrder = useMemo(() => reconcileCategoryOrder(categoryOrder, customCategories), [categoryOrder, customCategories])
   const visibleExpandedCategories = useMemo(() => {
@@ -2125,7 +2208,7 @@ function App() {
     return (value ?? new Date().toISOString().slice(0, 10)).slice(0, 10)
   }
 
-  function exportCurrentPeriodCsv() {
+  async function exportCurrentPeriodCsv() {
     const csv = createCurrentPeriodCsv({
       payPeriod,
       bills,
@@ -2134,17 +2217,17 @@ function App() {
       totals,
     })
 
-    downloadCsv(`leftly-current-period-${getCsvDateSuffix(payPeriod?.startDate)}.csv`, csv)
+    await downloadCsv(`leftly-current-period-${getCsvDateSuffix(payPeriod?.startDate)}.csv`, csv)
   }
 
-  function exportHistorySnapshotCsv(snapshot: PayPeriodSnapshot) {
+  async function exportHistorySnapshotCsv(snapshot: PayPeriodSnapshot) {
     const csv = createHistorySnapshotCsv(snapshot)
-    downloadCsv(`leftly-period-${getCsvDateSuffix(snapshot.startDate)}.csv`, csv)
+    await downloadCsv(`leftly-period-${getCsvDateSuffix(snapshot.startDate)}.csv`, csv)
   }
 
-  function exportAllHistoryCsv() {
+  async function exportAllHistoryCsv() {
     const csv = createAllHistoryCsv(payPeriodHistory)
-    downloadCsv(`leftly-history-${getCsvDateSuffix()}.csv`, csv)
+    await downloadCsv(`leftly-history-${getCsvDateSuffix()}.csv`, csv)
   }
 
   function handleFinishSetup(result: { period: BudgetPeriod; recurringTemplates?: RecurringItemTemplate[] }) {
@@ -2211,7 +2294,7 @@ function App() {
     }
   }
 
-  function exportBackup() {
+  async function exportBackup() {
     setDataError('')
     setDataMessage('')
 
@@ -2229,16 +2312,16 @@ function App() {
       preferences,
     })
 
-    const blob = new Blob([serializeLeftlyBackup(backup)], { type: 'application/json' })
-    const url = window.URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = getBackupFilename()
-    anchor.click()
-    window.URL.revokeObjectURL(url)
+    const filename = getBackupFilename()
+    try {
+      await downloadTextFile(filename, serializeLeftlyBackup(backup), 'application/json')
+    } catch {
+      setDataError('We could not prepare that export. Your budget data was not changed.')
+      return
+    }
     recordJsonExportInitiated()
     setDataMessage(
-      `JSON export initiated from this device as ${anchor.download}. Save the file somewhere outside the browser before resetting data or switching devices.`,
+      `JSON export initiated from this device as ${filename}. Save the file somewhere outside the browser before resetting data or switching devices.`,
     )
   }
 

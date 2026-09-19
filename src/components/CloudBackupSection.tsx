@@ -6,6 +6,8 @@ import { fetchLatestCloudBackup, uploadCurrentLocalBackup, type CloudBackupSnaps
 import { getLeftlySupabaseClient } from '../lib/supabaseClient'
 import { clearSetupDraft, recordRestore, restoreLeftlyBackup, type LeftlyBackupSummary } from '../lib/storage'
 import { buildRestorePreview, formatRecoveryTimestamp } from '../lib/backupRecovery'
+import { App as CapacitorApp } from '@capacitor/app'
+import { getAuthRedirectUrl, isNativePlatform, NATIVE_AUTH_CALLBACK_URL } from '../lib/native'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -136,6 +138,45 @@ function CloudBackupShell({
   }, [supabase])
 
   useEffect(() => {
+    if (!supabase || !isNativePlatform()) {
+      return undefined
+    }
+
+    let removed = false
+    let listener: { remove: () => Promise<void> } | null = null
+
+    void CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+      if (!url.startsWith(NATIVE_AUTH_CALLBACK_URL)) {
+        return
+      }
+
+      const code = new URL(url).searchParams.get('code')
+      if (!code) {
+        setAuthError('The sign-in link did not include a usable authorization code.')
+        return
+      }
+
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      if (error) {
+        setAuthError(error.message)
+      }
+    }).then((nextListener) => {
+      if (removed) {
+        void nextListener.remove()
+      } else {
+        listener = nextListener
+      }
+    })
+
+    return () => {
+      removed = true
+      if (listener) {
+        void listener.remove()
+      }
+    }
+  }, [supabase])
+
+  useEffect(() => {
     if (!session) {
       return
     }
@@ -211,7 +252,7 @@ function CloudBackupShell({
     setAuthError('')
     setAuthNotice('')
 
-    const redirectTo = window.location.origin
+    const redirectTo = getAuthRedirectUrl()
     const { error } = await supabase.auth.signInWithOtp({
       email: nextEmail,
       options: {

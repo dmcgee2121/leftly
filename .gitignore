@@ -24,3 +24,27 @@ dist-ssr
 *.sw?
 
 .netlify/
+
+# Native build products, signing material, and machine-specific IDE state
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.keystore
+android/*.jks
+android/**/*.apk
+android/**/*.aab
+ios/DerivedData/
+ios/build/
+ios/**/*.xcuserstate
+ios/**/xcuserdata/
+ios/**/*.mobileprovision
+ios/**/*.p12
+ios/**/*.cer
+ios/**/*.ipa
+
+# Capacitor sync outputs generated from the ignored dist/ web bundle
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+ios/App/App/public/
+ios/App/App/capacitor.config.json

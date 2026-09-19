@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import { isNativePlatform } from '../lib/native'
 
 export type OfflineCapabilityStatus = 'unsupported' | 'preparing' | 'ready' | 'error'
 
@@ -23,6 +24,7 @@ export type PwaLifecycleState = {
 }
 
 export function usePwaLifecycle(): PwaLifecycleState {
+  const isNative = isNativePlatform()
   const [deferredPrompt, setDeferredPrompt] = useState<DeferredInstallPrompt | null>(null)
   const [isInstalled, setIsInstalled] = useState(() => detectInstalledMode())
   const [offlineCapabilityStatus, setOfflineCapabilityStatus] = useState<OfflineCapabilityStatus>(getInitialCapabilityStatus)
@@ -188,6 +190,7 @@ export function usePwaLifecycle(): PwaLifecycleState {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
+    immediate: !isNative,
     onRegisteredSW: handleRegisteredSW,
     onRegisterError: handleRegisterError,
   })
@@ -231,7 +234,7 @@ export function usePwaLifecycle(): PwaLifecycleState {
   }, [checkForPwaUpdate, registration, offlineCapabilityStatus])
 
   useEffect(() => {
-    if (!supportsServiceWorkers()) {
+    if (isNative || !supportsServiceWorkers()) {
       return undefined
     }
 
@@ -257,7 +260,7 @@ export function usePwaLifecycle(): PwaLifecycleState {
     })
 
     return () => navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
-  }, [])
+  }, [isNative])
 
   useEffect(() => {
     function handleBeforeInstallPrompt(event: Event) {
@@ -279,7 +282,7 @@ export function usePwaLifecycle(): PwaLifecycleState {
   }, [])
 
   const install = useCallback(async () => {
-    if (!deferredPrompt || isInstalled || offlineCapabilityStatus !== 'ready') {
+    if (isNative || !deferredPrompt || isInstalled || offlineCapabilityStatus !== 'ready') {
       return
     }
 
@@ -291,10 +294,10 @@ export function usePwaLifecycle(): PwaLifecycleState {
     } catch {
       // The browser may dismiss or reject an install prompt without affecting Leftly.
     }
-  }, [deferredPrompt, isInstalled, offlineCapabilityStatus])
+  }, [deferredPrompt, isInstalled, offlineCapabilityStatus, isNative])
 
   const retryOfflineSetup = useCallback(async () => {
-    if (isRetryingOfflineSetup || offlineCapabilityStatus === 'unsupported') {
+    if (isNative || isRetryingOfflineSetup || offlineCapabilityStatus === 'unsupported') {
       return
     }
 
@@ -317,7 +320,7 @@ export function usePwaLifecycle(): PwaLifecycleState {
     } finally {
       setIsRetryingOfflineSetup(false)
     }
-  }, [confirmRegistration, isRetryingOfflineSetup, observeRegistration, offlineCapabilityStatus, registration, updateServiceWorker])
+  }, [confirmRegistration, isNative, isRetryingOfflineSetup, observeRegistration, offlineCapabilityStatus, registration, updateServiceWorker])
 
   const acceptUpdate = useCallback(async () => {
     if (isUpdating || reloadStarted) {
@@ -331,10 +334,10 @@ export function usePwaLifecycle(): PwaLifecycleState {
 
   return useMemo(
     () => ({
-      canInstall: Boolean(deferredPrompt) && !isInstalled && offlineCapabilityStatus === 'ready',
-      hasInstallPrompt: Boolean(deferredPrompt) && !isInstalled,
-      isInstalled,
-      offlineCapabilityStatus,
+      canInstall: !isNative && Boolean(deferredPrompt) && !isInstalled && offlineCapabilityStatus === 'ready',
+      hasInstallPrompt: !isNative && Boolean(deferredPrompt) && !isInstalled,
+      isInstalled: isNative || isInstalled,
+      offlineCapabilityStatus: isNative ? 'ready' : offlineCapabilityStatus,
       isRetryingOfflineSetup,
       isUpdating,
       needRefresh,
@@ -350,6 +353,7 @@ export function usePwaLifecycle(): PwaLifecycleState {
       isInstalled,
       isRetryingOfflineSetup,
       isUpdating,
+      isNative,
       needRefresh,
       offlineCapabilityStatus,
       retryOfflineSetup,
@@ -363,9 +367,9 @@ function supportsServiceWorkers() {
 }
 
 function getInitialCapabilityStatus(): OfflineCapabilityStatus {
-  return supportsServiceWorkers() ? 'preparing' : 'unsupported'
+  return isNativePlatform() || supportsServiceWorkers() ? 'preparing' : 'unsupported'
 }
 
 function detectInstalledMode() {
-  return window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+  return isNativePlatform() || window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
 }

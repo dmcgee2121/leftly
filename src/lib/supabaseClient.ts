@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getLeftlyCloudConfig } from './cloudConfig'
+import { isNativePlatform } from './native'
 
 let cachedClient: SupabaseClient | null = null
 
@@ -15,6 +16,7 @@ export function getLeftlySupabaseClient() {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
+        ...(isNativePlatform() ? { flowType: 'pkce' as const } : {}),
       },
     })
   }

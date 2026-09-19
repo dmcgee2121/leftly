@@ -1,4 +1,5 @@
 import type { Bill, BudgetCategory, BudgetPeriod, Expense, PayPeriodSnapshot } from '../types/budget'
+import { downloadTextFile } from './native'
 
 type CsvCell = string | number | boolean | null | undefined
 
@@ -226,12 +227,6 @@ export function createAllHistoryCsv(history: PayPeriodSnapshot[]) {
   return buildCsv(rows)
 }
 
-export function downloadCsv(filename: string, csvText: string) {
-  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' })
-  const url = window.URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  window.URL.revokeObjectURL(url)
+export async function downloadCsv(filename: string, csvText: string) {
+  await downloadTextFile(filename, csvText, 'text/csv;charset=utf-8')
 }

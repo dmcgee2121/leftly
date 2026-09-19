@@ -23,7 +23,22 @@
 - [x] Offline behavior and service-worker/native-shell separation; native deep-link callback route
 - [x] Native permission audit: generated Android manifest declares only `android.permission.INTERNET`; reproducible build commands added
 
-## 3. Owner / developer account work
+## 3. Phase 17 — physical Android QA
+
+- [x] Android debug APK built with the committed Gradle wrapper
+- [x] Physical Samsung install and package identity verified
+- [x] Native launcher identity and branded splash verified
+- [x] Offline native launch verified
+- [x] Local persistence verified after close/reopen
+- [x] Android Back navigation verified
+- [x] Native JSON and CSV export verified
+- [x] Native JSON import and restore confirmation verified
+- [x] Privacy and Support pages verified in the native app
+- [x] External HTTPS link handling verified
+- [x] Keyboard/forms, rotation, and app lifecycle verified
+- [x] Native Supabase magic-link callback/auth flow verified
+
+## 4. Owner / developer account work
 
 - [ ] Apple Developer account; Google Play Console account
 - [ ] Developer/legal display name; dedicated public support email
@@ -32,7 +47,7 @@
 - [ ] Store regions; tax/account details if required
 - [ ] Keep credentials and secrets out of the repository
 
-## 4. Store assets
+## 5. Store assets
 
 - [ ] Final native app icon; Apple icon asset; Google Play icon
 - [ ] Feature graphic if required
@@ -40,7 +55,7 @@
 - [ ] Optional tablet assets if tablet distribution is chosen
 - [ ] Screenshot captions/copy; promotional text
 
-## 5. Final submission review
+## 6. Final submission review
 
 - [ ] Apple App Privacy; Google Data safety; age/content ratings
 - [ ] Review notes; reviewer credentials/access if eventually needed

@@ -39,7 +39,7 @@ The browser app uses browser storage, browser download/file-selection mechanisms
 
 Capacitor's WebView keeps `localStorage` in the app's local WebView data container; it persists across normal app restarts but is removed if the app is uninstalled or its app data is cleared. No storage migration or new Leftly storage key was added. Native JSON/CSV exports are written to cache only for the share/save operation and then deletion is attempted. Native magic-link auth uses the callback `com.leftly.app://auth/callback` with PKCE; the Supabase dashboard must allow-list that exact redirect URL before native cloud sign-in can complete in production.
 
-Android Auto Backup is disabled (`allowBackup=false`). The legacy full-backup rules and Android 12+ data-extraction rules exclude app data from cloud backup and from the configured device-transfer path. Android and OEM behavior can vary, so this documents the explicit platform configuration without claiming that every possible device-transfer mechanism is universally impossible. Leftly's explicit JSON export and optional Supabase flow remain the only documented backup channels.
+Android Auto Backup is disabled (`allowBackup=false`). The legacy full-backup rules explicitly exclude the `root`, `file`, `database`, `sharedpref`, and `external` domains. Android 12+ data-extraction rules explicitly exclude those same five domains from both cloud backup and the configured device-transfer path. Android and OEM behavior can vary, so this documents the explicit platform configuration without claiming that every possible device-transfer mechanism is universally impossible. Leftly's explicit JSON export and optional Supabase flow remain the only documented backup channels.
 
 ## Apple App Privacy draft
 

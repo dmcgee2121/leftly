@@ -99,6 +99,7 @@ import { buildPlanningHorizon, getPlanningPlanNames, type PlanningHorizonLength,
 import { buildPayPeriodInsights, type InsightBillMeasure, type InsightComparison, type InsightRange, type PayPeriodInsights } from './lib/insights'
 import { buildQuickAddSuggestions, type QuickAddSuggestion } from './lib/quickAddSuggestions'
 import { calculatePayPeriodTotals } from './lib/budgetMath'
+import { searchHistoryActivity } from './lib/historySearch'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
@@ -940,6 +941,8 @@ function HistorySection({
       .map(({ snapshot }) => snapshot)
   }, [historySort, searchQuery, snapshots])
 
+  const activitySearch = useMemo(() => searchHistoryActivity(snapshots, searchQuery), [searchQuery, snapshots])
+
   if (selectedSnapshot) {
     const billItems = selectedSnapshot.bills
     const expenseItems = selectedSnapshot.expenses
@@ -1144,8 +1147,8 @@ function HistorySection({
       {snapshots.length > 0 ? (
         <div className="grid gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-4">
           <label className="leftly-field">
-            <span>Search archived periods</span>
-            <span className="leftly-input-shell"><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="June, 2026-06, biweekly…" /></span>
+            <span>Search History</span>
+            <span className="leftly-input-shell"><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Walmart, Food, June, biweekly…" /></span>
           </label>
           <label className="leftly-field sm:min-w-56">
             <span>Sort history</span>
@@ -1160,7 +1163,35 @@ function HistorySection({
           </label>
         </div>
       ) : null}
-      {snapshots.length > 0 && filteredSnapshots.length === 0 ? (
+      {activitySearch.results.length > 0 ? (
+        <section className="grid gap-2.5 sm:gap-3" aria-labelledby="matching-history-activity-title">
+          <div>
+            <h3 id="matching-history-activity-title" className="text-base font-semibold text-white">Matching activity</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Archived bills and expenses matching your search.</p>
+          </div>
+          {activitySearch.results.map((result) => (
+            <button
+              key={result.key}
+              type="button"
+              onClick={() => onSelectSnapshot(result.snapshotId)}
+              aria-label={`Open archived period ${result.snapshotLabel} for ${result.kind} ${result.name}`}
+              className="leftly-shell grid min-h-11 gap-2 p-3 text-left transition hover:border-slate-700 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-4"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="min-w-0 break-words text-sm font-semibold text-white sm:text-base">{result.name}</p>
+                  <span className="text-xs font-medium text-slate-300">{result.kind === 'bill' ? 'Bill' : 'Expense'}</span>
+                </div>
+                <p className="mt-1 break-words text-xs leading-5 text-slate-400 sm:text-sm">{result.category} · {result.date ?? 'Date unavailable'} · {result.snapshotLabel}</p>
+                {result.context.length > 0 ? <p className="mt-1 break-words text-xs leading-5 text-slate-400">{result.context.join(' · ')}</p> : null}
+              </div>
+              <span className="shrink-0 text-sm font-semibold text-white sm:text-base">{formatCurrency(result.amount)}</span>
+            </button>
+          ))}
+          {activitySearch.isLimited ? <p className="text-sm leading-6 text-slate-400">Showing the first 50 matching activity results. Refine your search to see fewer results.</p> : null}
+        </section>
+      ) : null}
+      {snapshots.length > 0 && filteredSnapshots.length === 0 && activitySearch.results.length === 0 ? (
         <EmptyState title="No archived periods match" text="Try a different search term or clear the search field." />
       ) : snapshots.length > 0 ? (
         <div className="grid gap-2.5 sm:gap-3">

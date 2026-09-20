@@ -37,6 +37,7 @@ export function DataSection({
   statusMessage,
   errorMessage,
   isImporting,
+  isNative,
 }: {
   backupSummary: LeftlyBackupSummary
   categories: BudgetCategory[]
@@ -52,6 +53,7 @@ export function DataSection({
   statusMessage: string
   errorMessage: string
   isImporting: boolean
+  isNative: boolean
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const cloudConfig = getLeftlyCloudConfig()
@@ -92,7 +94,7 @@ export function DataSection({
       <div className="leftly-shell-soft grid gap-3 border-cyan-400/15 bg-cyan-400/5 p-4">
         <p className="text-sm font-semibold text-white">Stored on this device</p>
         <p className="text-sm leading-6 text-slate-300">
-          Leftly saves your budget on this device in this browser. No account or bank connection is required.
+          Leftly saves your budget {isNative ? 'in this app' : 'in this browser'} on this device. No account or bank connection is required.
         </p>
         <p className="text-sm leading-6 text-slate-300">
           Your data stays here unless you export a backup or manually use optional cloud backup. If you reset Leftly,
@@ -118,9 +120,9 @@ export function DataSection({
       <section className="leftly-shell-soft grid gap-3 p-4" aria-labelledby="move-leftly-title">
         <h2 id="move-leftly-title" className="text-sm font-semibold text-white">Move Leftly to another device</h2>
         <ol className="list-decimal space-y-1 pl-5 text-sm leading-6 text-slate-400">
-          <li>On the old device, open More &gt; Data and export a JSON backup.</li>
+          <li>On the old device, open More &gt; Data &amp; backup and export a JSON backup.</li>
           <li>Save or transfer the JSON file somewhere outside the browser.</li>
-          <li>On the new device, open More &gt; Data, choose Import JSON backup, review the summary, and confirm.</li>
+          <li>On the new device, open More &gt; Data &amp; backup, choose Import JSON backup, review the summary, and confirm.</li>
           <li>Verify the active pay period, Bill Plan, and History.</li>
         </ol>
         <p className="text-sm leading-6 text-slate-400">Optional cloud backup is an alternative when already configured. It is manual and stores one latest snapshot; it is not sync.</p>
@@ -235,13 +237,14 @@ export function DataSection({
         </div>
       </div>
 
-      <div className="leftly-shell-soft grid gap-3 p-4">
-        <p className="text-sm font-semibold text-white">Add Leftly to your phone</p>
-        <p className="text-sm leading-6 text-slate-400">
-          Open Leftly in your mobile browser, then use the browser menu to add it to your home screen or install it as
-          an app if your browser offers that option.
-        </p>
-      </div>
+      {!isNative ? (
+        <div className="leftly-shell-soft grid gap-3 p-4">
+          <p className="text-sm font-semibold text-white">Add Leftly to your phone</p>
+          <p className="text-sm leading-6 text-slate-400">
+            Open Leftly in your mobile browser, then use the browser menu to add it to your home screen or install it as an app if your browser offers that option.
+          </p>
+        </div>
+      ) : null}
 
       <CloudBackupSection
         cloudConfig={cloudConfig}

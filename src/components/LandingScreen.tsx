@@ -3,6 +3,7 @@ type LandingScreenProps = {
   onRestoreFromBackup: () => void
   onOpenCloudBackup?: () => void
   showCloudBackupAction: boolean
+  isNative: boolean
 }
 
 const buttonStyles = {
@@ -15,6 +16,7 @@ export function LandingScreen({
   onRestoreFromBackup,
   onOpenCloudBackup,
   showCloudBackupAction,
+  isNative,
 }: LandingScreenProps) {
   return (
     <div className="leftly-shell leftly-shell-accent overflow-hidden bg-[linear-gradient(180deg,rgba(6,12,24,0.98),rgba(4,8,18,0.94))] p-4 sm:p-5">
@@ -36,27 +38,19 @@ export function LandingScreen({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="leftly-shell-faint grid gap-2 p-4">
-            <p className="text-sm font-semibold text-white">Start without an account</p>
-            <p className="text-sm leading-6 text-slate-400">
-              Your budget is saved in this browser. It stays on this device unless you export or manually back it up.
-            </p>
-          </div>
-          <div className="leftly-shell-faint grid gap-2 p-4">
-            <p className="text-sm font-semibold text-white">Already have a backup?</p>
-            <p className="text-sm leading-6 text-slate-400">
-              Import a Leftly JSON backup to restore your saved budget on this device.
-            </p>
-          </div>
+        <div className="leftly-shell-faint grid gap-2 p-4">
+          <p className="text-sm font-semibold text-white">Start in about a minute</p>
+          <p className="text-sm leading-6 text-slate-400">
+            Add your paycheck amount and dates. Your budget is saved on this device, with no account required.
+          </p>
         </div>
 
         <div className="grid gap-3">
           <button type="button" onClick={onStartBudgetingLocally} className={`${buttonStyles.primary} w-full`}>
-            Start budgeting locally
+            Set up my first paycheck
           </button>
           <button type="button" onClick={onRestoreFromBackup} className={`${buttonStyles.secondary} w-full`}>
-            Restore from JSON backup
+            Restore a backup
           </button>
         </div>
 
@@ -64,7 +58,7 @@ export function LandingScreen({
           <div className="grid gap-1">
             <p className="text-sm font-semibold text-white">Private by design</p>
             <p className="text-sm leading-6 text-slate-400">
-              Leftly does not connect to a bank. Data stays on this device unless you export it or back it up.
+              Leftly does not connect to a bank. Your data stays {isNative ? 'in this app' : 'in this browser'} on this device unless you export or back it up.
             </p>
           </div>
 

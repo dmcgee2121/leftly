@@ -95,12 +95,12 @@ export function SetupFlowPanel({
 
   const stepTitle = useMemo(() => {
     if (draft.step === 1) {
-      return 'Step 1 of 3: Income and cadence'
+      return 'Step 1 of 3: Your paycheck'
     }
     if (draft.step === 2) {
-      return 'Step 2 of 3: Pay period'
+      return 'Step 2 of 3: Pay period dates'
     }
-    return 'Step 3 of 3: Bill Plan items'
+    return 'Step 3 of 3: Regular bills'
   }, [draft.step])
 
   const canContinue =
@@ -182,6 +182,13 @@ export function SetupFlowPanel({
 
   function goNext() {
     if (draft.step === 1) {
+      const income = Number(draft.income)
+      if (!Number.isFinite(income) || income <= 0) {
+        setError('Enter a paycheck amount greater than $0.')
+        return
+      }
+
+      setError('')
       setDraft((current) => ({ ...current, step: 2 }))
       return
     }
@@ -261,17 +268,17 @@ export function SetupFlowPanel({
 
   if (draft.step === 1) {
     return renderPanel(
-      'Welcome to Leftly',
-      "Set up the paycheck Leftly should track first. This stays short and gives you a working budget right away.",
+      'Start with your paycheck',
+      'Tell Leftly how much this paycheck gives you to work with.',
       <>
         <div className="leftly-panel-section">
           <div className="grid gap-1">
-            <p className="leftly-panel-label">Paycheck basics</p>
-            <p className="leftly-panel-copy">Choose how often you get paid and the income amount for the paycheck you want to track first.</p>
+            <p className="leftly-panel-label">Paycheck details</p>
+            <p className="leftly-panel-copy">You can change these details later.</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Pay cadence">
+            <Field label="How often are you paid?">
               <select
                 value={draft.cadence}
                 onChange={(event) => setDraft((current) => ({ ...current, cadence: event.target.value as PayCadence }))}
@@ -283,7 +290,7 @@ export function SetupFlowPanel({
                 ))}
               </select>
             </Field>
-            <Field label="Income amount">
+            <Field label="Paycheck amount">
               <input
                 type="number"
                 min="0"
@@ -299,7 +306,7 @@ export function SetupFlowPanel({
         <div className="leftly-shell-faint grid gap-2 p-3">
           <p className="text-sm font-medium text-white">Setup draft saved on this device.</p>
           <p className="text-sm leading-6 text-slate-400">
-            Leftly saves your setup draft in this browser. No account or bank connection is needed. You can export a JSON backup later from Data.
+            You can leave and come back without losing your progress. No account or bank connection is needed.
           </p>
         </div>
 
@@ -308,7 +315,7 @@ export function SetupFlowPanel({
         <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
           <div className="leftly-action-grid">
             <button type="button" onClick={goNext} className={`${buttonStyles.primary} w-full sm:w-auto`}>
-              Continue
+              Choose pay period dates
             </button>
           </div>
         </div>
@@ -321,13 +328,13 @@ export function SetupFlowPanel({
 
   if (draft.step === 2) {
     return renderPanel(
-      'Set up your first pay period',
-      'Choose the start and end dates for the paycheck you want Leftly to track right now.',
+      'When does this paycheck need to last?',
+      'Choose the dates this paycheck covers.',
       <>
         <div className="leftly-panel-section">
           <div className="grid gap-1">
             <p className="leftly-panel-label">Pay period details</p>
-            <p className="leftly-panel-copy">This becomes your first active paycheck view, so keep it current and easy to recognize.</p>
+            <p className="leftly-panel-copy">Leftly uses these dates to show what is due before your next paycheck.</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -363,7 +370,7 @@ export function SetupFlowPanel({
               Back
             </button>
             <button type="button" onClick={goNext} className={`${buttonStyles.primary} w-full sm:w-auto`} disabled={!canContinue}>
-              Continue
+              Review regular bills
             </button>
           </div>
         </div>
@@ -375,18 +382,18 @@ export function SetupFlowPanel({
   }
 
   return renderPanel(
-    'Add regular bills you already know about',
-    'Optional: save one or more regular bills now. You can add more later from Bill Plan.',
+    'Add regular bills',
+    'Optional: add bills you expect to repeat. You can always do this later from Bill Plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
       <div className="leftly-shell-faint flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-6 text-slate-400">Setup draft saved on this device.</p>
       </div>
 
       <div className="leftly-panel-section">
-        <p className="text-sm font-semibold text-white">Setup review</p>
+        <p className="text-sm font-semibold text-white">Your first paycheck</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <SummaryCard label="Pay cadence" value={cadenceOptions.find((option) => option.value === draft.cadence)?.label ?? draft.cadence} />
-          <SummaryCard label="Income" value={draft.income ? formatCurrency(Number(draft.income)) : 'Add income'} />
+          <SummaryCard label="Pay schedule" value={cadenceOptions.find((option) => option.value === draft.cadence)?.label ?? draft.cadence} />
+          <SummaryCard label="Paycheck" value={draft.income ? formatCurrency(Number(draft.income)) : 'Add amount'} />
           <SummaryCard
             label="Pay period"
             value={draft.startDate && draft.endDate ? `${draft.startDate} to ${draft.endDate}` : 'Choose your dates'}
@@ -408,11 +415,6 @@ export function SetupFlowPanel({
                 : 'You can add regular bills later from Bill Plan.'
             }
           />
-          <SummaryCard
-            label="Included this pay period"
-            value={setupReview?.dueThisPeriodCount ? `${setupReview.dueThisPeriodCount} item${setupReview.dueThisPeriodCount === 1 ? '' : 's'}` : 'Not yet'}
-            detail={draft.addRecurringBill ? 'Based on the schedule you choose below.' : 'Skip this if you want to start with income only.'}
-          />
         </div>
         <p className="text-sm leading-6 text-slate-400">{setupReview?.status ?? 'Complete the steps below to see your setup review.'}</p>
       </div>
@@ -425,7 +427,7 @@ export function SetupFlowPanel({
           className="mt-1 h-4 w-4 rounded border-slate-700 text-cyan-400 focus:ring-cyan-400"
         />
         <span>
-          <span className="block font-semibold">Save Bill Plan items now</span>
+          <span className="block font-semibold">Add regular bills now</span>
           <span className="mt-1 block text-sm leading-6 text-slate-400">
             Add regular bills you already know about. Skip this if you want to start with income only.
           </span>
@@ -559,10 +561,10 @@ export function SetupFlowPanel({
             }}
             className={`${buttonStyles.secondary} w-full sm:w-auto`}
           >
-            Skip for now
+            Start without regular bills
           </button>
           <button type="submit" className={`${buttonStyles.primary} w-full sm:w-auto`}>
-            Finish setup
+            Start my first paycheck
           </button>
         </div>
       </div>
@@ -591,10 +593,10 @@ function renderPanel(
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto">
           <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-            Close
+            Exit setup
           </button>
           <button type="button" onClick={onClearDraft} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-            Restart setup draft
+            Start over
           </button>
         </div>
       </div>
@@ -606,19 +608,19 @@ function renderPanel(
 function validatePayPeriodDraft(draft: SetupDraft, strict: boolean): { ok: true; period: BudgetPeriod } | { ok: false; error: string } {
   const income = Number(draft.income)
   if (strict && (!Number.isFinite(income) || income <= 0)) {
-    return { ok: false, error: 'Income amount must be greater than 0.' }
+    return { ok: false, error: 'Enter a paycheck amount greater than $0.' }
   }
 
   if (strict && !draft.startDate) {
-    return { ok: false, error: 'Start date is required.' }
+    return { ok: false, error: 'Choose a start date.' }
   }
 
   if (strict && !draft.endDate) {
-    return { ok: false, error: 'End date is required.' }
+    return { ok: false, error: 'Choose an end date.' }
   }
 
   if (strict && draft.endDate < draft.startDate) {
-    return { ok: false, error: 'End date must be after the start date.' }
+    return { ok: false, error: 'Choose an end date on or after the start date.' }
   }
 
   return {
@@ -678,26 +680,26 @@ function validateRecurringDraft(
   }
 
   if (!hasName) {
-    return { kind: 'partial', error: 'Bill Plan item name is required.' }
+    return { kind: 'partial', error: 'Enter a bill name.' }
   }
   if (!hasAmount) {
-    return { kind: 'partial', error: 'Bill Plan item amount is required.' }
+    return { kind: 'partial', error: 'Enter a bill amount.' }
   }
 
   const amount = Number(draft.amount)
   if (!Number.isFinite(amount) || amount <= 0) {
-    return { kind: 'partial', error: 'Bill Plan item amount must be greater than 0.' }
+    return { kind: 'partial', error: 'Enter a bill amount greater than $0.' }
   }
   if (!draft.category) {
-    return { kind: 'partial', error: 'Bill Plan item category is required.' }
+    return { kind: 'partial', error: 'Choose a category.' }
   }
   if (draft.frequency === 'monthly') {
     const dueDay = Number(draft.monthlyDueDay)
     if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 31) {
-      return { kind: 'partial', error: 'Monthly due day must be between 1 and 31.' }
+      return { kind: 'partial', error: 'Enter a monthly due day from 1 to 31.' }
     }
   } else if (!draft.anchorDate) {
-    return { kind: 'partial', error: 'Anchor date is required.' }
+    return { kind: 'partial', error: 'Choose the first date this bill occurs.' }
   }
 
   return {

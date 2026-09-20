@@ -47,7 +47,7 @@ describe('manual entry creators', () => {
   })
 
   it('rejects invalid drafts before an item can be submitted', () => {
-    expect(createManualBill({ name: '', amount: '10', dueDate: '2026-09-22', category: 'Other' })).toEqual({ ok: false, error: 'Bill name is required.' })
-    expect(createManualExpense({ name: 'Lunch', amount: '0', date: '2026-09-20', category: 'Food' })).toEqual({ ok: false, error: 'Amount must be greater than 0.' })
+    expect(createManualBill({ name: '', amount: '10', dueDate: '2026-09-22', category: 'Other' })).toEqual({ ok: false, error: 'Enter a bill name.' })
+    expect(createManualExpense({ name: 'Lunch', amount: '0', date: '2026-09-20', category: 'Food' })).toEqual({ ok: false, error: 'Enter an amount greater than $0.' })
   })
 })

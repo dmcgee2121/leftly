@@ -388,7 +388,7 @@ const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> 
   {
     key: 'help',
     label: 'Help',
-    helper: 'Find the beta tester guide, privacy basics, and the feedback template.',
+    helper: 'Getting started, privacy, backups, and support.',
   },
 ]
 
@@ -1238,7 +1238,7 @@ function HistorySection({
           ))}
         </div>
       ) : (
-        <EmptyState title="No pay periods archived yet" text="When you start a new pay period, Leftly saves the current one here." />
+        <EmptyState title="No paycheck history yet" text="Start your next paycheck and Leftly will save the current one here." />
       )}
     </div>
   )
@@ -2235,12 +2235,12 @@ function App() {
       ).length
 
       if (billAddedCount > 0 || setAsideAddedCount > 0) {
-        setSetupSuccess(`Setup complete. Your pay period is ready and ${savedLabel} ${savedVerb} saved.`)
+        setSetupSuccess(`First paycheck ready. ${savedLabel} ${savedVerb} saved.`)
       } else {
-        setSetupSuccess(`Setup complete. Your pay period is ready and ${savedLabel} ${savedVerb} saved for later.`)
+        setSetupSuccess(`First paycheck ready. ${savedLabel} ${savedVerb} saved for later.`)
       }
     } else {
-      setSetupSuccess('Setup complete. Your pay period is ready.')
+      setSetupSuccess('First paycheck ready.')
     }
     setPayPeriodError('')
     setBillError('')
@@ -2360,7 +2360,7 @@ function App() {
           setBillSuccess('')
           setExpenseSuccess('')
           setBillStatus('')
-          setDataMessage(`JSON backup restored from ${file.name}. The incoming data is now loaded on this device.`)
+          setDataMessage('Backup restored.')
           finishConfirmation()
         },
       })
@@ -2389,22 +2389,22 @@ function App() {
     const income = Number(payPeriodDraft.income)
 
     if (!payPeriodDraft.startDate) {
-      setPayPeriodError('Start date is required.')
+      setPayPeriodError('Choose a start date.')
       return
     }
 
     if (!payPeriodDraft.endDate) {
-      setPayPeriodError('End date is required.')
+      setPayPeriodError('Choose an end date.')
       return
     }
 
     if (payPeriodDraft.endDate < payPeriodDraft.startDate) {
-      setPayPeriodError('End date must be after the start date.')
+      setPayPeriodError('Choose an end date on or after the start date.')
       return
     }
 
     if (!Number.isFinite(income) || income <= 0) {
-      setPayPeriodError('Income must be greater than 0.')
+      setPayPeriodError('Enter a paycheck amount greater than $0.')
       return
     }
 
@@ -2942,7 +2942,7 @@ function App() {
       category: expenseDraft.category,
       date: getQuickAddDateValue(preferences, payPeriod),
     })
-    setExpenseSuccess('Added to this pay period.')
+    setExpenseSuccess('Expense added.')
     window.setTimeout(() => quickAddNameInputRef.current?.focus(), 0)
   }
 
@@ -2963,7 +2963,7 @@ function App() {
         }
       }),
     )
-    setBillStatus(nextPaidState ? 'Bill marked paid.' : 'Bill marked unpaid.')
+    setBillStatus(nextPaidState ? 'Marked paid.' : 'Marked unpaid.')
   }
 
   function addRecurringTemplate(template: RecurringItemTemplate) {
@@ -4096,6 +4096,7 @@ function App() {
                         : undefined
                     }
                     showCloudBackupAction={cloudConfig.enabled && cloudConfig.mode === 'ready'}
+                    isNative={isNativePlatform()}
                   />
                 )
               ) : hasAnyData ? (
@@ -4145,6 +4146,16 @@ function App() {
                       </div>
                     </div>
                   </div>
+
+                  {payPeriod && bills.length === 0 && expenses.length === 0 ? (
+                    <section className="leftly-overview-section leftly-overview-section-quiet lg:col-span-2">
+                      <OverviewSectionHeader title="What’s next?" description="Add your first bill or expense to make this paycheck useful." />
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setActiveTab('recurring')} className="button-secondary w-full sm:w-auto">Add regular bills</button>
+                        <button type="button" onClick={openQuickAddExpense} className="button-primary w-full sm:w-auto">Add first expense</button>
+                      </div>
+                    </section>
+                  ) : null}
 
                   <div className="lg:col-span-2">
                     <div className="leftly-overview-section">
@@ -4321,7 +4332,7 @@ function App() {
           ) : null}
 
           {activeTab === 'income' ? (
-            <SectionShell title="Income" description="Keep today’s pay period clear, then use the next-period wizard when it is time to roll over.">
+            <SectionShell title="Paycheck" description="Keep today’s pay period clear, then start the next paycheck when it arrives.">
               <MoreBackBar onBack={openMoreMenu} />
 
               {isStartNewPayPeriodOpen ? (
@@ -4492,7 +4503,7 @@ function App() {
                     </div>
                   ) : (
                     <div className="mt-4">
-                      <EmptyState title="No one-time bills yet" text="Add an unusual bill for this pay period. Keep regular monthly bills in Bill Plan." compact />
+                      <EmptyState title="No bills yet" text="Add a bill here, or use Bill Plan for regular bills." compact />
                     </div>
                   )}
                 </div>
@@ -4650,8 +4661,8 @@ function App() {
                   ) : (
                     <div className="mt-4">
                       <EmptyState
-                        title="No manual expenses yet"
-                        text="Use Quick Add for fast spending, or add one here when you want full details."
+                        title="No expenses yet"
+                        text="Add your first expense to start tracking spending."
                         compact
                       />
                     </div>
@@ -5206,7 +5217,7 @@ function App() {
           ) : null}
 
           {activeTab === 'data' ? (
-            <SectionShell title="Data" description="Back up or restore the Leftly data stored only on this device.">
+            <SectionShell title="Data & backup" description="Back up or restore the Leftly data stored only on this device.">
               <MoreBackBar onBack={openMoreMenu} />
               <DataSection
                 backupSummary={backupSummary}
@@ -5223,14 +5234,15 @@ function App() {
                 statusMessage={dataMessage}
                 errorMessage={dataError}
                 isImporting={isImportingBackup}
+                isNative={isNativePlatform()}
               />
             </SectionShell>
           ) : null}
 
           {activeTab === 'help' ? (
             <SectionShell
-              title="Help / About / Feedback"
-              description="Start here for the beta tester guide, feedback template, and the basics on local-first Leftly data."
+              title="Help"
+              description="Learn the basics, check your app version, or find support."
             >
               <MoreBackBar onBack={openMoreMenu} />
               <HelpAboutFeedbackSection
@@ -5241,6 +5253,7 @@ function App() {
                 offlineCapabilityStatus={pwa.offlineCapabilityStatus}
                 isRetryingOfflineSetup={pwa.isRetryingOfflineSetup}
                 onRetryOfflineSetup={pwa.retryOfflineSetup}
+                isNative={isNativePlatform()}
               />
             </SectionShell>
           ) : null}

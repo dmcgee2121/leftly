@@ -23,9 +23,9 @@ export function createManualBill(
 ): EntryResult<Bill> {
   const amount = Number(draft.amount)
 
-  if (!draft.name.trim()) return { ok: false, error: 'Bill name is required.' }
-  if (!draft.dueDate) return { ok: false, error: 'Due date is required.' }
-  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Amount must be greater than 0.' }
+  if (!draft.name.trim()) return { ok: false, error: 'Enter a bill name.' }
+  if (!draft.dueDate) return { ok: false, error: 'Choose a due date.' }
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Enter an amount greater than $0.' }
 
   return {
     ok: true,
@@ -50,9 +50,9 @@ export function createManualExpense(
 ): EntryResult<Expense> {
   const amount = Number(draft.amount)
 
-  if (!draft.name.trim()) return { ok: false, error: 'Expense name is required.' }
-  if (!draft.date) return { ok: false, error: 'Date is required.' }
-  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Amount must be greater than 0.' }
+  if (!draft.name.trim()) return { ok: false, error: 'Enter an expense name.' }
+  if (!draft.date) return { ok: false, error: 'Choose a date.' }
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Enter an amount greater than $0.' }
 
   return {
     ok: true,

@@ -177,7 +177,7 @@ export function StartNewPayPeriodPanel({
   function validateDraft() {
     const income = Number(draft.income)
     if (!Number.isFinite(income) || income <= 0) {
-      setError('Income amount must be greater than 0.')
+      setError('Enter a paycheck amount greater than $0.')
       return false
     }
     if (!draft.startDate || !draft.endDate) {

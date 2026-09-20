@@ -818,8 +818,8 @@ export function RecurringSection({
         >
           {templates.length === 0 ? (
             <EmptyState
-              title="Bill Plan is empty"
-              text="This is where recurring bills and planned items live. Add your first bill below or use the bulk tool to save a few at once."
+              title="No regular bills yet"
+              text="Add a regular bill once and Leftly can bring it into future paychecks."
               actionLabel="Add multiple bills"
               onAction={openBulkPanel}
             />

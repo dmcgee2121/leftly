@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, FormEvent, ReactNode } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import {
   clearAllAppData,
   addPayPeriodSnapshot,
@@ -104,6 +104,7 @@ import { buildQuickAddSuggestions, type QuickAddSuggestion } from './lib/quickAd
 import { calculatePayPeriodTotals } from './lib/budgetMath'
 import { searchHistoryActivity } from './lib/historySearch'
 import { createManualBill, createManualExpense } from './lib/manualEntries'
+import { buildRecentActivity } from './lib/recentActivity'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
@@ -1332,6 +1333,7 @@ function App() {
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
   const [areQuickAddDetailsOpen, setAreQuickAddDetailsOpen] = useState(false)
   const [isQuickBillCategoryOpen, setIsQuickBillCategoryOpen] = useState(false)
+  const [isOverviewCalendarOpen, setIsOverviewCalendarOpen] = useState(false)
   const [startNewPayPeriodInitialDraft, setStartNewPayPeriodInitialDraft] = useState<{
     income: string
     cadence: PayCadence
@@ -1759,12 +1761,6 @@ function App() {
       .filter((summary): summary is CategorySummary => summary !== null)
   }, [categorySummaries, currentPeriodFilter, normalizedCurrentPeriodSearch])
 
-  const topCategories = useMemo(() => {
-    return [...categorySummaries]
-      .sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
-      .slice(0, 3)
-  }, [categorySummaries])
-
   const categoryTargetProgress = useMemo(
     () => calculateCategoryTargetProgress(categoryTargets, expenses, allCategories),
     [allCategories, categoryTargets, expenses],
@@ -1772,18 +1768,6 @@ function App() {
 
   const categoryTargetProgressByCategory = useMemo(
     () => new Map(categoryTargetProgress.map((progress) => [progress.category, progress])),
-    [categoryTargetProgress],
-  )
-
-  const overviewCategoryTargets = useMemo(
-    () =>
-      [...categoryTargetProgress]
-        .sort((left, right) => {
-          const leftPriority = left.status === 'Over target' ? 2 : left.status === 'At target' ? 1 : 0
-          const rightPriority = right.status === 'Over target' ? 2 : right.status === 'At target' ? 1 : 0
-          return rightPriority - leftPriority || right.percentUsed - left.percentUsed || left.remaining - right.remaining || left.category.localeCompare(right.category)
-        })
-        .slice(0, 4),
     [categoryTargetProgress],
   )
 
@@ -1811,13 +1795,12 @@ function App() {
     [payPeriod, planningHorizonLength, planningPlanFilter, recurringTemplates],
   )
 
-  const recentBills = useMemo(() => bills.slice(0, 3), [bills])
+  const recentActivity = useMemo(() => buildRecentActivity(bills, expenses), [bills, expenses])
   const recurringBills = useMemo(() => bills.filter((bill) => bill.source === 'recurring'), [bills])
   const recurringBillSummary = useMemo(() => summarizeBillPayments(recurringBills), [recurringBills])
   const oneTimeBills = useMemo(() => bills.filter((bill) => bill.source !== 'recurring'), [bills])
   const oneTimeBillSummary = useMemo(() => summarizeBillPayments(oneTimeBills), [oneTimeBills])
   const billPaymentSummary = useMemo(() => summarizeBillPayments(bills), [bills])
-  const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses])
   const dueSoonBills = useMemo<DueSoonBillRow[]>(() => {
     if (!payPeriod) {
       return []
@@ -1904,11 +1887,6 @@ function App() {
       .sort((left, right) => right.total - left.total || left.category.localeCompare(right.category))
       .slice(0, 4)
   }, [expenses, payPeriod])
-
-  const spendingSnapshotTotal = useMemo(
-    () => spendingSnapshot.reduce((sum, row) => sum + row.total, 0),
-    [spendingSnapshot],
-  )
 
   const spendingSnapshotCategoryCount = useMemo(() => {
     if (!payPeriod || expenses.length === 0) {
@@ -4126,13 +4104,8 @@ function App() {
                     <FinancialPulseHero
                       payPeriod={payPeriod}
                       totals={totals}
-                      billPaymentSummary={billPaymentSummary}
                       formatCurrency={formatCurrency}
                     />
-                  </div>
-
-                  <div className="lg:col-span-2">
-                    <NextPaycheckForecastCard forecast={forecast} formatCurrency={formatCurrency} onView={openForecast} />
                   </div>
 
                   <div className="lg:col-span-2">
@@ -4173,11 +4146,11 @@ function App() {
                     </div>
                   </div>
 
-                  <div>
+                  <div className="lg:col-span-2">
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader
-                        title="Due Soon"
-                        description="Unpaid bills that need attention in the next 7 days."
+                        title="Due soon"
+                        description="Needs attention now."
                         aside={
                           payPeriod && dueSoonBills.length > 0 ? (
                             <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
@@ -4199,16 +4172,13 @@ function App() {
                         dueSoonBills.length > 0 ? (
                           <>
                             <div className="mt-3 grid gap-2">
-                              {dueSoonBills.slice(0, 3).map(({ bill, status, statusTone, dueDateLabel, scheduleLabel, planName }) => (
+                              {dueSoonBills.slice(0, 3).map(({ bill, status, statusTone, dueDateLabel }) => (
                                 <OverviewListRow
                                   key={bill.id}
                                   title={bill.name}
                                   badges={
                                     <>
-                                      <Badge muted>Unpaid</Badge>
                                       {bill.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
-                                      {planName ? <Badge muted>{planName}</Badge> : null}
-                                      {scheduleLabel ? <Badge muted>{scheduleLabel}</Badge> : null}
                                       <DueSoonStatusBadge status={status} tone={statusTone} />
                                     </>
                                   }
@@ -4250,7 +4220,7 @@ function App() {
                             ) : null}
                           </>
                         ) : (
-                          <EmptyState title="No bills due soon" text="Add a one-time bill or apply Bill Plan when something is coming up next." compact />
+                          <p className="mt-3 text-sm text-emerald-100">Nothing urgent in the next 7 days.</p>
                         )
                       ) : (
                         <EmptyState title="No active pay period" text="Start a pay period to see what bills are coming up next." compact />
@@ -4258,282 +4228,87 @@ function App() {
                     </div>
                   </div>
 
-                  <BillPaymentProgress summary={billPaymentSummary} formatCurrency={formatCurrency} />
+                  <div className="grid gap-3 lg:col-span-2 lg:grid-cols-2">
+                    <NextPaycheckForecastCard forecast={forecast} formatCurrency={formatCurrency} onView={openForecast} />
 
-                  <div className="lg:col-span-2">
-                    <PaycheckAllocation totals={totals} formatCurrency={formatCurrency} />
-                  </div>
+                    <BillPaymentProgress summary={billPaymentSummary} formatCurrency={formatCurrency} />
 
-                  <div className={overviewCategoryTargets.length > 0 ? undefined : 'lg:col-span-2'}>
-                    <div className="leftly-overview-section">
-                      <OverviewSectionHeader
-                        title="Spending Snapshot"
-                        description="Active expenses in this pay period, grouped by category."
-                        aside={
-                          payPeriod && spendingSnapshot.length > 0 ? (
-                            <p className="text-xs leading-5 text-slate-500">
-                              {spendingSnapshotCategoryCount} {spendingSnapshotCategoryCount === 1 ? 'category' : 'categories'} tracked
-                            </p>
-                          ) : undefined
-                        }
-                      />
+                    <section className="leftly-overview-section leftly-overview-section-quiet">
+                      <OverviewSectionHeader title="Spending" description="Current pay period" />
+                      <p className="mt-3 text-xl font-semibold text-white">{formatCurrency(totals.totalExpenses)}</p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {spendingSnapshotCategoryCount} {spendingSnapshotCategoryCount === 1 ? 'category' : 'categories'}
+                        {spendingSnapshot[0] ? ` · Top: ${spendingSnapshot[0].category} ${formatCurrency(spendingSnapshot[0].total)}` : ''}
+                      </p>
+                      <button type="button" onClick={() => setActiveTab('categories')} className="mt-3 button-secondary w-full sm:w-auto">View spending</button>
+                    </section>
 
-                      {payPeriod ? (
-                        spendingSnapshot.length > 0 ? (
-                          <>
-                            <div className="mt-3 grid gap-2">
-                              {spendingSnapshot.map((row) => {
-                                const share = spendingSnapshotTotal > 0 ? Math.max(6, (row.total / spendingSnapshotTotal) * 100) : 0
+                    {categoryTargetProgress.length > 0 ? (
+                      <section className="leftly-overview-section leftly-overview-section-quiet">
+                        <OverviewSectionHeader title="Category targets" description="This pay period" />
+                        <p className="mt-3 text-sm leading-6 text-slate-300">
+                          {categoryTargetProgress.filter((item) => item.status === 'On track').length} on track · {categoryTargetProgress.filter((item) => item.status === 'Getting close' || item.status === 'At target').length} close · {categoryTargetProgress.filter((item) => item.status === 'Over target').length} over
+                        </p>
+                        <button type="button" onClick={() => setActiveTab('categories')} className="mt-3 button-secondary w-full sm:w-auto">View targets</button>
+                      </section>
+                    ) : null}
 
-                                return (
-                                  <div key={row.category} className="leftly-spending-row">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0">
-                                        <p className="truncate font-medium text-white">{row.category}</p>
-                                        <p className="mt-1 text-[11px] text-slate-400">
-                                          {formatCurrency(row.total)} · {row.count} item{row.count === 1 ? '' : 's'}
-                                        </p>
-                                      </div>
-                                      <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(row.total)}</p>
-                                    </div>
-
-                                    <div
-                                      className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800/80"
-                                      role="progressbar"
-                                      aria-label={`${row.category} spending share`}
-                                      aria-valuemin={0}
-                                      aria-valuemax={100}
-                                      aria-valuenow={Math.round(Math.min(100, share))}
-                                    >
-                                      <div
-                                        className="leftly-progress-fill leftly-progress-cyan"
-                                        style={{ width: `${share}%` }}
-                                      />
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-
-                            {spendingSnapshotCategoryCount > spendingSnapshot.length ? (
-                              <p className="mt-3 text-xs text-slate-500">+{spendingSnapshotCategoryCount - spendingSnapshot.length} more categories</p>
-                            ) : null}
-
-                            {topCategories.length > 0 ? (
-                              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                                {topCategories.map((summary, index) => (
-                                  <div key={summary.category} className="leftly-shell-soft px-3 py-2.5">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="text-sm font-medium text-white">{summary.category}</p>
-                                      {index === 0 ? <Badge>Highest cost</Badge> : null}
-                                    </div>
-                                    <p className="mt-1 text-[11px] text-slate-400">
-                                      {formatCurrency(summary.total)} · {summary.items.length} item{summary.items.length === 1 ? '' : 's'}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                          </>
-                        ) : (
-                          <EmptyState title="No spending yet" text="Use Add expense when you start logging spending." compact />
-                        )
-                      ) : (
-                        <EmptyState title="No active pay period" text="Start a pay period to track spending by category." compact />
-                      )}
-                    </div>
-                  </div>
-
-                  {overviewCategoryTargets.length > 0 ? (
-                    <div>
-                      <div className="leftly-overview-section">
-                        <OverviewSectionHeader
-                          title="Category targets"
-                          description="Planning targets for active expense categories this pay period."
-                          aside={
-                            <button type="button" onClick={() => setActiveTab('categories')} className="button-secondary w-full sm:w-auto">
-                              View all
-                            </button>
-                          }
-                        />
-
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          {overviewCategoryTargets.map((progress) => (
-                            <TargetProgressCard
-                              key={progress.category}
-                              progress={progress}
-                              formatCurrency={formatCurrency}
-                              compact
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {payPeriod ? (
-                    <div className="lg:col-span-2">
-                      <PayPeriodCalendar
-                        key={`${payPeriod.startDate}:${payPeriod.endDate}`}
-                        payPeriod={payPeriod}
-                        bills={bills}
-                        expenses={expenses}
-                        recurringTemplates={recurringTemplates}
-                        onEditBill={startEditBill}
-                        onEditExpense={startEditExpense}
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2">
-                    <div className="leftly-overview-section">
-                      <OverviewSectionHeader title="Recent bills" description="Latest bills in this pay period, with quick paid and edit actions." />
-                      <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
-                        {recentBills.length > 0 ? (
-                          recentBills.map((bill) => {
-                            const template = bill.templateId ? recurringTemplateById.get(bill.templateId) : undefined
-
-                            return (
-                              <OverviewListRow
-                                key={bill.id}
-                                title={bill.name}
-                                badges={
-                                  <>
-                                    <Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>
-                                    {template ? <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge> : null}
-                                    {template ? <Badge muted>{formatPlanSchedule(template)}</Badge> : null}
-                                    {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
-                                  </>
-                                }
-                                meta={
-                                  <>
-                                    {bill.category} · due {bill.dueDate}
-                                  </>
-                                }
-                                amount={formatCurrency(bill.amount)}
-                                actions={
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleBillPaid(bill.id)}
-                                      className="leftly-overview-inline-button"
-                                    >
-                                      {bill.isPaid ? 'Mark unpaid' : 'Mark paid'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => startEditBill(bill)}
-                                      className="leftly-overview-inline-button"
-                                    >
-                                      Edit
-                                    </button>
-                                  </>
-                                }
-                              />
-                            )
-                          })
-                        ) : (
-                          <EmptyState title="No bills yet" text="Add a one-time bill or apply Bill Plan to populate this list." compact />
-                        )}
-                      </div>
-                      {bills.length > 3 ? (
-                        <div className="mt-3">
-                          <button type="button" onClick={() => setActiveTab('bill')} className="button-secondary w-full sm:w-auto">
-                            View all bills
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="leftly-overview-section">
-                      <OverviewSectionHeader title="Recent expenses" description="Latest expenses in this pay period, using the same compact card treatment." />
-                      <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
-                        {recentExpenses.length > 0 ? (
-                          recentExpenses.map((expense) => {
-                            const template = expense.templateId ? recurringTemplateById.get(expense.templateId) : undefined
-
-                            return (
-                              <OverviewListRow
-                                key={expense.id}
-                                title={expense.name}
-                                badges={
-                                  <>
-                                    {expense.source === 'recurring' ? (
-                                      <Badge muted={Boolean(expense.setAsideForTemplateId)}>
-                                        {expense.setAsideForTemplateId ? 'Set-aside' : expense.isPlanned ? 'Planned spending' : 'Bill Plan'}
-                                      </Badge>
-                                    ) : null}
-                                    {template ? <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge> : null}
-                                  </>
-                                }
-                                meta={
-                                  <>
-                                    {expense.category} · {expense.date}
-                                    {template && !expense.setAsideForTemplateId ? ` · ${formatPlanSchedule(template)}` : ''}
-                                  </>
-                                }
-                                amount={formatCurrency(expense.amount)}
-                                actions={
-                                  <button type="button" onClick={() => startEditExpense(expense)} className="leftly-overview-inline-button">
-                                    Edit
-                                  </button>
-                                }
-                              />
-                            )
-                          })
-                        ) : (
-                          <EmptyState title="No expenses yet" text="Use Add expense to start tracking spending in this pay period." compact />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="lg:col-span-2">
-                      <div className="leftly-overview-section">
-                        <OverviewSectionHeader
-                          title="Upcoming from your Bill Plan"
-                          description="Saved items that are active but not yet in this pay period."
-                          aside={
-                            payPeriod && hasActiveBillPlanItems ? (
-                              <button type="button" onClick={openBillPlanApply} className="button-secondary w-full sm:w-auto sm:min-w-0 sm:px-3 sm:py-2.5 sm:text-xs">
-                                Review Bill Plan items
-                              </button>
-                            ) : undefined
-                          }
-                        />
+                    <section className="leftly-overview-section leftly-overview-section-quiet lg:col-span-2">
+                      <OverviewSectionHeader title="Recent activity" description="Latest bills and expenses" />
+                      {recentActivity.length > 0 ? (
                         <div className="mt-3 space-y-2">
-                          {upcomingRecurringBills.length > 0 ? (
-                            upcomingRecurringBills.slice(0, 2).map((template) => (
+                          {recentActivity.map((activity) => {
+                            if (activity.kind === 'bill') {
+                              const bill = activity.item
+                              return (
+                                <OverviewListRow
+                                  key={`bill:${bill.id}`}
+                                  title={bill.name}
+                                  badges={<><Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>{isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}</>}
+                                  meta={`Bill · ${bill.category} · due ${bill.dueDate}`}
+                                  amount={formatCurrency(bill.amount)}
+                                  actions={<><button type="button" onClick={() => toggleBillPaid(bill.id)} className="leftly-overview-inline-button">{bill.isPaid ? 'Mark unpaid' : 'Mark paid'}</button><button type="button" onClick={() => startEditBill(bill)} className="leftly-overview-inline-button">Edit</button></>}
+                                />
+                              )
+                            }
+
+                            const expense = activity.item
+                            return (
                               <OverviewListRow
-                                key={template.id}
-                                title={template.name}
-                                badges={
-                                  <>
-                                    <Badge muted>{normalizeRecurringPlanName(template.planName)}</Badge>
-                                    <Badge muted>{formatPlanSchedule(template)}</Badge>
-                                    {template.setAsideEnabled ? <Badge muted>Set-aside active</Badge> : null}
-                                  </>
-                                }
-                                meta={
-                                  <>
-                                    {template.category}
-                                  </>
-                                }
-                                amount={formatCurrency(template.amount)}
+                                key={`expense:${expense.id}`}
+                                title={expense.name}
+                                badges={expense.setAsideForTemplateId ? <Badge muted>Set-aside</Badge> : undefined}
+                                meta={`Expense · ${expense.category} · ${expense.date}`}
+                                amount={formatCurrency(expense.amount)}
+                                actions={<button type="button" onClick={() => startEditExpense(expense)} className="leftly-overview-inline-button">Edit</button>}
                               />
-                            ))
-                          ) : (
-                            <EmptyState
-                              title="Nothing waiting"
-                              text="Add regular bills to Bill Plan and Leftly will surface them here before you apply them."
-                              compact
-                            />
-                          )}
+                            )
+                          })}
                         </div>
-                        {upcomingRecurringBills.length > 2 ? (
-                          <p className="mt-2 text-xs text-slate-500">+{upcomingRecurringBills.length - 2} more in Bill Plan</p>
+                      ) : <p className="mt-3 text-sm text-slate-400">Activity will appear after you add a bill or expense.</p>}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setActiveTab('expense')} className="button-secondary w-full sm:w-auto">Review expenses</button>
+                        <button type="button" onClick={() => setActiveTab('bill')} className="button-secondary w-full sm:w-auto">Review bills</button>
+                      </div>
+                    </section>
+
+                    <section className="leftly-overview-section leftly-overview-section-quiet lg:col-span-2">
+                      <OverviewSectionHeader title="Bill Plan" description={upcomingRecurringBills.length > 0 ? `${upcomingRecurringBills.length} upcoming ${upcomingRecurringBills.length === 1 ? 'item' : 'items'}` : 'Nothing waiting'} />
+                      {upcomingRecurringBills[0] ? <p className="mt-2 text-sm text-slate-400">Next: {upcomingRecurringBills[0].name} · {formatCurrency(upcomingRecurringBills[0].amount)} · {formatPlanSchedule(upcomingRecurringBills[0])}</p> : null}
+                      <button type="button" onClick={payPeriod && hasActiveBillPlanItems ? openBillPlanApply : () => setActiveTab('recurring')} className="mt-3 button-secondary w-full sm:w-auto">Review Bill Plan</button>
+                    </section>
+
+                    {payPeriod ? (
+                      <div className="lg:col-span-2">
+                        <button type="button" className="button-secondary w-full sm:w-auto" aria-expanded={isOverviewCalendarOpen} aria-controls="overview-budget-details" onClick={() => setIsOverviewCalendarOpen((current) => !current)}>{isOverviewCalendarOpen ? 'Hide budget details' : 'View budget details'}</button>
+                        {isOverviewCalendarOpen ? (
+                          <div id="overview-budget-details" className="mt-3 grid gap-3">
+                            <PaycheckAllocation totals={totals} formatCurrency={formatCurrency} />
+                            <PayPeriodCalendar key={`${payPeriod.startDate}:${payPeriod.endDate}`} payPeriod={payPeriod} bills={bills} expenses={expenses} recurringTemplates={recurringTemplates} onEditBill={startEditBill} onEditExpense={startEditExpense} />
+                          </div>
                         ) : null}
                       </div>
-                    </div>
+                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -6157,12 +5932,10 @@ function getSafePercent(part: number, whole: number) {
 function FinancialPulseHero({
   payPeriod,
   totals,
-  billPaymentSummary,
   formatCurrency,
 }: {
   payPeriod: BudgetPeriod | null
   totals: OverviewTotals
-  billPaymentSummary: BillPaymentSummary
   formatCurrency: (value: number) => string
 }) {
   const leftoverStatus =
@@ -6172,71 +5945,23 @@ function FinancialPulseHero({
         ? 'Fully allocated'
         : 'Available after bills and spending'
   const leftoverTone = totals.leftover < 0 ? 'warning' : totals.leftover === 0 ? 'neutral' : 'positive'
-  const billProgress = getSafePercent(billPaymentSummary.paidAmount, billPaymentSummary.totalAmount)
   const rangeLabel = payPeriod ? `${payPeriod.startDate} to ${payPeriod.endDate}` : 'No active pay period'
 
   return (
     <section className={`leftly-financial-pulse leftly-financial-pulse-${leftoverTone}`} aria-labelledby="financial-pulse-title">
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] lg:items-stretch">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p id="financial-pulse-title" className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/80">
-              Current Leftover
-            </p>
-            <Badge muted>{leftoverStatus}</Badge>
-          </div>
-
-          <p className="mt-3 break-words text-[clamp(2.4rem,14vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.04em] text-white lg:text-[clamp(4rem,7vw,6.5rem)]">
-            {formatCurrency(totals.leftover)}
-          </p>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-            Income minus planned bills, set-asides, and expenses in this pay period.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge muted>{rangeLabel}</Badge>
-            {payPeriod ? <Badge muted>{payPeriod.cadence}</Badge> : null}
-            {payPeriod?.rolloverAmount && payPeriod.rolloverAmount > 0 ? (
-              <Badge success>Rollover {formatCurrency(payPeriod.rolloverAmount)}</Badge>
-            ) : null}
-          </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p id="financial-pulse-title" className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/80">Safe to spend</p>
+          <span className="text-xs text-slate-400">{rangeLabel}</span>
         </div>
-
-        <div className="grid min-w-0 gap-3">
-          <div className="leftly-pulse-focus-stat">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Safe to spend</p>
-            <p className="mt-2 break-words text-2xl font-semibold tracking-[-0.03em] text-emerald-100">{formatCurrency(totals.safeToSpend)}</p>
-          </div>
-
-          <div className="leftly-pulse-focus-stat">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Bills paid by amount</p>
-              <p className="text-sm font-semibold text-cyan-100">{billPaymentSummary.totalAmount > 0 ? `${Math.round(billProgress)}%` : 'No bills'}</p>
-            </div>
-            <div
-              className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800/90"
-              role="progressbar"
-              aria-label="Bill payment progress by amount"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(billProgress)}
-            >
-              <div className="leftly-progress-fill leftly-progress-emerald" style={{ width: `${billProgress}%` }} />
-            </div>
-            <p className="mt-2 text-xs leading-5 text-slate-400">
-              {billPaymentSummary.paidCount} of {billPaymentSummary.totalCount} paid · {formatCurrency(billPaymentSummary.paidAmount)} of {formatCurrency(billPaymentSummary.totalAmount)}
-            </p>
-          </div>
+        <p className={`mt-3 break-words text-[clamp(2.8rem,15vw,5rem)] font-semibold leading-[0.95] tracking-[-0.04em] ${totals.safeToSpend < 0 ? 'text-rose-100' : 'text-white'}`}>
+          {formatCurrency(totals.safeToSpend)}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
+          <span>Left after all activity: <strong className="text-slate-200">{formatCurrency(totals.leftover)}</strong></span>
+          <span>{leftoverStatus}</span>
+          {payPeriod?.rolloverAmount && payPeriod.rolloverAmount > 0 ? <span>Rollover {formatCurrency(payPeriod.rolloverAmount)}</span> : null}
         </div>
-      </div>
-
-      <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        <OverviewStat label="Income" value={formatCurrency(totals.income)} />
-        <OverviewStat label="Planned bills" value={formatCurrency(totals.totalPlannedBills)} />
-        <OverviewStat label="Paid bills" value={formatCurrency(totals.paidBills)} />
-        <OverviewStat label="Unpaid bills" value={formatCurrency(totals.unpaidBills)} />
-        <OverviewStat label="Expenses" value={formatCurrency(totals.totalExpenses)} />
-        {totals.totalSetAside > 0 ? <OverviewStat label="Set-asides" value={formatCurrency(totals.totalSetAside)} /> : null}
       </div>
     </section>
   )
@@ -6260,26 +5985,18 @@ function NextPaycheckForecastCard({
   onView: () => void
 }) {
   return (
-    <section className="leftly-overview-section" aria-label="Next paycheck forecast">
+    <section className="leftly-overview-section leftly-overview-section-quiet" aria-label="Next paycheck forecast">
       <OverviewSectionHeader
-        title="Next paycheck forecast"
-        description="A transparent estimate from your current pay-period cadence and Bill Plan."
-        aside={<Badge muted>Estimate</Badge>}
+        title="Next paycheck"
+        description="Forecast estimate"
       />
       {!forecast.available ? (
-        <EmptyState title="Forecast unavailable" text={forecast.unavailableReason ?? 'Set a valid active pay period to estimate the next paycheck.'} compact />
+        <p className="mt-3 text-sm text-slate-400">Forecast unavailable.</p>
       ) : (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs text-slate-400">
-              Estimated {formatHistoryPeriodLabel(forecast.forecastStart, forecast.forecastEnd)}
-            </p>
-            <p className="mt-2 break-words text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">{formatCurrency(forecast.projectedLeft)}</p>
-            <p className={`mt-2 text-sm font-semibold ${forecastStatusClass(forecast.status)}`}>{forecastStatusLabel(forecast.status)}</p>
-            <div className="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
-              <span>Expected income <strong className="text-slate-200">{formatCurrency(forecast.expectedIncome)}</strong></span>
-              <span>Scheduled bills <strong className="text-slate-200">{formatCurrency(forecast.scheduledBillTotal)}</strong></span>
-            </div>
+            <p className="text-xl font-semibold tracking-[-0.03em] text-white">{formatCurrency(forecast.projectedLeft)}</p>
+            <p className={`mt-1 text-xs font-semibold ${forecastStatusClass(forecast.status)}`}>{forecastStatusLabel(forecast.status)}</p>
           </div>
           <button type="button" className="button-secondary w-full sm:w-auto" onClick={onView} aria-label="View next paycheck forecast details">
             View forecast
@@ -6367,15 +6084,6 @@ function ForecastDetail({
   )
 }
 
-function OverviewStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="leftly-overview-stat">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-1.5 break-words text-sm font-semibold text-white">{value}</p>
-    </div>
-  )
-}
-
 function PaycheckAllocation({
   totals,
   formatCurrency,
@@ -6455,35 +6163,17 @@ function BillPaymentProgress({
   const progressLabel = summary.totalAmount > 0 ? `${Math.round(progress)}% paid by amount` : 'No bills yet'
 
   return (
-    <section className="leftly-overview-section" aria-labelledby="bill-payment-progress-title">
-      <OverviewSectionHeader
-        title="Bill-payment progress"
-        description="Completion is measured by paid amount divided by total planned bill amount."
-      />
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
-        <div
-          className="leftly-bill-progress-ring"
-          style={{ '--leftly-bill-progress': `${progress}%` } as CSSProperties}
-          role="progressbar"
-          aria-label="Bill payment progress by amount"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(progress)}
-        >
-          <span>{summary.totalAmount > 0 ? `${Math.round(progress)}%` : '0%'}</span>
+    <section className="leftly-overview-section leftly-overview-section-quiet" aria-labelledby="bill-payment-progress-title">
+      <OverviewSectionHeader title="Bills" description="Payment progress" />
+      <div className="mt-3">
+        <div className="flex items-center justify-between gap-3">
+          <p id="bill-payment-progress-title" className="text-sm font-semibold text-white">{progressLabel}</p>
+          <span className="text-xs text-slate-400">{summary.paidCount} of {summary.totalCount} paid</span>
         </div>
-
-        <div className="min-w-0">
-          <p id="bill-payment-progress-title" className="text-base font-semibold text-white">{progressLabel}</p>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            {summary.paidCount} of {summary.totalCount} bill{summary.totalCount === 1 ? '' : 's'} paid · {summary.unpaidCount} unpaid
-          </p>
-          <div className="mt-3 grid gap-2">
-            <OverviewStat label="Paid amount" value={`${formatCurrency(summary.paidAmount)} of ${formatCurrency(summary.totalAmount)}`} />
-            <OverviewStat label="Unpaid amount" value={formatCurrency(summary.unpaidAmount)} />
-          </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800/90" role="progressbar" aria-label="Bill payment progress by amount" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
+          <div className="leftly-progress-fill leftly-progress-emerald" style={{ width: `${progress}%` }} />
         </div>
+        <p className="mt-2 text-xs text-slate-400">{formatCurrency(summary.unpaidAmount)} unpaid</p>
       </div>
     </section>
   )
@@ -6534,9 +6224,9 @@ function OverviewActionCard({
       className={`leftly-overview-action-card ${tone === 'accent' ? 'leftly-overview-action-card-accent' : ''} ${wide ? 'sm:col-span-2' : ''} disabled:cursor-not-allowed disabled:opacity-50`}
     >
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
-        <p className="mt-1 text-sm font-semibold tracking-[-0.02em] text-white">{title}</p>
-        <p className="mt-1 text-[11px] leading-5 text-slate-400">{helper}</p>
+        <p className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:block">{eyebrow}</p>
+        <p className="text-sm font-semibold tracking-[-0.02em] text-white sm:mt-1">{title}</p>
+        <p className="sr-only sm:not-sr-only sm:mt-1 sm:block sm:text-[11px] sm:leading-5 sm:text-slate-400">{helper}</p>
       </div>
       <span className="shrink-0 text-sm text-slate-500">›</span>
     </button>

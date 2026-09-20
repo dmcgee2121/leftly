@@ -103,13 +103,14 @@ import { buildPayPeriodInsights, type InsightBillMeasure, type InsightComparison
 import { buildQuickAddSuggestions, type QuickAddSuggestion } from './lib/quickAddSuggestions'
 import { calculatePayPeriodTotals } from './lib/budgetMath'
 import { searchHistoryActivity } from './lib/historySearch'
+import { createManualBill, createManualExpense } from './lib/manualEntries'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
 type TabKey = MainTabKey | MoreMenuKey
 type OverlayKey = Extract<TabKey, 'quick-add' | 'more'>
 type ContentTabKey = Exclude<TabKey, OverlayKey>
-type ActiveOverlay = OverlayKey | 'history-detail' | 'forecast' | 'insights' | 'planning-horizon' | 'confirm-action' | null
+type ActiveOverlay = OverlayKey | 'quick-bill' | 'history-detail' | 'forecast' | 'insights' | 'planning-horizon' | 'confirm-action' | null
 type HistorySort = 'newest' | 'oldest' | 'highest-leftly' | 'lowest-leftly'
 type PayPeriodDraft = {
   cadence: PayCadence
@@ -346,27 +347,27 @@ const categoryOrderOptions: Array<{ value: CategoryOrderMode; label: string }> =
 const tabLabels: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'quick-add', label: 'Quick Add' },
-  { key: 'income', label: 'Income' },
-  { key: 'bill', label: 'One-time Bill' },
-  { key: 'expense', label: 'Manual Expense' },
+  { key: 'income', label: 'Paycheck' },
+  { key: 'bill', label: 'Bills' },
+  { key: 'expense', label: 'Expenses' },
   { key: 'categories', label: 'Categories' },
   { key: 'recurring', label: 'Bill Plan' },
   { key: 'history', label: 'History' },
   { key: 'more', label: 'More' },
-  { key: 'data', label: 'Data' },
+  { key: 'data', label: 'Data & backup' },
 ]
 
 // Keep this order explicit so a future preference can reorder More without changing the screen model.
 const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> = [
   {
     key: 'income',
-    label: 'Income',
+    label: 'Paycheck',
     helper: 'Update paycheck income and pay period details.',
   },
   {
     key: 'expense',
-    label: 'Manual Expense',
-    helper: 'Log spending that happened during this pay period.',
+    label: 'Expenses',
+    helper: 'Review, edit, or delete spending from this pay period.',
   },
   {
     key: 'categories',
@@ -375,17 +376,17 @@ const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> 
   },
   {
     key: 'bill',
-    label: 'One-time Bill',
-    helper: 'Add an unusual bill for this pay period.',
+    label: 'Bills',
+    helper: 'Review and manage one-time bills.',
   },
   {
     key: 'data',
-    label: 'Data',
+    label: 'Data & backup',
     helper: 'Back up, restore, export spreadsheets, reset, and manage preferences.',
   },
   {
     key: 'help',
-    label: 'Help / About / Feedback',
+    label: 'Help',
     helper: 'Find the beta tester guide, privacy basics, and the feedback template.',
   },
 ]
@@ -393,21 +394,15 @@ const moreMenuItems: Array<{ key: MoreMenuKey; label: string; helper: string }> 
 const tabScreenLabels: Record<TabKey, string> = {
   overview: 'Overview',
   'quick-add': 'Quick Add',
-  income: 'Income',
-  bill: 'One-time Bill',
-  expense: 'Manual Expense',
+  income: 'Paycheck',
+  bill: 'Bills',
+  expense: 'Expenses',
   categories: 'Categories',
   recurring: 'Bill Plan',
   history: 'History',
   more: 'More',
-  data: 'Data',
-  help: 'Help / About / Feedback',
-}
-
-const quickAddDateBehaviorLabels: Record<LeftlyPreferences['quickAddDateBehavior'], string> = {
-  today: 'Today',
-  'pay-period-start': 'Pay period start',
-  blank: 'Choose date',
+  data: 'Data & backup',
+  help: 'Help',
 }
 
 const initialPayPeriod = loadActiveBudgetPeriod()
@@ -1277,6 +1272,7 @@ function App() {
   const landingBackupInputRef = useRef<HTMLInputElement | null>(null)
   const mainContentRef = useRef<HTMLDivElement | null>(null)
   const quickAddNameInputRef = useRef<HTMLInputElement | null>(null)
+  const quickBillNameInputRef = useRef<HTMLInputElement | null>(null)
   const moreFirstItemRef = useRef<HTMLButtonElement | null>(null)
   const overlayTriggerRef = useRef<HTMLElement | null>(null)
   const hasMountedScreenTransitionRef = useRef(false)
@@ -1334,6 +1330,8 @@ function App() {
   const [isSetupOpen, setIsSetupOpen] = useState(false)
   const [isApplyBillPlanOpen, setIsApplyBillPlanOpen] = useState(false)
   const [isStartNewPayPeriodOpen, setIsStartNewPayPeriodOpen] = useState(false)
+  const [areQuickAddDetailsOpen, setAreQuickAddDetailsOpen] = useState(false)
+  const [isQuickBillCategoryOpen, setIsQuickBillCategoryOpen] = useState(false)
   const [startNewPayPeriodInitialDraft, setStartNewPayPeriodInitialDraft] = useState<{
     income: string
     cadence: PayCadence
@@ -2120,7 +2118,7 @@ function App() {
           : activeTab
         : activeOverlay === 'insights'
           ? 'history'
-        : activeOverlay === 'forecast'
+        : activeOverlay === 'forecast' || activeOverlay === 'quick-bill'
           ? 'overview'
         : activeOverlay === 'planning-horizon'
           ? 'recurring'
@@ -2459,42 +2457,24 @@ function App() {
     )
   }
 
+  function addBillFromDraft(draft: BillDraft) {
+    const result = createManualBill(draft)
+
+    if (!result.ok) {
+      setBillError(result.error)
+      return false
+    }
+
+    setBills((current) => [result.item, ...current])
+    return true
+  }
+
   function handleAddBill(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBillError('')
     setBillSuccess('')
 
-    const amount = Number(billDraft.amount)
-
-    if (!billDraft.name.trim()) {
-      setBillError('Bill name is required.')
-      return
-    }
-
-    if (!billDraft.dueDate) {
-      setBillError('Due date is required.')
-      return
-    }
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setBillError('Amount must be greater than 0.')
-      return
-    }
-
-    setBills((current) => [
-      {
-        id: crypto.randomUUID(),
-        name: billDraft.name.trim(),
-        amount,
-        dueDate: billDraft.dueDate,
-        isPaid: false,
-        paidDate: null,
-        category: billDraft.category,
-        source: 'manual',
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ])
+    if (!addBillFromDraft(billDraft)) return
 
     setBillDraft({
       name: '',
@@ -2506,36 +2486,28 @@ function App() {
     setActiveTab('bill')
   }
 
+  function handleQuickAddBill(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBillError('')
+    setBillSuccess('')
+
+    if (!addBillFromDraft(billDraft)) return
+
+    setBillDraft({ name: '', amount: '', dueDate: '', category: billDraft.category })
+    setBillStatus('Bill added.')
+    setActiveTab('overview')
+    setActiveOverlay(null)
+  }
+
   function addExpenseFromDraft(draft: ExpenseDraft) {
-    const amount = Number(draft.amount)
+    const result = createManualExpense(draft)
 
-    if (!draft.name.trim()) {
-      setExpenseError('Expense name is required.')
+    if (!result.ok) {
+      setExpenseError(result.error)
       return false
     }
 
-    if (!draft.date) {
-      setExpenseError('Date is required.')
-      return false
-    }
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setExpenseError('Amount must be greater than 0.')
-      return false
-    }
-
-    setExpenses((current) => [
-      {
-        id: crypto.randomUUID(),
-        name: draft.name.trim(),
-        amount,
-        date: draft.date,
-        category: draft.category,
-        source: 'manual',
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ])
+    setExpenses((current) => [result.item, ...current])
 
     return true
   }
@@ -2559,10 +2531,28 @@ function App() {
     setActiveOverlay('quick-add')
     setExpenseError('')
     setExpenseSuccess('')
+    setAreQuickAddDetailsOpen(false)
     setExpenseDraft((current) => ({
       ...current,
       date: getQuickAddDateValue(preferences, payPeriod),
     }))
+  }
+
+  function openQuickAddBill() {
+    if (!payPeriod) return
+
+    overlayTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setActiveOverlay('quick-bill')
+    setBillError('')
+    setBillSuccess('')
+    setBillDraft(getBlankBillDraft(preferences.defaultCategory))
+    setIsQuickBillCategoryOpen(false)
+  }
+
+  function closeQuickAddBill() {
+    setBillError('')
+    setActiveOverlay(null)
+    window.setTimeout(() => overlayTriggerRef.current?.focus(), 0)
   }
 
   function openMoreMenu() {
@@ -2975,6 +2965,7 @@ function App() {
       date: getQuickAddDateValue(preferences, payPeriod),
     })
     setExpenseSuccess('Added to this pay period.')
+    window.setTimeout(() => quickAddNameInputRef.current?.focus(), 0)
   }
 
   function toggleBillPaid(id: string) {
@@ -3808,36 +3799,24 @@ function App() {
       <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleQuickAddExpense}>
         <div className="leftly-panel-section">
           <div className="grid gap-1">
-            <p className="leftly-panel-label">Quick expense</p>
-            <p className="leftly-panel-copy">Name, amount, category, then add it to this pay period.</p>
+            <p className="leftly-panel-label">Add expense</p>
+            <p className="leftly-panel-copy">Enter the name and amount.</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-            <Badge muted>{quickAddDateBehaviorLabels[preferences.quickAddDateBehavior]}</Badge>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
             <span>
-              {payPeriod.startDate} to {payPeriod.endDate}
+              {expenseDraft.category} · {expenseDraft.date === formatIsoDate(new Date()) ? 'Today' : expenseDraft.date ? formatCompactDateLabel(expenseDraft.date) : 'Choose date'}
             </span>
-            <span>Default: {preferences.defaultCategory}</span>
+            <button
+              type="button"
+              className="button-secondary w-full sm:w-auto"
+              aria-expanded={areQuickAddDetailsOpen}
+              aria-controls="leftly-quick-add-details"
+              onClick={() => setAreQuickAddDetailsOpen((current) => !current)}
+            >
+              {areQuickAddDetailsOpen ? 'Hide details' : 'Change details'}
+            </button>
           </div>
-
-          {quickAddCategorySuggestions.length > 0 ? (
-            <div className="grid gap-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Category shortcuts</p>
-              <div className="flex flex-wrap gap-2">
-                {quickAddCategorySuggestions.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => applyQuickAddCategory(category)}
-                    aria-pressed={expenseDraft.category === category}
-                    className={`leftly-chip-button ${expenseDraft.category === category ? 'leftly-chip-button-active' : ''}`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Name">
@@ -3868,36 +3847,34 @@ function App() {
                 placeholder="48.25"
               />
             </Field>
-            <Field label="Category">
-              <select
-                value={expenseDraft.category}
-                onChange={(event) =>
-                  setExpenseDraft((current) => ({
-                    ...current,
-                    category: event.target.value as BudgetCategory,
-                  }))
-                }
-              >
-                {allCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Date">
-              <input
-                type="date"
-                value={expenseDraft.date}
-                onChange={(event) =>
-                  setExpenseDraft((current) => ({
-                    ...current,
-                    date: event.target.value,
-                  }))
-                }
-              />
-            </Field>
           </div>
+
+          {areQuickAddDetailsOpen ? (
+            <div id="leftly-quick-add-details" className="grid gap-3 border-t border-slate-800/80 pt-3">
+              {quickAddCategorySuggestions.length > 0 ? (
+                <div className="grid gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Category shortcuts</p>
+                  <div className="flex flex-wrap gap-2">
+                    {quickAddCategorySuggestions.map((category) => (
+                      <button key={category} type="button" onClick={() => applyQuickAddCategory(category)} aria-pressed={expenseDraft.category === category} className={`leftly-chip-button ${expenseDraft.category === category ? 'leftly-chip-button-active' : ''}`}>
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Category">
+                  <select value={expenseDraft.category} onChange={(event) => setExpenseDraft((current) => ({ ...current, category: event.target.value as BudgetCategory }))}>
+                    {allCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                </Field>
+                <Field label="Date">
+                  <input type="date" value={expenseDraft.date} onChange={(event) => setExpenseDraft((current) => ({ ...current, date: event.target.value }))} />
+                </Field>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
@@ -3921,14 +3898,56 @@ function App() {
     <div className="grid gap-4">
       <EmptyState
         title="Start a pay period first"
-        text="Run setup first, or set income and pay period in Income, so Quick Add knows where this spending belongs."
+        text="Run setup first, or set your paycheck and pay period, so Leftly knows where this spending belongs."
       />
       <div className="leftly-action-grid">
         <button type="button" onClick={() => setActiveTab('income')} className="button-primary w-full sm:w-auto">
-          Go to Income
+          Go to Paycheck
         </button>
       </div>
     </div>
+  )
+
+  const quickBillOverlayContent = (
+    <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleQuickAddBill}>
+      <div className="leftly-form-grid">
+        <div className="leftly-form-grid-full">
+          <Field label="Name">
+            <input ref={quickBillNameInputRef} value={billDraft.name} onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Car repair" />
+          </Field>
+        </div>
+        <Field label="Amount">
+          <input type="number" min="0" step="0.01" inputMode="decimal" value={billDraft.amount} onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))} placeholder="120" />
+        </Field>
+        <Field label="Due date">
+          <input type="date" value={billDraft.dueDate} onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))} />
+        </Field>
+      </div>
+
+      <div className="grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
+          <span>Category: {billDraft.category}</span>
+          <button type="button" className="button-secondary w-full sm:w-auto" aria-expanded={isQuickBillCategoryOpen} aria-controls="leftly-quick-bill-category" onClick={() => setIsQuickBillCategoryOpen((current) => !current)}>
+            {isQuickBillCategoryOpen ? 'Hide category' : 'Change category'}
+          </button>
+        </div>
+        {isQuickBillCategoryOpen ? (
+          <div id="leftly-quick-bill-category">
+            <Field label="Category">
+              <select value={billDraft.category} onChange={(event) => setBillDraft((current) => ({ ...current, category: event.target.value as BudgetCategory }))}>
+                {allCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
+            </Field>
+          </div>
+        ) : null}
+      </div>
+
+      {billError ? <FormMessage>{billError}</FormMessage> : null}
+      <div className="leftly-action-grid">
+        <button type="button" onClick={closeQuickAddBill} className="button-secondary w-full sm:w-auto">Cancel</button>
+        <button type="submit" className="button-primary w-full sm:w-auto">Save</button>
+      </div>
+    </form>
   )
 
   const moreOverlayContent = (
@@ -4120,47 +4139,34 @@ function App() {
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader
                         title="Quick actions"
-                        description="Keep the next move close: add spending, pull in saved bills, or start the next pay period."
+                        description="Add what happened or move to your next paycheck."
                         aside={!payPeriod ? <p className="text-xs leading-5 text-slate-500">Start a pay period to unlock bill and expense actions.</p> : undefined}
                       />
 
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      {billStatus ? <div className="mt-3"><SuccessMessage>{billStatus}</SuccessMessage></div> : null}
+
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
                         <OverviewActionCard
-                          eyebrow="Fastest"
-                          title="Quick Add"
-                          helper="Log spending in a few taps."
+                          eyebrow="Spend"
+                          title="Add expense"
+                          helper="Enter a name and amount."
                           onClick={openQuickAddExpense}
                           disabled={!payPeriod}
                           tone="accent"
-                          wide
                         />
                         <OverviewActionCard
-                          eyebrow={payPeriod && hasActiveBillPlanItems ? 'Saved items' : 'Bill Plan'}
-                          title={payPeriod && hasActiveBillPlanItems ? 'Apply Bill Plan' : 'Open Bill Plan'}
-                          helper={payPeriod && hasActiveBillPlanItems ? 'Bring in recurring bills and set-asides.' : 'Manage saved repeating bills.'}
-                          onClick={payPeriod && hasActiveBillPlanItems ? openBillPlanApply : () => setActiveTab('recurring')}
-                        />
-                        <OverviewActionCard
-                          eyebrow="One-time"
-                          title="One-time Bill"
-                          helper="Add a bill for just this period."
-                          onClick={() => payPeriod && setActiveTab('bill')}
-                          disabled={!payPeriod}
-                        />
-                        <OverviewActionCard
-                          eyebrow="Manual"
-                          title="Manual Expense"
-                          helper="Open the full expense screen."
-                          onClick={() => payPeriod && setActiveTab('expense')}
+                          eyebrow="Bill"
+                          title="Add bill"
+                          helper="Enter a one-time bill here."
+                          onClick={openQuickAddBill}
                           disabled={!payPeriod}
                         />
                         {payPeriod ? (
                           <OverviewActionCard
-                            eyebrow="Next paycheck"
-                            title="Start New Pay Period"
+                            eyebrow="Paycheck"
+                            title="Next paycheck"
                             helper="Archive this one and carry forward what matters."
                             onClick={openStartNewPayPeriod}
-                            wide
                           />
                         ) : null}
                       </div>
@@ -4238,7 +4244,7 @@ function App() {
                               <div className="mt-3 flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
                                 <p>+{dueSoonBills.length - 3} more unpaid bills</p>
                                 <button type="button" onClick={() => setActiveTab('bill')} className="button-secondary w-full sm:w-auto">
-                                  View all bills in One-time Bill
+                                  View all bills
                                 </button>
                               </div>
                             ) : null}
@@ -4330,7 +4336,7 @@ function App() {
                             ) : null}
                           </>
                         ) : (
-                          <EmptyState title="No spending yet" text="Use Quick Add or Manual Expense when you start logging spending." compact />
+                          <EmptyState title="No spending yet" text="Use Add expense when you start logging spending." compact />
                         )
                       ) : (
                         <EmptyState title="No active pay period" text="Start a pay period to track spending by category." compact />
@@ -4433,7 +4439,7 @@ function App() {
                       {bills.length > 3 ? (
                         <div className="mt-3">
                           <button type="button" onClick={() => setActiveTab('bill')} className="button-secondary w-full sm:w-auto">
-                            View all bills in One-time Bill
+                            View all bills
                           </button>
                         </div>
                       ) : null}
@@ -4476,7 +4482,7 @@ function App() {
                             )
                           })
                         ) : (
-                          <EmptyState title="No expenses yet" text="Use Quick Add or Manual Expense to start tracking spending in this pay period." compact />
+                          <EmptyState title="No expenses yet" text="Use Add expense to start tracking spending in this pay period." compact />
                         )}
                       </div>
                     </div>
@@ -4620,12 +4626,12 @@ function App() {
           ) : null}
 
           {activeTab === 'bill' ? (
-            <SectionShell title="One-time Bill" description="Review and manage unusual bills that belong only to the current pay period.">
+            <SectionShell title="Bills" description="Review and manage one-time bills in the current pay period.">
               <MoreBackBar onBack={openMoreMenu} />
               <div className="grid gap-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-slate-400">
-                    Use this screen for unusual charges that belong only to the current pay period.
+                    Use Add bill on Overview for fast entry. Review, edit, delete, or update bills here.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
@@ -4718,7 +4724,7 @@ function App() {
 
                 <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddBill}>
                   <div className="grid gap-1">
-                    <p className="leftly-panel-label">Add one-time bill</p>
+                    <p className="leftly-panel-label">Add bill</p>
                     <p className="leftly-panel-copy">Enter the bill details below to track a charge that does not belong in Bill Plan.</p>
                   </div>
 
@@ -4786,7 +4792,7 @@ function App() {
                       Back to More
                     </button>
                     <button type="submit" className="button-primary w-full sm:w-auto">
-                      Save one-time bill
+                      Save bill
                     </button>
                   </div>
                 </form>
@@ -4795,19 +4801,19 @@ function App() {
           ) : null}
 
           {activeTab === 'expense' ? (
-            <SectionShell title="Manual Expense" description="Review, edit, or add spending in the current pay period.">
+            <SectionShell title="Expenses" description="Review and manage spending in the current pay period.">
               <MoreBackBar onBack={openMoreMenu} />
               <div className="grid gap-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-slate-400">
-                    Quick Add stays the fastest way to log spending. Use this screen when you want to review, edit, or clean up entries.
+                    Add expense is the everyday path. Use this screen to review, edit, or clean up entries.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
                     <Badge muted>{manualExpenses.length} item{manualExpenses.length === 1 ? '' : 's'}</Badge>
                     {manualExpenses.length > 0 ? <Badge muted>{formatCurrency(manualExpenseTotal)}</Badge> : null}
                     <button type="button" onClick={openQuickAddExpense} disabled={!payPeriod} className="button-secondary w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50">
-                      Open Quick Add
+                      Add expense
                     </button>
                   </div>
                 </div>
@@ -4879,8 +4885,8 @@ function App() {
 
                 <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddExpense}>
                   <div className="grid gap-1">
-                    <p className="leftly-panel-label">Add manual expense</p>
-                    <p className="leftly-panel-copy">Enter the spending details below to keep this pay period accurate.</p>
+                    <p className="leftly-panel-label">Detailed expense entry</p>
+                    <p className="leftly-panel-copy">Use this form when you need every detail visible at once.</p>
                   </div>
 
                   <div className="leftly-form-grid">
@@ -4955,7 +4961,7 @@ function App() {
                       Back to More
                     </button>
                     <button type="submit" className="button-primary w-full sm:w-auto">
-                      Save manual expense
+                      Save expense
                     </button>
                   </div>
                 </form>
@@ -5567,14 +5573,26 @@ function App() {
       <AppOverlay
         id={quickAddOverlayId}
         isOpen={activeOverlay === 'quick-add'}
-        title="Quick Add"
-        description="Log everyday spending quickly in your current pay period."
+        title="Add expense"
+        description="Log spending in your current pay period."
         desktopPresentation="dialog"
         initialFocusRef={quickAddNameInputRef}
         closeLabel="Close Quick Add"
         onClose={closeQuickAddExpense}
       >
         {quickAddOverlayContent}
+      </AppOverlay>
+      <AppOverlay
+        id="leftly-quick-bill-overlay"
+        isOpen={activeOverlay === 'quick-bill'}
+        title="Add bill"
+        description="Add a one-time bill to this pay period."
+        desktopPresentation="dialog"
+        initialFocusRef={quickBillNameInputRef}
+        closeLabel="Close Add bill"
+        onClose={closeQuickAddBill}
+      >
+        {quickBillOverlayContent}
       </AppOverlay>
       <AppOverlay
         id={moreOverlayId}

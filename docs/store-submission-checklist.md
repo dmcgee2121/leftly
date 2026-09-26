@@ -68,6 +68,6 @@
 
 - [x] Android release signing configured for an owner-controlled upload key
 - [x] Local signing credentials and generated release artifacts excluded from git
-- [ ] Signed release AAB built and verified
+- [x] Signed release AAB built and verified locally (version 0.9.0, version code 1)
 - [ ] Google Play App Signing configured
 - [ ] Google Play internal testing completed

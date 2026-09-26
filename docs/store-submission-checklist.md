@@ -43,7 +43,8 @@
 - [ ] Apple Developer account; Google Play Console account
 - [ ] Developer/legal display name; dedicated public support email
 - [ ] Copyright owner; final Bundle ID; final Android application ID
-- [ ] Signing keys; certificates/profiles
+- [x] Android owner-controlled upload key created outside the repository and securely backed up
+- [ ] Apple signing keys; certificates/profiles
 - [ ] Store regions; tax/account details if required
 - [ ] Keep credentials and secrets out of the repository
 
@@ -62,3 +63,11 @@
 - [ ] TestFlight; Play internal testing
 - [ ] Final intentional 1.0.0 bump; release notes
 - [ ] Production/native release checkpoint
+
+## 7. Phase 21 — Android release candidate
+
+- [x] Android release signing configured for an owner-controlled upload key
+- [x] Local signing credentials and generated release artifacts excluded from git
+- [ ] Signed release AAB built and verified
+- [ ] Google Play App Signing configured
+- [ ] Google Play internal testing completed

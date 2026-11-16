@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { formatRecurringScheduleLabel, normalizeRecurringPlanName } from '../lib/recurring'
 import type { Bill, BudgetPeriod, Expense, RecurringItemTemplate } from '../types/budget'
+import { formatDateLabel } from '../lib/dateLabels'
 
 type CalendarItemKind = 'income' | 'bill' | 'expense' | 'set-aside'
 type CalendarItemTone = 'income' | 'bill' | 'expense' | 'set-aside' | 'paid'
@@ -334,7 +335,7 @@ function DetailItem({
           </div>
           <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}
-            {item.kind === 'bill' && item.paidDate ? ` \u00B7 paid ${item.paidDate}` : ''}
+            {item.kind === 'bill' && item.paidDate ? ` \u00B7 paid ${formatDateLabel(item.paidDate)}` : ''}
           </p>
         </div>
         <div className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</div>
@@ -374,7 +375,7 @@ function AgendaItemRow({ item }: { item: CalendarItem }) {
           </div>
           <p className="mt-1 text-[11px] text-current/75">
             {item.category ? item.category : 'Income'}
-            {item.kind === 'bill' && item.paidDate ? ` \u00B7 paid ${item.paidDate}` : ''}
+            {item.kind === 'bill' && item.paidDate ? ` \u00B7 paid ${formatDateLabel(item.paidDate)}` : ''}
           </p>
         </div>
         <div className="shrink-0 text-sm font-semibold text-white">{formatCurrency(item.amount)}</div>

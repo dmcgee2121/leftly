@@ -1,3 +1,4 @@
+import { formatDateLabel } from '../lib/dateLabels'
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { FALLBACK_CATEGORY } from '../lib/categories'
@@ -868,7 +869,7 @@ export function RecurringSection({
                                 </div>
                                 <p className="mt-1 text-sm leading-5 text-slate-400">
                                   {template.category} · {scheduleLabel}
-                                  {template.anchorDate ? ` · anchor ${template.anchorDate}` : ''}
+                                  {template.anchorDate ? ` · anchor ${formatDateLabel(template.anchorDate)}` : ''}
                                 </p>
                               </div>
                               <div className="shrink-0 text-right">
@@ -876,7 +877,7 @@ export function RecurringSection({
                                   {formatCurrency(template.amount)}
                                 </p>
                                 <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                                  {template.createdAt.slice(0, 10)}
+                                  Added {formatDateLabel(template.createdAt)}
                                 </p>
                               </div>
                             </div>
@@ -884,7 +885,7 @@ export function RecurringSection({
                             <div className="flex flex-wrap gap-2">
                               <Badge muted>{scheduleLabel}</Badge>
                               <Badge muted>{planName}</Badge>
-                              {template.anchorDate ? <Badge muted>Anchor {template.anchorDate}</Badge> : null}
+                              {template.anchorDate ? <Badge muted>Anchor {formatDateLabel(template.anchorDate)}</Badge> : null}
                             </div>
 
                             <div className="grid gap-2 sm:grid-cols-3">

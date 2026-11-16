@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bill, BudgetPeriod, CategoryTargets, Expense, PayCadence, PayPeriodSnapshot } from '../types/budget'
+import { formatDateRangeLabel } from '../lib/dateLabels'
 
 const buttonStyles = {
   primary:
@@ -320,7 +321,7 @@ export function StartFromHistoryPanel({
       ) : (
         <div className="mt-4 grid gap-4">
           <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 sm:grid-cols-2">
-            <SummaryCard label="Pay period" value={`${draft.startDate} to ${draft.endDate}`} />
+            <SummaryCard label="Pay period" value={formatDateRangeLabel(draft.startDate, draft.endDate)} />
             <SummaryCard label="Income" value={formatCurrency(Number(draft.income))} />
             <SummaryCard label="Cadence" value={draft.cadence} />
             <SummaryCard label="Copy manual expenses" value={draft.copyManualExpenses ? 'Enabled' : 'Disabled'} />

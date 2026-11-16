@@ -1,4 +1,5 @@
 import type { Bill, Expense, PayPeriodSnapshot } from '../types/budget'
+import { formatDateRangeLabel } from './dateLabels'
 
 export type InsightRange = 3 | 6 | 12 | 'all'
 export type InsightDirection = 'up' | 'down' | 'unchanged'
@@ -98,7 +99,7 @@ function dateValue(value: unknown) {
 }
 
 function formatRange(start: string, end: string) {
-  return `${start} to ${end}`
+  return formatDateRangeLabel(start, end)
 }
 
 function safeCents(value: unknown) {

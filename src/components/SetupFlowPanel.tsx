@@ -4,6 +4,7 @@ import { FALLBACK_CATEGORY, normalizeCategoryName } from '../lib/categories'
 import type { BudgetCategory, BudgetPeriod, PayCadence, RecurringFrequency, RecurringItemTemplate } from '../types/budget'
 import { MAIN_BILL_PLAN, buildRecurringPreview } from '../lib/recurring'
 import { clearSetupDraft, loadSetupDraft, saveSetupDraft } from '../lib/storage'
+import { formatDateRangeLabel } from '../lib/dateLabels'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -401,7 +402,7 @@ export function SetupFlowPanel({
           <SummaryCard label="Paycheck" value={draft.income ? formatCurrency(Number(draft.income)) : 'Add amount'} />
           <SummaryCard
             label="Pay period"
-            value={draft.startDate && draft.endDate ? `${draft.startDate} to ${draft.endDate}` : 'Choose your dates'}
+            value={draft.startDate && draft.endDate ? formatDateRangeLabel(draft.startDate, draft.endDate) : 'Choose your dates'}
           />
           <SummaryCard
             label="Bill Plan items ready"

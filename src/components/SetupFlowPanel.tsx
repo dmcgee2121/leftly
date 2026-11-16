@@ -93,6 +93,11 @@ export function SetupFlowPanel({
     saveSetupDraft(draft)
   }, [activeBudgetPeriod, clearedDraftMarker, draft])
 
+  useEffect(() => {
+    // Each setup step starts at the top so its heading and first field are visible.
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [draft.step])
+
   const stepTitle = useMemo(() => {
     if (draft.step === 1) {
       return 'Step 1 of 3: Your paycheck'

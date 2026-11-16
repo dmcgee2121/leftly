@@ -1,3 +1,4 @@
+import { formatDateRangeLabel } from '../lib/dateLabels'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { MAIN_BILL_PLAN, getRecurringOccurrenceKey, getRecurringSetAsideKey } from '../lib/recurring'
@@ -255,7 +256,7 @@ export function ApplyBillPlanPanel({
 
         <div className="leftly-shell-soft mt-4 grid gap-3 p-3 sm:p-4">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-            <ContextCard label="Pay period" value={`${preview.summary.startDate} to ${preview.summary.endDate}`} />
+            <ContextCard label="Pay period" value={formatDateRangeLabel(preview.summary.startDate, preview.summary.endDate)} />
             <ContextCard label="Bill Plan" value={planContext} />
           </div>
           <div className="grid grid-cols-2 gap-3">

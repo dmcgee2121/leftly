@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bill, BudgetPeriod, PayCadence, RecurringItemTemplate } from '../types/budget'
 import { buildRecurringPreview } from '../lib/recurring'
+import { formatDateLabel, formatDateRangeLabel } from '../lib/dateLabels'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -462,7 +463,7 @@ export function StartNewPayPeriodPanel({
                                   ) : null}
                                 </span>
                                 <span className="mt-1 block text-xs leading-5 text-slate-400">
-                                  {bill.category} · due {bill.dueDate} · {formatCurrency(bill.amount)}
+                                  {bill.category} · due {formatDateLabel(bill.dueDate)} · {formatCurrency(bill.amount)}
                                 </span>
                               </span>
                             </label>
@@ -593,7 +594,7 @@ export function StartNewPayPeriodPanel({
 
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <SummaryCard label="Closed period" value={currentReview?.periodLabel ?? 'Current period'} detail="Saved to History first" />
-              <SummaryCard label="Next pay period" value={`${draft.startDate} to ${draft.endDate}`} detail={draft.cadence} />
+              <SummaryCard label="Next pay period" value={formatDateRangeLabel(draft.startDate, draft.endDate)} detail={draft.cadence} />
               <SummaryCard label="Base income" value={formatCurrency(baseIncome)} detail="Before rollover" />
               <SummaryCard label="Rollover" value={formatCurrency(rolloverAmount)} detail={rolloverAmount > 0 ? 'Added to next income' : 'Not applied'} />
               <SummaryCard label="Next income total" value={formatCurrency(nextIncome)} detail={rolloverAmount > 0 ? 'Base income + rollover' : 'Base income only'} />
@@ -774,7 +775,7 @@ function PreviewGroup({
                   <Badge>{item.isSetAside ? 'Set-aside' : 'Bill Plan'}</Badge>
                 </div>
                 <p className="text-xs text-slate-400">
-                  {item.category} · {item.dateLabel} · {item.frequency} · {item.kind === 'bill' ? 'Due date' : 'Date'}
+                  {item.category} · {formatDateLabel(item.dateLabel)} · {item.frequency} · {item.kind === 'bill' ? 'Due date' : 'Date'}
                 </p>
               </div>
               <p className="text-sm font-semibold text-white">{formatCurrency(item.amount)}</p>

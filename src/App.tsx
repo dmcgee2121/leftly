@@ -105,6 +105,7 @@ import { calculatePayPeriodTotals } from './lib/budgetMath'
 import { searchHistoryActivity } from './lib/historySearch'
 import { createManualBill, createManualExpense } from './lib/manualEntries'
 import { buildRecentActivity } from './lib/recentActivity'
+import { formatDateLabel, formatDateRangeLabel } from './lib/dateLabels'
 
 type MainTabKey = 'overview' | 'quick-add' | 'recurring' | 'history' | 'more'
 type MoreMenuKey = 'income' | 'bill' | 'expense' | 'categories' | 'data' | 'help'
@@ -498,28 +499,12 @@ const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 })
 
-const historyShortDateFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-})
-
 function formatCompactDateLabel(value: string) {
-  const date = new Date(`${value}T00:00:00`)
-  return Number.isNaN(date.getTime()) ? value : historyDateFormatter.format(date)
+  return formatDateLabel(value)
 }
 
 function formatHistoryPeriodLabel(startDate: string, endDate: string) {
-  const start = new Date(`${startDate}T00:00:00`)
-  const end = new Date(`${endDate}T00:00:00`)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return `${startDate} - ${endDate}`
-  }
-
-  if (start.getFullYear() === end.getFullYear()) {
-    return `${historyShortDateFormatter.format(start)} - ${historyDateFormatter.format(end)}`
-  }
-
-  return `${historyDateFormatter.format(start)} - ${historyDateFormatter.format(end)}`
+  return formatDateRangeLabel(startDate, endDate)
 }
 
 function formatPlanSchedule(template: RecurringItemTemplate) {
@@ -1056,7 +1041,7 @@ function HistorySection({
                         {bill.isPaid ? <Badge success>Paid</Badge> : <Badge muted>Unpaid</Badge>}
                       </div>
                       <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-xs">
-                        {bill.category} · Due {bill.dueDate}
+                        {bill.category} · Due {formatDateLabel(bill.dueDate)}
                         {bill.source === 'recurring' ? ' · generated from Bill Plan' : ''}
                       </p>
                     </div>
@@ -1086,7 +1071,7 @@ function HistorySection({
                         ) : null}
                       </div>
                       <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-xs">
-                        {expense.category} · {expense.date}
+                        {expense.category} · {formatDateLabel(expense.date)}
                         {expense.setAsideForTemplateId ? ' · reserves money before the bill is due' : ''}
                       </p>
                     </div>
@@ -1209,7 +1194,7 @@ function HistorySection({
                     ) : null}
                     {getSnapshotCarriedOverSummary(snapshot.bills).count > 0 ? <Badge muted>{getSnapshotCarriedOverSummary(snapshot.bills).count} carried over</Badge> : null}
                   </div>
-                  <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-sm">Archived {formatArchivedDate(snapshot.archivedAt)} · {snapshot.startDate} to {snapshot.endDate}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-400 sm:text-sm">Archived {formatArchivedDate(snapshot.archivedAt)} · {formatDateRangeLabel(snapshot.startDate, snapshot.endDate)}</p>
                   <div className="mt-3 flex items-end justify-between gap-3 border-t border-slate-800/70 pt-3">
                     <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Final Leftly</span>
                     <span className={`text-right text-base font-semibold sm:text-lg ${snapshot.totals.leftover < 0 ? 'text-rose-200' : 'text-cyan-50'}`}>
@@ -1561,8 +1546,9 @@ function App() {
   }, [expenseSuccess])
 
   useEffect(() => {
+    // Start each screen at the top, including when setup opens or finishes on the Overview tab.
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-  }, [activeTab])
+  }, [activeTab, isSetupOpen])
 
   useEffect(() => {
     if (!hasMountedScreenTransitionRef.current) {
@@ -2154,8 +2140,6 @@ function App() {
       requiresReplacement: currentReferenceCount + historicalReferenceCount > 0,
     }
   }, [deleteCategoryCounts])
-
-  const activeScreenLabel = tabScreenLabels[activeTab] ?? 'Leftly'
 
   function formatCurrency(value: number) {
     return currencyFormatter.format(value)
@@ -3579,7 +3563,7 @@ function App() {
       title: `Delete archived period “${snapshot.label}”`,
       description: 'This archived period will be permanently removed from this device. The active pay period and other snapshots will remain.',
       details: [
-        { label: 'Date range', value: `${snapshot.startDate} to ${snapshot.endDate}` },
+        { label: 'Date range', value: formatDateRangeLabel(snapshot.startDate, snapshot.endDate) },
         { label: 'Final Leftly', value: formatCurrency(snapshot.totals.leftover) },
       ],
       confirmLabel: 'Delete archived period',
@@ -3955,63 +3939,28 @@ function App() {
 
       <div
         ref={mainContentRef}
-        className={`relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 pb-32 sm:px-6 sm:pb-6 lg:px-8 ${
-          isFirstRun ? 'py-2.5 sm:py-4 lg:py-5' : isOverviewTab ? 'py-3 sm:py-5 lg:py-6' : 'py-2.5 sm:py-4 lg:py-5'
-        }`}
+        className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-2.5 pb-32 sm:px-6 sm:py-4 sm:pb-6 lg:px-8 lg:py-5"
       >
-        {isOverviewTab ? (
-          isFirstRun ? (
-            <header className="leftly-page-header">
-              <div className="leftly-shell-soft grid gap-3 p-3 sm:gap-4 sm:p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="leftly-chip leftly-chip-default w-fit px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
-                      Manual budget tracker
-                    </p>
-                    <h1 className="mt-3 text-[1.65rem] font-semibold tracking-[-0.04em] text-white sm:text-5xl">Leftly</h1>
-                    <p className="mt-1 text-sm leading-6 text-slate-300 sm:text-lg">Set up your first paycheck and see what is left.</p>
-                  </div>
-                  <span className="leftly-chip leftly-chip-muted shrink-0 px-2.5 py-1 text-[9px] tracking-[0.16em]">
-                    Local only
-                  </span>
+        {isOverviewTab && isFirstRun ? (
+          <header className="leftly-page-header">
+            <div className="leftly-shell-soft grid gap-3 p-3 sm:gap-4 sm:p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="leftly-chip leftly-chip-default w-fit px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
+                    Manual budget tracker
+                  </p>
+                  <h1 className="mt-3 text-[1.65rem] font-semibold tracking-[-0.04em] text-white sm:text-5xl">Leftly</h1>
+                  <p className="mt-1 text-sm leading-6 text-slate-300 sm:text-lg">Set up your first paycheck and see what is left.</p>
                 </div>
-                <p className="max-w-2xl text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
-                  Track a single pay period, your bills, and your spending without connecting a bank.
-                </p>
+                <span className="leftly-chip leftly-chip-muted shrink-0 px-2.5 py-1 text-[9px] tracking-[0.16em]">
+                  Local only
+                </span>
               </div>
-            </header>
-          ) : (
-            <header className="leftly-page-header">
-              <div className="flex flex-col gap-4 sm:items-center sm:text-center">
-                <div className="flex flex-col gap-4 sm:items-center">
-                  <div className="flex flex-col gap-3 sm:items-center">
-                    <p className="leftly-chip leftly-chip-default w-fit px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
-                      Manual budget tracker
-                    </p>
-                    <div className="space-y-1 sm:space-y-2">
-                      <h1 className="text-[2.15rem] font-semibold tracking-[-0.04em] text-white sm:text-6xl">Leftly</h1>
-                      <p className="text-[0.98rem] text-slate-300 sm:text-2xl">Know what&apos;s left.</p>
-                    </div>
-                  </div>
-
-                  <div className="leftly-shell-soft grid gap-2 px-3 py-3 text-left sm:max-w-md sm:grid-cols-2 sm:gap-3 sm:px-4 sm:text-center">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Active screen</p>
-                      <p className="mt-1 text-sm font-semibold text-white">{activeScreenLabel}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Storage</p>
-                      <p className="mt-1 text-sm font-semibold text-white">Local only</p>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="max-w-2xl text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
-                  Track a single pay period, your bills, and your spending without connecting a bank.
-                </p>
-              </div>
-            </header>
-          )
+              <p className="max-w-2xl text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
+                Track a single pay period, your bills, and your spending without connecting a bank.
+              </p>
+            </div>
+          </header>
         ) : (
           <header className="px-1 pb-2 pt-1 sm:px-1 sm:pb-3 sm:pt-2">
             <div className="flex items-center justify-between gap-2">
@@ -4056,7 +4005,7 @@ function App() {
             <SectionShell
               title="Overview"
               description="A snapshot of the current pay period and recent activity."
-              compact={isFirstRun}
+              compact
             >
               {setupSuccess ? (
                 <div className="leftly-banner-success mb-4">
@@ -4276,7 +4225,7 @@ function App() {
                                   key={`bill:${bill.id}`}
                                   title={bill.name}
                                   badges={<><Badge muted>{bill.isPaid ? 'Paid' : 'Unpaid'}</Badge>{isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}</>}
-                                  meta={`Bill · ${bill.category} · due ${bill.dueDate}`}
+                                  meta={`Bill · ${bill.category} · due ${formatDateLabel(bill.dueDate)}`}
                                   amount={formatCurrency(bill.amount)}
                                   actions={<><button type="button" onClick={() => toggleBillPaid(bill.id)} className="leftly-overview-inline-button">{bill.isPaid ? 'Mark unpaid' : 'Mark paid'}</button><button type="button" onClick={() => startEditBill(bill)} className="leftly-overview-inline-button">Edit</button></>}
                                 />
@@ -4289,7 +4238,7 @@ function App() {
                                 key={`expense:${expense.id}`}
                                 title={expense.name}
                                 badges={expense.setAsideForTemplateId ? <Badge muted>Set-aside</Badge> : undefined}
-                                meta={`Expense · ${expense.category} · ${expense.date}`}
+                                meta={`Expense · ${expense.category} · ${formatDateLabel(expense.date)}`}
                                 amount={formatCurrency(expense.amount)}
                                 actions={<button type="button" onClick={() => startEditExpense(expense)} className="leftly-overview-inline-button">Edit</button>}
                               />
@@ -4420,7 +4369,7 @@ function App() {
                     Use Add bill on Overview for fast entry. Review, edit, delete, or update bills here.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
+                    {payPeriod ? <Badge muted>{formatDateRangeLabel(payPeriod.startDate, payPeriod.endDate)}</Badge> : <Badge muted>No active pay period</Badge>}
                     <Badge muted>{oneTimeBills.length} bill{oneTimeBills.length === 1 ? '' : 's'}</Badge>
                     {oneTimeBills.length > 0 ? <Badge muted>{formatCurrency(oneTimeBillSummary.totalAmount)}</Badge> : null}
                     <button type="button" onClick={() => setActiveTab('recurring')} className="button-secondary w-full sm:w-auto">
@@ -4595,7 +4544,7 @@ function App() {
                     Add expense is the everyday path. Use this screen to review, edit, or clean up entries.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {payPeriod ? <Badge muted>{payPeriod.startDate} to {payPeriod.endDate}</Badge> : <Badge muted>No active pay period</Badge>}
+                    {payPeriod ? <Badge muted>{formatDateRangeLabel(payPeriod.startDate, payPeriod.endDate)}</Badge> : <Badge muted>No active pay period</Badge>}
                     <Badge muted>{manualExpenses.length} item{manualExpenses.length === 1 ? '' : 's'}</Badge>
                     {manualExpenses.length > 0 ? <Badge muted>{formatCurrency(manualExpenseTotal)}</Badge> : null}
                     <button type="button" onClick={openQuickAddExpense} disabled={!payPeriod} className="button-secondary w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50">
@@ -5799,8 +5748,8 @@ function CategoryCard({
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
                     <Badge muted>{item.kind}</Badge>
-                    {item.kind === 'bill' ? <Badge muted>Due {item.dueDate}</Badge> : <Badge muted>{item.date}</Badge>}
-                    {item.kind === 'bill' && item.paidDate ? <Badge success>Paid {item.paidDate}</Badge> : null}
+                    {item.kind === 'bill' ? <Badge muted>Due {formatDateLabel(item.dueDate)}</Badge> : <Badge muted>{formatDateLabel(item.date)}</Badge>}
+                    {item.kind === 'bill' && item.paidDate ? <Badge success>Paid {formatDateLabel(item.paidDate)}</Badge> : null}
                   </div>
                   <p className="text-xs leading-5 text-slate-400">
                     {item.kind === 'bill'
@@ -5958,7 +5907,7 @@ function FinancialPulseHero({
         ? 'Fully allocated'
         : 'Available after bills and spending'
   const leftoverTone = totals.leftover < 0 ? 'warning' : totals.leftover === 0 ? 'neutral' : 'positive'
-  const rangeLabel = payPeriod ? `${payPeriod.startDate} to ${payPeriod.endDate}` : 'No active pay period'
+  const rangeLabel = payPeriod ? formatDateRangeLabel(payPeriod.startDate, payPeriod.endDate) : 'No active pay period'
 
   return (
     <section className={`leftly-financial-pulse leftly-financial-pulse-${leftoverTone}`} aria-labelledby="financial-pulse-title">
@@ -6083,7 +6032,7 @@ function ForecastDetail({
         <h3 id="forecast-bills-title" className="text-base font-semibold text-white">Scheduled Bill Plan items</h3>
         {forecast.projectedBills.length === 0 ? <p className="mt-2 text-sm leading-6 text-slate-400">No scheduled Bill Plan items fall in this estimated period.</p> : (
           <ul className="mt-3 grid gap-2" aria-label="Projected Bill Plan bills">
-            {forecast.projectedBills.map((bill) => <li key={`${bill.templateId}:${bill.dueDate}`} className="leftly-compact-list-card"><div className="min-w-0"><p className="break-words text-sm font-semibold text-white">{bill.name}</p><p className="mt-1 text-xs text-slate-400">{bill.dueDate} · {bill.category}</p></div><p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p></li>)}
+            {forecast.projectedBills.map((bill) => <li key={`${bill.templateId}:${bill.dueDate}`} className="leftly-compact-list-card"><div className="min-w-0"><p className="break-words text-sm font-semibold text-white">{bill.name}</p><p className="mt-1 text-xs text-slate-400">{formatDateLabel(bill.dueDate)} · {bill.category}</p></div><p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p></li>)}
           </ul>
         )}
       </section>

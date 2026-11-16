@@ -1,13 +1,12 @@
 import type { PlanningHorizon, PlanningHorizonLength, PlanningOccurrence, PlanningPlanFilter } from '../lib/planningHorizon'
+import { formatDateLabel, formatDateRangeLabel } from '../lib/dateLabels'
 
 function formatDate(value: string) {
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date)
+  return formatDateLabel(value)
 }
 
 function formatRange(startDate: string, endDate: string) {
-  return `${formatDate(startDate)}–${formatDate(endDate)}`
+  return formatDateRangeLabel(startDate, endDate)
 }
 
 function occurrenceTypeLabel(type: PlanningOccurrence['type']) {

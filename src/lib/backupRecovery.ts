@@ -1,5 +1,6 @@
 import type { LeftlyBackup, LeftlyBackupSummary } from './storage'
 import { DATA_SAFETY_META_KEY } from './storage'
+import { formatDateRangeLabel } from './dateLabels'
 
 export type RestoreSource = 'json' | 'cloud'
 
@@ -49,7 +50,7 @@ export function buildRestorePreview(params: {
     sourceLabel: params.sourceLabel ?? (params.source === 'json' ? 'JSON backup' : 'Cloud snapshot'),
     backupFormat: `v${params.backup.version}`,
     exportedAt: validTimestamp(params.backup.exportedAt) ? params.backup.exportedAt : null,
-    activePayPeriod: { present: Boolean(active), range: hasValidActiveRange ? `${active?.startDate} to ${active?.endDate}` : null },
+    activePayPeriod: { present: Boolean(active), range: hasValidActiveRange && active ? formatDateRangeLabel(active.startDate, active.endDate) : null },
     incoming,
     current: params.current,
     comparison: rows.map(([label, current, incomingValue]) => ({ label, current: String(current), incoming: String(incomingValue) })),

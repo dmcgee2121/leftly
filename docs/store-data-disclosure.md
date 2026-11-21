@@ -6,6 +6,12 @@ Source audit date: 2026-09-19. This inventory describes current source behavior,
 
 Browser `localStorage` holds the active pay period (dates, cadence, income, rollover), bills (including names, amounts, due/paid dates, categories and notes), expenses (names, amounts, dates, categories), recurring Bill Plan templates, pay-period History snapshots, category targets and custom/order settings, sort mode, preferences, active tab, setup draft, operational backup/recovery timestamps, and a one-time flag (`leftly.offlineReadyNoticeSeen`) recording that the web app's "works offline" note was shown. Local reset clears these keys.
 
+## Durable copy in the Android app (LFT-008)
+
+In the Android app, Leftly also keeps one snapshot of its `leftly.*` keys (except screen position and one-time notices) in Capacitor Preferences under `leftly.durableSnapshot.v1`. This is on-device app storage that the OS does not reclaim the way it can reclaim WebView storage. If WebView storage has lost the budget at launch, the snapshot is copied back. Like all app data, it is deleted when the app is uninstalled or its data is cleared. Reset clears it immediately. Nothing is sent off the device.
+
+The Overview backup reminder stores `leftly.backupReminderSnoozedUntil` when the person taps Later.
+
 ## Account and authentication data
 
 **Android 1.0:** cloud backup and sign-in are hidden in the Android app (LFT-007), so the app itself sends no budget or account data anywhere. The sections below describe the website, where cloud backup is still optional.

@@ -18,6 +18,7 @@ import type {
   RecurringItemTemplate,
   SortMode,
 } from '../types/budget'
+import { scheduleDurableSave } from './durableStore'
 
 const ACTIVE_BUDGET_KEY = 'leftly.activeBudgetPeriod'
 const BILLS_KEY = 'leftly.bills'
@@ -348,6 +349,7 @@ function isLeftlyPreferences(value: unknown): value is LeftlyPreferences {
 function writeJson(key: string, value: unknown) {
   try {
     window.localStorage.setItem(key, JSON.stringify(value))
+    scheduleDurableSave()
     return true
   } catch {
     // Ignore storage failures so the app keeps running.
@@ -490,6 +492,7 @@ export function restoreLeftlyBackup(backup: LeftlyBackup): RestoreResult {
         rollbackFailedKeys.push(key)
       }
     }
+    scheduleDurableSave()
     return rollbackFailedKeys
   }
 
@@ -697,6 +700,7 @@ export function clearSetupDraft() {
   } catch {
     // Ignore storage failures so the app keeps running.
   }
+  scheduleDurableSave({ immediate: true })
 }
 
 export function loadCustomCategories() {
@@ -760,4 +764,5 @@ export function clearAllAppData() {
   } catch {
     // Ignore storage failures so the app keeps running.
   }
+  scheduleDurableSave({ immediate: true })
 }

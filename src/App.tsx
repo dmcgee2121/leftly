@@ -95,6 +95,7 @@ import { PlanningHorizonDetail, PlanningHorizonSummary } from './components/Plan
 import { AppOverlay } from './components/AppOverlay'
 import { ConfirmActionOverlay, type ConfirmActionDetail } from './components/ConfirmActionOverlay'
 import { PwaLifecycle } from './components/PwaLifecycle'
+import { MobileTabBar } from './components/MobileTabBar'
 import { usePwaLifecycle } from './components/usePwaLifecycle'
 import { getLeftlyCloudConfig } from './lib/cloudConfig'
 import { buildForecast, parseForecastIncome, type ForecastViewModel } from './lib/forecast'
@@ -5197,82 +5198,34 @@ function App() {
           </div>
         </section>
 
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800/80 bg-slate-950/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-2 shadow-[0_-20px_40px_rgba(2,6,23,0.35)] backdrop-blur md:hidden">
-          <div className="mx-auto grid max-w-7xl grid-cols-5 gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('overview')}
-                aria-label="Go to Overview"
-                aria-pressed={activeBottomNavTab === 'overview'}
-                className={`leftly-mobile-nav-button ${
-                activeBottomNavTab === 'overview'
-                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
-                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              type="button"
-              onClick={openQuickAddExpense}
-              disabled={!payPeriod}
-              aria-label="Open Quick Add"
-              aria-controls={quickAddOverlayId}
-              aria-expanded={activeOverlay === 'quick-add'}
-              aria-haspopup="dialog"
-              aria-pressed={activeBottomNavTab === 'quick-add'}
-              className={`leftly-mobile-nav-button disabled:cursor-not-allowed disabled:opacity-50 ${
-                activeBottomNavTab === 'quick-add'
-                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
-                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
-              }`}
-            >
-              Quick Add
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('recurring')}
-              aria-label="Go to Bill Plan"
-              aria-pressed={activeBottomNavTab === 'recurring'}
-              className={`leftly-mobile-nav-button ${
-                activeBottomNavTab === 'recurring'
-                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
-                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
-              }`}
-            >
-              Bill Plan
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('history')}
-              aria-label="Go to History"
-              aria-pressed={activeBottomNavTab === 'history'}
-              className={`leftly-mobile-nav-button ${
-                activeBottomNavTab === 'history'
-                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
-                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
-              }`}
-            >
-              History
-            </button>
-            <button
-              type="button"
-              onClick={openMoreMenu}
-              aria-label="Go to More"
-              aria-controls={moreOverlayId}
-              aria-expanded={activeOverlay === 'more'}
-              aria-haspopup="dialog"
-              aria-pressed={activeBottomNavTab === 'more'}
-              className={`leftly-mobile-nav-button ${
-                activeBottomNavTab === 'more'
-                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
-                  : 'border-slate-800/70 bg-slate-950/65 text-slate-400'
-              }`}
-            >
-              More
-            </button>
-          </div>
-        </div>
+        <MobileTabBar
+          activeTab={
+            activeBottomNavTab === 'overview' || activeBottomNavTab === 'quick-add' || activeBottomNavTab === 'recurring' || activeBottomNavTab === 'history' || activeBottomNavTab === 'more'
+              ? activeBottomNavTab
+              : null
+          }
+          hasPayPeriod={Boolean(payPeriod)}
+          quickAddOverlayId={quickAddOverlayId}
+          moreOverlayId={moreOverlayId}
+          isQuickAddOpen={activeOverlay === 'quick-add'}
+          isMoreOpen={activeOverlay === 'more'}
+          onOverview={() => setActiveTab('overview')}
+          onQuickAdd={() => {
+            if (payPeriod) {
+              openQuickAddExpense()
+              return
+            }
+            if (isFirstRun) {
+              openSetup()
+              return
+            }
+            // Saved data but no active paycheck (e.g. categories changed before setup): use the Paycheck form.
+            setActiveTab('income')
+          }}
+          onBillPlan={() => setActiveTab('recurring')}
+          onHistory={() => setActiveTab('history')}
+          onMore={openMoreMenu}
+        />
       </div>
       <AppOverlay
         id={quickAddOverlayId}

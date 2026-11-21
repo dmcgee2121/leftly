@@ -17,6 +17,7 @@ import {
   loadCustomCategories,
   loadExpenses,
   loadPreferences,
+  loadDataSafetyMeta,
   loadPayPeriodHistory,
   loadRawSetupDraft,
   loadSortMode,
@@ -96,6 +97,9 @@ import { AppOverlay } from './components/AppOverlay'
 import { ConfirmActionOverlay, type ConfirmActionDetail } from './components/ConfirmActionOverlay'
 import { PwaLifecycle } from './components/PwaLifecycle'
 import { MobileTabBar } from './components/MobileTabBar'
+import { getDurableStartupResult } from './lib/durableStore'
+import { describeLastBackup, loadBackupReminderSnooze, shouldShowBackupReminder, snoozeBackupReminder } from './lib/backupReminder'
+import { BackupReminderCard } from './components/BackupReminderCard'
 import { usePwaLifecycle } from './components/usePwaLifecycle'
 import { getLeftlyCloudConfig } from './lib/cloudConfig'
 import { buildForecast, parseForecastIncome } from './lib/forecast'
@@ -580,7 +584,14 @@ function App() {
   const [categoryStatus, setCategoryStatus] = useState('')
   const [dataMessage, setDataMessage] = useState('')
   const [dataError, setDataError] = useState('')
-  const [setupSuccess, setSetupSuccess] = useState('')
+  const [isBackupReminderDismissed, setIsBackupReminderDismissed] = useState(false)
+  const [setupSuccess, setSetupSuccess] = useState(() =>
+    getDurableStartupResult() === 'restored'
+      ? 'Welcome back. Leftly restored your budget from this phone\'s app storage.'
+      : getDurableStartupResult() === 'restore-failed'
+        ? 'Leftly found a saved copy of your budget but could not load it, often because the phone is low on space. The copy is kept safe. Free up some space, then close and reopen Leftly.'
+        : '',
+  )
   const [billPlanMessage, setBillPlanMessage] = useState('')
   const [newCustomCategoryName, setNewCustomCategoryName] = useState('')
   const [categoryError, setCategoryError] = useState('')
@@ -1557,12 +1568,28 @@ function App() {
       await downloadTextFile(filename, serializeLeftlyBackup(backup), 'application/json')
     } catch {
       setDataError('We could not prepare that export. Your budget data was not changed.')
-      return
+      return false
     }
     recordJsonExportInitiated()
     setDataMessage(
       `JSON export initiated from this device as ${filename}. Save the file somewhere outside the browser before resetting data or switching devices.`,
     )
+    return true
+  }
+
+  async function saveBackupFromReminder() {
+    const saved = await exportBackup()
+    setIsBackupReminderDismissed(true)
+    setSetupSuccess(
+      saved
+        ? 'Backup file created. Save it somewhere outside this phone, like Google Drive or your email.'
+        : 'We could not create the backup file. Try again from More > Data & backup.',
+    )
+  }
+
+  function snoozeBackupReminderFromOverview() {
+    snoozeBackupReminder()
+    setIsBackupReminderDismissed(true)
   }
 
   async function importBackupFile(file: File | null) {
@@ -3307,6 +3334,20 @@ function App() {
                 )
               ) : hasAnyData ? (
                 <div className="leftly-overview-dashboard">
+                  {!isBackupReminderDismissed &&
+                  shouldShowBackupReminder({
+                    archivedPayPeriods: payPeriodHistory.length,
+                    lastBackupAt: loadDataSafetyMeta()?.lastJsonExportInitiatedAt,
+                    snoozedUntil: loadBackupReminderSnooze(),
+                  }) ? (
+                    <div className="lg:col-span-2">
+                      <BackupReminderCard
+                        lastBackupLabel={describeLastBackup(loadDataSafetyMeta()?.lastJsonExportInitiatedAt)}
+                        onSave={() => void saveBackupFromReminder()}
+                        onLater={snoozeBackupReminderFromOverview}
+                      />
+                    </div>
+                  ) : null}
                   <div className="lg:col-span-2">
                     <FinancialPulseHero
                       payPeriod={payPeriod}

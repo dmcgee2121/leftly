@@ -4,7 +4,7 @@ Source audit date: 2026-09-19. This inventory describes current source behavior,
 
 ## Local data
 
-Browser `localStorage` holds the active pay period (dates, cadence, income, rollover), bills (including names, amounts, due/paid dates, categories and notes), expenses (names, amounts, dates, categories), recurring Bill Plan templates, pay-period History snapshots, category targets and custom/order settings, sort mode, preferences, active tab, setup draft, and operational backup/recovery timestamps. Local reset clears these keys.
+Browser `localStorage` holds the active pay period (dates, cadence, income, rollover), bills (including names, amounts, due/paid dates, categories and notes), expenses (names, amounts, dates, categories), recurring Bill Plan templates, pay-period History snapshots, category targets and custom/order settings, sort mode, preferences, active tab, setup draft, operational backup/recovery timestamps, and a one-time flag (`leftly.offlineReadyNoticeSeen`) recording that the web app's "works offline" note was shown. Local reset clears these keys.
 
 ## Account and authentication data
 

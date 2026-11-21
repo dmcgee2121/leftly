@@ -3722,7 +3722,6 @@ function App() {
     preferences.quickAddDateBehavior !== DEFAULT_PREFERENCES.quickAddDateBehavior
   const isTrueEmptyNewUserState = !hasAnyData
   const isFirstRun = isTrueEmptyNewUserState
-  const isOverviewTab = activeTab === 'overview'
   const quickAddOverlayId = 'leftly-quick-add-overlay'
   const moreOverlayId = 'leftly-more-overlay'
 
@@ -3941,34 +3940,12 @@ function App() {
         ref={mainContentRef}
         className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-2.5 pb-32 sm:px-6 sm:py-4 sm:pb-6 lg:px-8 lg:py-5"
       >
-        {isOverviewTab && isFirstRun && !isSetupOpen ? (
-          <header className="leftly-page-header">
-            <div className="leftly-shell-soft grid gap-3 p-3 sm:gap-4 sm:p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="leftly-chip leftly-chip-default w-fit px-3 py-1 text-[10px] sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.24em]">
-                    Manual budget tracker
-                  </p>
-                  <h1 className="mt-3 text-[1.65rem] font-semibold tracking-[-0.04em] text-white sm:text-5xl">Leftly</h1>
-                  <p className="mt-1 text-sm leading-6 text-slate-300 sm:text-lg">Set up your first paycheck and see what is left.</p>
-                </div>
-                <span className="leftly-chip leftly-chip-muted shrink-0 px-2.5 py-1 text-[9px] tracking-[0.16em]">
-                  Local only
-                </span>
-              </div>
-              <p className="max-w-2xl text-[11px] leading-5 text-slate-400 sm:text-sm sm:leading-6">
-                Track a single pay period, your bills, and your spending without connecting a bank.
-              </p>
-            </div>
-          </header>
-        ) : (
-          <header className="px-1 pb-2 pt-1 sm:px-1 sm:pb-3 sm:pt-2">
+        <header className="px-1 pb-2 pt-1 sm:px-1 sm:pb-3 sm:pt-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[0.95rem] font-semibold tracking-[-0.02em] text-white sm:text-base">Leftly</p>
               <span className="leftly-chip leftly-chip-muted px-2 py-0.5 text-[9px] tracking-[0.18em]">Local only</span>
             </div>
           </header>
-        )}
 
         <div className="mt-4 hidden flex-col gap-3 sm:mt-5 sm:gap-3 md:flex">
           <div className="no-scrollbar -mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0">
@@ -4062,7 +4039,7 @@ function App() {
                     <div className="leftly-overview-section">
                       <OverviewSectionHeader
                         title="Quick actions"
-                        description="Add what happened or move to your next paycheck."
+                        description={payPeriod && bills.length === 0 && expenses.length === 0 ? 'Add your first bill or expense to get started.' : 'Add what happened or move to your next paycheck.'}
                         aside={!payPeriod ? <p className="text-xs leading-5 text-slate-500">Start a pay period to unlock bill and expense actions.</p> : undefined}
                       />
 
@@ -4095,16 +4072,6 @@ function App() {
                       </div>
                     </div>
                   </div>
-
-                  {payPeriod && bills.length === 0 && expenses.length === 0 ? (
-                    <section className="leftly-overview-section leftly-overview-section-quiet lg:col-span-2">
-                      <OverviewSectionHeader title="What’s next?" description="Add your first bill or expense to make this paycheck useful." />
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button type="button" onClick={() => setActiveTab('recurring')} className="button-secondary w-full sm:w-auto">Add regular bills</button>
-                        <button type="button" onClick={openQuickAddExpense} className="button-primary w-full sm:w-auto">Add first expense</button>
-                      </div>
-                    </section>
-                  ) : null}
 
                   <div className="lg:col-span-2">
                     <div className="leftly-overview-section">
@@ -5920,7 +5887,9 @@ function FinancialPulseHero({
           {formatCurrency(totals.safeToSpend)}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-          <span>Left after all activity: <strong className="text-slate-200">{formatCurrency(totals.leftover)}</strong></span>
+          {totals.leftover !== totals.safeToSpend ? (
+            <span>Left after all activity: <strong className="text-slate-200">{formatCurrency(totals.leftover)}</strong></span>
+          ) : null}
           <span>{leftoverStatus}</span>
           {payPeriod?.rolloverAmount && payPeriod.rolloverAmount > 0 ? <span>Rollover {formatCurrency(payPeriod.rolloverAmount)}</span> : null}
         </div>

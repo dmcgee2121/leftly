@@ -3941,7 +3941,7 @@ function App() {
         ref={mainContentRef}
         className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-2.5 pb-32 sm:px-6 sm:py-4 sm:pb-6 lg:px-8 lg:py-5"
       >
-        {isOverviewTab && isFirstRun ? (
+        {isOverviewTab && isFirstRun && !isSetupOpen ? (
           <header className="leftly-page-header">
             <div className="leftly-shell-soft grid gap-3 p-3 sm:gap-4 sm:p-4">
               <div className="flex items-start justify-between gap-3">

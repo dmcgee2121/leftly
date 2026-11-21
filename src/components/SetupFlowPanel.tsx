@@ -101,12 +101,12 @@ export function SetupFlowPanel({
 
   const stepTitle = useMemo(() => {
     if (draft.step === 1) {
-      return 'Step 1 of 3: Your paycheck'
+      return 'Step 1 of 3'
     }
     if (draft.step === 2) {
-      return 'Step 2 of 3: Pay period dates'
+      return 'Step 2 of 3'
     }
-    return 'Step 3 of 3: Regular bills'
+    return 'Step 3 of 3'
   }, [draft.step])
 
   const canContinue =
@@ -278,12 +278,18 @@ export function SetupFlowPanel({
       'Tell Leftly how much this paycheck gives you to work with.',
       <>
         <div className="leftly-panel-section">
-          <div className="grid gap-1">
-            <p className="leftly-panel-label">Paycheck details</p>
-            <p className="leftly-panel-copy">You can change these details later.</p>
-          </div>
-
           <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Paycheck amount">
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={draft.income}
+                onChange={(event) => setDraft((current) => ({ ...current, income: event.target.value }))}
+                placeholder="3200"
+              />
+            </Field>
             <Field label="How often are you paid?">
               <select
                 value={draft.cadence}
@@ -296,24 +302,8 @@ export function SetupFlowPanel({
                 ))}
               </select>
             </Field>
-            <Field label="Paycheck amount">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.income}
-                onChange={(event) => setDraft((current) => ({ ...current, income: event.target.value }))}
-                placeholder="3200"
-              />
-            </Field>
           </div>
-        </div>
-
-        <div className="leftly-shell-faint grid gap-2 p-3">
-          <p className="text-sm font-medium text-white">Setup draft saved on this device.</p>
-          <p className="text-sm leading-6 text-slate-400">
-            You can leave and come back without losing your progress. No account or bank connection is needed.
-          </p>
+          <p className="leftly-panel-copy">You can change these later. Your progress saves on this device as you go.</p>
         </div>
 
         {error ? <ErrorBanner message={error} /> : null}
@@ -329,6 +319,7 @@ export function SetupFlowPanel({
       stepTitle,
       onClose,
       () => onClearDraft(clearDraft),
+      draft.step,
     )
   }
 
@@ -338,10 +329,6 @@ export function SetupFlowPanel({
       'Choose the dates this paycheck covers.',
       <>
         <div className="leftly-panel-section">
-          <div className="grid gap-1">
-            <p className="leftly-panel-label">Pay period details</p>
-            <p className="leftly-panel-copy">Leftly uses these dates to show what is due before your next paycheck.</p>
-          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Start date">
@@ -361,12 +348,7 @@ export function SetupFlowPanel({
           </div>
         </div>
 
-        <div className="leftly-shell-faint grid gap-2 p-3">
-          <p className="text-sm font-medium text-white">What this sets up</p>
-          <p className="text-sm leading-6 text-slate-400">
-            Leftly will use your cadence, income, and these dates to build your first pay period.
-          </p>
-        </div>
+        <p className="leftly-panel-copy">Leftly uses these dates to show what is due before your next paycheck.</p>
 
         {error ? <ErrorBanner message={error} /> : null}
 
@@ -384,6 +366,7 @@ export function SetupFlowPanel({
       stepTitle,
       onClose,
       () => onClearDraft(clearDraft),
+      draft.step,
     )
   }
 
@@ -391,10 +374,6 @@ export function SetupFlowPanel({
     'Add regular bills',
     'Optional: add bills you expect to repeat. You can always do this later from Bill Plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
-      <div className="leftly-shell-faint flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm leading-6 text-slate-400">Setup draft saved on this device.</p>
-      </div>
-
       <div className="leftly-panel-section">
         <p className="text-sm font-semibold text-white">Your first paycheck</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -578,6 +557,7 @@ export function SetupFlowPanel({
     stepTitle,
     onClose,
     () => onClearDraft(clearDraft),
+    draft.step,
   )
 }
 
@@ -588,23 +568,29 @@ function renderPanel(
   stepTitle: string,
   onClose: () => void,
   onClearDraft: () => void,
+  stepNumber: number,
 ) {
   return (
     <section className="leftly-shell leftly-shell-accent overflow-hidden p-4 sm:p-5">
-      <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <div className="border-b border-slate-800/70 pb-4">
+        <div className="flex items-center justify-between gap-2">
           <p className="text-xs uppercase tracking-[0.22em] text-cyan-200/70">{stepTitle}</p>
-          <h3 className="mt-1 text-lg font-semibold text-white">{title}</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
+          <div className="flex shrink-0 items-center gap-1">
+            <button type="button" onClick={onClearDraft} className="leftly-text-action">
+              Start over
+            </button>
+            <button type="button" onClick={onClose} className="leftly-text-action" aria-label="Exit setup">
+              Exit
+            </button>
+          </div>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto">
-          <button type="button" onClick={onClose} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-            Exit setup
-          </button>
-          <button type="button" onClick={onClearDraft} className={`${buttonStyles.secondary} w-full sm:w-auto`}>
-            Start over
-          </button>
+        <div className="mt-2 grid grid-cols-3 gap-1.5" aria-hidden="true">
+          {[1, 2, 3].map((step) => (
+            <span key={step} className={`h-1 rounded-full ${step <= stepNumber ? 'bg-cyan-300' : 'bg-slate-700/70'}`} />
+          ))}
         </div>
+        <h3 className="mt-3 text-lg font-semibold text-white">{title}</h3>
+        <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
       </div>
       <div className="mt-4">{content}</div>
     </section>

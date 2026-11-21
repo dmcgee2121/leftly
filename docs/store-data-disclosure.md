@@ -8,6 +8,8 @@ Browser `localStorage` holds the active pay period (dates, cadence, income, roll
 
 ## Account and authentication data
 
+**Android 1.0:** cloud backup and sign-in are hidden in the Android app (LFT-007), so the app itself sends no budget or account data anywhere. The sections below describe the website, where cloud backup is still optional.
+
 Optional cloud backup uses Supabase Auth magic-link sign-in. Source passes an email address to `signInWithOtp`, receives a session, and identifies the signed-in user by Supabase user ID; the UI can display the signed-in email or phone value supplied by the session. Core budgeting does not require an account or password.
 
 ## Optional cloud data

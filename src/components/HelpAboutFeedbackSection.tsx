@@ -1,4 +1,7 @@
 import type { OfflineCapabilityStatus } from './usePwaLifecycle'
+import { getLeftlyCloudConfig } from '../lib/cloudConfig'
+
+const isCloudBackupEnabled = getLeftlyCloudConfig().enabled
 
 export function HelpAboutFeedbackSection({
   canInstall, hasInstallPrompt, isInstalled, onInstall, offlineCapabilityStatus,
@@ -41,7 +44,7 @@ export function HelpAboutFeedbackSection({
       <div className="leftly-shell-soft grid gap-2 p-4">
         <p className="text-sm font-semibold text-white">Your data</p>
         <p className="text-sm leading-6 text-slate-300">
-          Leftly works without an account or bank connection. Your budget stays {isNative ? 'in this app' : 'in this browser'} on this device unless you export a backup or manually use optional cloud backup.
+          Leftly works without an account or bank connection. Your budget stays {isNative ? 'in this app' : 'in this browser'} on this device unless you export a backup{isCloudBackupEnabled ? ' or manually use optional cloud backup' : ''}.
         </p>
       </div>
 
@@ -74,10 +77,12 @@ export function HelpAboutFeedbackSection({
         <p className="text-sm leading-6 text-slate-300">Use a JSON backup to restore Leftly later. CSV files are spreadsheet copies and cannot be restored.</p>
       </div>
 
-      <div className="leftly-shell-soft grid gap-2 p-4">
-        <p className="text-sm font-semibold text-white">Cloud backup</p>
-        <p className="text-sm leading-6 text-slate-300">Optional cloud backup stores one snapshot when you choose. It is manual backup, not live sync.</p>
-      </div>
+      {isCloudBackupEnabled ? (
+        <div className="leftly-shell-soft grid gap-2 p-4">
+          <p className="text-sm font-semibold text-white">Cloud backup</p>
+          <p className="text-sm leading-6 text-slate-300">Optional cloud backup stores one snapshot when you choose. It is manual backup, not live sync.</p>
+        </div>
+      ) : null}
     </div>
   )
 }

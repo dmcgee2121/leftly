@@ -61,13 +61,14 @@
 - [ ] Apple App Privacy; Google Data safety; age/content ratings
 - [ ] Review notes; reviewer credentials/access if eventually needed
 - [ ] TestFlight; Play internal testing
-- [ ] Final intentional 1.0.0 bump; release notes
+- [x] Version bumped to 1.0.0 (version code 2) in LFT-007
+- [ ] Release notes
 - [ ] Production/native release checkpoint
 
 ## 7. Phase 21 — Android release candidate
 
 - [x] Android release signing configured for an owner-controlled upload key
 - [x] Local signing credentials and generated release artifacts excluded from git
-- [x] Signed release AAB built and verified locally (version 0.9.0, version code 1)
+- [x] Signed release AAB built and verified locally (version 0.9.0, version code 1; rebuild required for 1.0.0)
 - [ ] Google Play App Signing configured
 - [ ] Google Play internal testing completed

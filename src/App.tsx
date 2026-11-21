@@ -5215,8 +5215,12 @@ function App() {
               openQuickAddExpense()
               return
             }
-            setActiveTab('overview')
-            openSetup()
+            if (isFirstRun) {
+              openSetup()
+              return
+            }
+            // Saved data but no active paycheck (e.g. categories changed before setup): use the Paycheck form.
+            setActiveTab('income')
           }}
           onBillPlan={() => setActiveTab('recurring')}
           onHistory={() => setActiveTab('history')}

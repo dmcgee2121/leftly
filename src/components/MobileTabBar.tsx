@@ -130,7 +130,7 @@ export function MobileTabBar({
           <button
             type="button"
             onClick={onQuickAdd}
-            aria-label={hasPayPeriod ? 'Add an expense' : 'Set up your first paycheck to start adding expenses'}
+            aria-label={hasPayPeriod ? 'Add an expense' : 'Set up a paycheck to start adding expenses'}
             aria-controls={hasPayPeriod ? quickAddOverlayId : undefined}
             aria-expanded={hasPayPeriod ? isQuickAddOpen : undefined}
             aria-haspopup={hasPayPeriod ? 'dialog' : undefined}

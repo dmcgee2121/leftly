@@ -1,3 +1,5 @@
+import { isNativePlatform } from './native'
+
 type CloudMode = 'disabled' | 'missing-config' | 'ready'
 
 export type LeftlyCloudConfig = {
@@ -12,7 +14,11 @@ function isTruthyEnv(value: string | undefined) {
 }
 
 export function getLeftlyCloudConfig(): LeftlyCloudConfig {
-  const enabled = isTruthyEnv(import.meta.env.VITE_LEFTLY_CLOUD_ENABLED)
+  // Cloud backup is hidden in the Android app for the 1.0 launch (approved plan, decision 2).
+  // A native build can opt back in with VITE_LEFTLY_CLOUD_NATIVE_ENABLED=true.
+  const enabled =
+    isTruthyEnv(import.meta.env.VITE_LEFTLY_CLOUD_ENABLED) &&
+    (!isNativePlatform() || isTruthyEnv(import.meta.env.VITE_LEFTLY_CLOUD_NATIVE_ENABLED))
   const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? '').trim()
   const supabasePublishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '').trim()
 

@@ -24,6 +24,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 
 - Set `VITE_LEFTLY_CLOUD_ENABLED=true` to show the cloud backup shell in the Data screen.
 - Set `VITE_LEFTLY_CLOUD_ENABLED=false` or omit it to hide cloud UI completely.
+- The Android app hides cloud backup even when `VITE_LEFTLY_CLOUD_ENABLED=true`, unless `VITE_LEFTLY_CLOUD_NATIVE_ENABLED=true` is also set (1.0 launch decision, LFT-007). The website keeps following `VITE_LEFTLY_CLOUD_ENABLED` alone.
 - If the feature flag is on but `VITE_SUPABASE_URL` or `VITE_SUPABASE_PUBLISHABLE_KEY` is missing, Leftly shows a safe unavailable state and continues working locally.
 
 ## What is implemented now

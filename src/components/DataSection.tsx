@@ -88,7 +88,7 @@ export function DataSection({
           <DataStatus label="Local data" value={diagnostics ? (diagnostics.readable && diagnostics.writable ? 'Local data available' : 'Needs attention') : 'Checking…'} />
           <DataStatus label="JSON export" value={meta?.lastJsonExportInitiatedAt ? `Initiated ${formatRecoveryTimestamp(meta.lastJsonExportInitiatedAt)}` : 'No export recorded on this device'} />
           <DataStatus label="Last restore" value={meta?.lastRestoreSource && (meta.lastJsonImportRestoredAt || meta.lastCloudRestoreAt) ? `${meta.lastRestoreSource === 'json' ? 'JSON import' : 'Cloud restore'} · ${formatRecoveryTimestamp(meta.lastRestoreSource === 'json' ? meta.lastJsonImportRestoredAt : meta.lastCloudRestoreAt)}` : 'No activity recorded on this device.'} />
-          <DataStatus label="Cloud" value={cloudStatus} />
+          {cloudConfig.enabled ? <DataStatus label="Cloud" value={cloudStatus} /> : null}
         </div>
       </section>
       <div className="leftly-shell-soft grid gap-3 border-cyan-400/15 bg-cyan-400/5 p-4">
@@ -97,8 +97,8 @@ export function DataSection({
           Leftly saves your budget {isNative ? 'in this app' : 'in this browser'} on this device. No account or bank connection is required.
         </p>
         <p className="text-sm leading-6 text-slate-300">
-          Your data stays here unless you export a backup or manually use optional cloud backup. If you reset Leftly,
-          clear browser data, switch devices, or test cloud restore, export a JSON backup first. JSON is the restore
+          Your data stays here unless you export a backup{cloudConfig.enabled ? ' or manually use optional cloud backup' : ''}. If you reset Leftly,
+          clear {isNative ? 'app' : 'browser'} data, or switch devices, export a JSON backup first. JSON is the restore
           format. CSV exports are spreadsheet-style copies only and cannot be imported back into Leftly.
         </p>
       </div>
@@ -125,7 +125,9 @@ export function DataSection({
           <li>On the new device, open More &gt; Data &amp; backup, choose Import JSON backup, review the summary, and confirm.</li>
           <li>Verify the active pay period, Bill Plan, and History.</li>
         </ol>
-        <p className="text-sm leading-6 text-slate-400">Optional cloud backup is an alternative when already configured. It is manual and stores one latest snapshot; it is not sync.</p>
+        {cloudConfig.enabled ? (
+          <p className="text-sm leading-6 text-slate-400">Optional cloud backup is an alternative when already configured. It is manual and stores one latest snapshot; it is not sync.</p>
+        ) : null}
       </section>
 
       <div className="leftly-shell-soft grid gap-4 p-4">
@@ -133,8 +135,8 @@ export function DataSection({
           <p className="text-sm font-semibold text-white">Backup and restore</p>
           <p className="text-sm leading-6 text-slate-400">
             Export creates a complete JSON backup you can save somewhere safe and import back into Leftly. Import
-            replaces the Leftly data currently saved on this device. Export JSON first before restore, reset, demo
-            testing, or cloud restore if you want to keep a recovery copy.
+            replaces the Leftly data currently saved on this device. Export JSON first before restore, reset or demo
+            testing{cloudConfig.enabled ? ', or cloud restore,' : ''} if you want to keep a recovery copy.
           </p>
         </div>
 
@@ -225,7 +227,7 @@ export function DataSection({
         <p className="text-sm leading-6 text-slate-400">
           Reset permanently clears the Leftly data saved on this device. Export a backup first if you might want to
           restore it later. Demo data loads sample numbers so you can explore Leftly without using real numbers yet,
-          and it replaces the current local data on this device. Neither action touches any cloud snapshot.
+          and it replaces the current local data on this device.{cloudConfig.enabled ? ' Neither action touches any cloud snapshot.' : ''}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={onReset} className={`${buttonStyles.secondary} w-full`} disabled={isImporting}>

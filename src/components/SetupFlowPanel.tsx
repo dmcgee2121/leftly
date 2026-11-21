@@ -125,7 +125,7 @@ export function SetupFlowPanel({
         skippedBlankRows: 0,
         partialRows: 0,
         dueThisPeriodCount: 0,
-        status: 'Skip this if you want to start with income only. You can add more later from Bill Plan.',
+        status: 'No regular bills yet. That is fine. You can start with income only.',
       }
     }
 
@@ -164,7 +164,7 @@ export function SetupFlowPanel({
         skippedBlankRows: recurringCollection.blankRows,
         partialRows: 0,
         dueThisPeriodCount: 0,
-        status: 'Skip this if you want to start with income only. You can add more later from Bill Plan.',
+        status: 'No regular bills yet. That is fine. You can start with income only.',
       }
     }
 
@@ -372,7 +372,7 @@ export function SetupFlowPanel({
 
   return renderPanel(
     'Add regular bills',
-    'Optional: add bills you expect to repeat. You can always do this later from Bill Plan.',
+    'Optional. You can always add these later from Bill Plan.',
     <form className="grid gap-4" onSubmit={handleFinish}>
       <div className="leftly-panel-section">
         <p className="text-sm font-semibold text-white">Your first paycheck</p>
@@ -396,8 +396,8 @@ export function SetupFlowPanel({
               draft.addRecurringBill
                 ? setupReview?.skippedBlankRows
                   ? `${setupReview.skippedBlankRows} blank row${setupReview.skippedBlankRows === 1 ? '' : 's'} will be ignored.`
-                  : 'Blank rows are ignored.'
-                : 'You can add regular bills later from Bill Plan.'
+                  : undefined
+                : undefined
             }
           />
         </div>
@@ -413,9 +413,7 @@ export function SetupFlowPanel({
         />
         <span>
           <span className="block font-semibold">Add regular bills now</span>
-          <span className="mt-1 block text-sm leading-6 text-slate-400">
-            Add regular bills you already know about. Skip this if you want to start with income only.
-          </span>
+          <span className="mt-1 block text-sm leading-6 text-slate-400">Rent, phone, car payment and other bills that repeat.</span>
         </span>
       </label>
 
@@ -423,7 +421,7 @@ export function SetupFlowPanel({
         <div className="leftly-panel-section">
           <div className="grid gap-1">
             <p className="leftly-panel-label">Bill Plan items</p>
-            <p className="leftly-panel-copy">You can add one or more regular bills here. You can add more later from Bill Plan.</p>
+            <p className="leftly-panel-copy">Add one or more. Blank rows are ignored.</p>
           </div>
 
           <div className="grid gap-3">

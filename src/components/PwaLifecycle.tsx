@@ -1,5 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PwaLifecycleState } from './usePwaLifecycle'
+import { isNativePlatform } from '../lib/native'
+
+// The "ready offline" note is shown once per device, then hides itself.
+const OFFLINE_READY_SEEN_KEY = 'leftly.offlineReadyNoticeSeen'
+const OFFLINE_READY_AUTO_HIDE_MS = 6000
+
+function hasSeenOfflineReadyNotice() {
+  try {
+    return window.localStorage.getItem(OFFLINE_READY_SEEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markOfflineReadyNoticeSeen() {
+  try {
+    window.localStorage.setItem(OFFLINE_READY_SEEN_KEY, '1')
+  } catch {
+    // Storage can be unavailable (private mode); the note simply shows again next time.
+  }
+}
 
 export function PwaLifecycle({ isBlockingInteraction, pwa }: { isBlockingInteraction: boolean; pwa: PwaLifecycleState }) {
   const {
@@ -10,11 +31,11 @@ export function PwaLifecycle({ isBlockingInteraction, pwa }: { isBlockingInterac
     acceptUpdate,
   } = pwa
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
-  const [readyMessageDismissed, setReadyMessageDismissed] = useState(false)
+  const [readyMessageDismissed, setReadyMessageDismissed] = useState(() => isNativePlatform() || hasSeenOfflineReadyNotice())
   const previousCapabilityStatus = useRef(offlineCapabilityStatus)
 
   useEffect(() => {
-    if (offlineCapabilityStatus === 'ready' && previousCapabilityStatus.current !== 'ready') {
+    if (offlineCapabilityStatus === 'ready' && previousCapabilityStatus.current !== 'ready' && !isNativePlatform() && !hasSeenOfflineReadyNotice()) {
       setReadyMessageDismissed(false)
     }
     previousCapabilityStatus.current = offlineCapabilityStatus
@@ -38,6 +59,13 @@ export function PwaLifecycle({ isBlockingInteraction, pwa }: { isBlockingInterac
   }, [])
 
   const showOfflineReady = offlineCapabilityStatus === 'ready' && !readyMessageDismissed
+
+  useEffect(() => {
+    if (!showOfflineReady) return
+    markOfflineReadyNoticeSeen()
+    const timer = window.setTimeout(() => setReadyMessageDismissed(true), OFFLINE_READY_AUTO_HIDE_MS)
+    return () => window.clearTimeout(timer)
+  }, [showOfflineReady])
   const showUpdatePrompt = needRefresh && !isBlockingInteraction
 
   return (
@@ -57,11 +85,11 @@ export function PwaLifecycle({ isBlockingInteraction, pwa }: { isBlockingInterac
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-30 mx-auto flex max-w-xl items-start justify-between gap-3 rounded-2xl border border-emerald-400/25 bg-slate-950/95 px-4 py-3 text-sm leading-6 text-emerald-100 shadow-lg shadow-slate-950/30 backdrop-blur md:bottom-4"
+          className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-emerald-400/25 bg-slate-950/95 py-1 pl-4 pr-1 text-sm leading-6 text-emerald-100 shadow-lg shadow-slate-950/30 backdrop-blur"
         >
-          <p>Leftly is ready to use offline on this device.</p>
-          <button type="button" onClick={() => setReadyMessageDismissed(true)} className="button-secondary shrink-0 px-3 py-2 text-xs">
-            Dismiss
+          <p>Works offline on this device.</p>
+          <button type="button" onClick={() => setReadyMessageDismissed(true)} className="leftly-text-action shrink-0">
+            OK
           </button>
         </div>
       ) : null}

@@ -586,7 +586,11 @@ function App() {
   const [dataError, setDataError] = useState('')
   const [isBackupReminderDismissed, setIsBackupReminderDismissed] = useState(false)
   const [setupSuccess, setSetupSuccess] = useState(() =>
-    getDurableStartupResult() === 'restored' ? 'Welcome back. Leftly restored your budget from this phone\'s app storage.' : '',
+    getDurableStartupResult() === 'restored'
+      ? 'Welcome back. Leftly restored your budget from this phone\'s app storage.'
+      : getDurableStartupResult() === 'restore-failed'
+        ? 'Leftly found a saved copy of your budget but could not load it, often because the phone is low on space. The copy is kept safe. Free up some space, then close and reopen Leftly.'
+        : '',
   )
   const [billPlanMessage, setBillPlanMessage] = useState('')
   const [newCustomCategoryName, setNewCustomCategoryName] = useState('')

@@ -110,3 +110,44 @@ describe('app startup', () => {
     expect(storage.getItem('leftly.bills')).toBeNull()
   })
 })
+
+describe('failed restore (Codex review on PR #77)', () => {
+  it('rolls back a half-finished restore and never overwrites the saved copy', async () => {
+    const saved = JSON.stringify(buildSnapshot(memoryStorage(budget)))
+    preferences.set(DURABLE_SNAPSHOT_KEY, saved)
+    // Phone is out of space: the second write fails.
+    let writes = 0
+    const realSet = storage.setItem
+    storage.setItem = (key: string, value: string) => {
+      writes += 1
+      if (writes === 2) throw new Error('QuotaExceededError')
+      realSet(key, value)
+    }
+
+    expect(await prepareDurableStorage()).toBe('restore-failed')
+    expect(collectLeftlyEntries(storage)).toEqual({})
+
+    storage.setItem = realSet
+    storage.setItem('leftly.activeBudgetPeriod', '{"income":1}')
+    scheduleDurableSave({ immediate: true })
+    scheduleDurableSave()
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(preferences.get(DURABLE_SNAPSHOT_KEY)).toBe(saved)
+  })
+
+  it('leaves the saved copy alone when it cannot be read', async () => {
+    const { Preferences } = await import('@capacitor/preferences')
+    vi.mocked(Preferences.get).mockRejectedValueOnce(new Error('unavailable'))
+    preferences.set(DURABLE_SNAPSHOT_KEY, 'original')
+    expect(await prepareDurableStorage()).toBe('failed')
+    scheduleDurableSave({ immediate: true })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(preferences.get(DURABLE_SNAPSHOT_KEY)).toBe('original')
+  })
+
+  it('a later successful launch works normally again', async () => {
+    preferences.set(DURABLE_SNAPSHOT_KEY, JSON.stringify(buildSnapshot(memoryStorage(budget))))
+    expect(await prepareDurableStorage()).toBe('restored')
+    expect(storage.getItem('leftly.bills')).toBe(budget['leftly.bills'])
+  })
+})

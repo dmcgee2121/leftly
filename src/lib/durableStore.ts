@@ -69,22 +69,50 @@ export function shouldRestoreFromSnapshot(localEntries: Record<string, string>, 
   return Boolean(snapshot) && !hasCoreData(localEntries) && hasCoreData(snapshot!.entries)
 }
 
-export function applySnapshot(storage: KeyValueStorage, snapshot: DurableSnapshot) {
-  let restored = 0
-  for (const [key, value] of Object.entries(snapshot.entries)) {
-    storage.setItem(key, value)
-    restored += 1
+type WritableStorage = KeyValueStorage & Pick<Storage, 'removeItem'>
+
+// Copies the snapshot into storage and checks every value landed. If anything fails (for example the
+// phone is out of space), it puts storage back exactly as it was and throws, so nothing half-restored
+// is left behind and the next launch can try again.
+export function applySnapshot(storage: WritableStorage, snapshot: DurableSnapshot) {
+  const keys = Object.keys(snapshot.entries)
+  const previous = new Map(keys.map((key) => [key, storage.getItem(key)]))
+  try {
+    for (const key of keys) storage.setItem(key, snapshot.entries[key])
+    const missing = keys.filter((key) => storage.getItem(key) !== snapshot.entries[key])
+    if (missing.length > 0) throw new Error(`Restore could not be verified for ${missing.join(', ')}`)
+  } catch (error) {
+    for (const key of keys) {
+      try {
+        const before = previous.get(key) ?? null
+        if (before === null) storage.removeItem(key)
+        else storage.setItem(key, before)
+      } catch {
+        // Best effort; the snapshot itself stays untouched either way.
+      }
+    }
+    throw error
   }
-  return restored
+  return keys.length
 }
 
 export function buildSnapshot(storage: KeyValueStorage, now = new Date()): DurableSnapshot {
   return { version: 1, savedAt: now.toISOString(), entries: collectLeftlyEntries(storage) }
 }
 
-export type DurableStartupResult = 'web' | 'restored' | 'saved' | 'failed'
+// 'restore-failed': the phone lost its budget, the saved copy exists, but copying it back failed.
+// 'failed': the saved copy could not be read at all.
+export type DurableStartupResult = 'web' | 'restored' | 'saved' | 'restore-failed' | 'failed'
 
 let lastStartupResult: DurableStartupResult = 'web'
+
+// When startup could not read or restore the saved copy, it must never be overwritten this session:
+// it may be the only complete copy of the budget.
+let durableWritesLocked = false
+
+export function areDurableWritesLocked() {
+  return durableWritesLocked
+}
 
 export function getDurableStartupResult() {
   return lastStartupResult
@@ -96,21 +124,37 @@ export async function prepareDurableStorage(): Promise<DurableStartupResult> {
     lastStartupResult = 'web'
     return lastStartupResult
   }
+  durableWritesLocked = false
+  let snapshot: DurableSnapshot | null
   try {
     const { value } = await Preferences.get({ key: DURABLE_SNAPSHOT_KEY })
-    const snapshot = parseSnapshot(value)
-    const localEntries = collectLeftlyEntries(window.localStorage)
-    if (snapshot && shouldRestoreFromSnapshot(localEntries, snapshot)) {
+    snapshot = parseSnapshot(value)
+  } catch (error) {
+    console.warn('Leftly could not read its saved copy; it will not be changed this session.', error)
+    durableWritesLocked = true
+    lastStartupResult = 'failed'
+    return lastStartupResult
+  }
+
+  const localEntries = collectLeftlyEntries(window.localStorage)
+  if (snapshot && shouldRestoreFromSnapshot(localEntries, snapshot)) {
+    try {
       applySnapshot(window.localStorage, snapshot)
       lastStartupResult = 'restored'
-    } else {
-      await saveSnapshotNow()
-      lastStartupResult = 'saved'
+    } catch (error) {
+      console.warn('Leftly could not restore its saved copy; it is kept unchanged for the next launch.', error)
+      durableWritesLocked = true
+      lastStartupResult = 'restore-failed'
     }
-  } catch (error) {
-    console.warn('Leftly durable storage could not start; continuing with local storage only.', error)
-    lastStartupResult = 'failed'
+    return lastStartupResult
   }
+
+  try {
+    await saveSnapshotNow()
+  } catch (error) {
+    console.warn('Leftly durable save failed at startup.', error)
+  }
+  lastStartupResult = 'saved'
   return lastStartupResult
 }
 
@@ -121,13 +165,14 @@ async function saveSnapshotNow() {
     clearTimeout(saveTimer)
     saveTimer = null
   }
+  if (durableWritesLocked) return
   await Preferences.set({ key: DURABLE_SNAPSHOT_KEY, value: JSON.stringify(buildSnapshot(window.localStorage)) })
 }
 
 // Called after every Leftly write. Coalesces bursts of writes into one save. Deletions (reset,
 // clearing a draft) save immediately so a quick app close can't bring old data back.
 export function scheduleDurableSave(options: { immediate?: boolean } = {}) {
-  if (!isNativePlatform()) return
+  if (!isNativePlatform() || durableWritesLocked) return
   if (options.immediate) {
     void saveSnapshotNow().catch((error) => console.warn('Leftly durable save failed.', error))
     return

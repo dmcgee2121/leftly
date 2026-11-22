@@ -51,10 +51,12 @@
 ## 5. Store assets
 
 - [ ] Final native app icon; Apple icon asset; Google Play icon
-- [ ] Feature graphic if required
-- [ ] iPhone screenshots; Android phone screenshots
+- [x] Feature graphic 1024×500 (LFT-010, `docs/store-assets/android/`)
+- [x] Android phone screenshots, 6 captioned at 1080×1920 (LFT-010)
+- [ ] iPhone screenshots (later, with iOS)
 - [ ] Optional tablet assets if tablet distribution is chosen
-- [ ] Screenshot captions/copy; promotional text
+- [x] Screenshot captions (LFT-010)
+- [ ] Promotional text
 
 ## 6. Final submission review
 

@@ -1,5 +1,30 @@
 # Android device QA record
 
+## Leftly 1.0.0 — LFT-009 (Gate A)
+
+QA date: 2026-11-22
+
+Target: Samsung physical Android device (model and serial intentionally omitted)
+
+Build: debug build installed over the existing 0.9.0 install with `gradlew installDebug` (same debug signature, existing data kept), Leftly `1.0.0`, package `com.leftly.app`
+
+Evidence: the owner ran the LFT-009 checklist and reported "LFT-009 done" with no failures listed. Individual checklist boxes were not ticked, so this record lists the checks the owner reported as passing rather than item-by-item confirmations. No financial data, backup contents or device identifiers are recorded.
+
+Reported passing:
+
+- Upgrade from 0.9.0 kept the owner's existing budget; Help/About shows 1.0.0.
+- LFT-001 to LFT-005 changes on device: Safe to Spend first with slim header, friendly dates, new tab bar with center + (Add expense), screens open at the top.
+- LFT-007: no cloud backup mentions in Data & backup or Help; no "works offline" popup in the native app.
+- Backup reminder: conditional on at least one finished paycheck and no backup in 30 days; the pre-test JSON export normally hides it.
+- Airplane mode launch, Android Back behavior, app switching and lock/unlock, rotation.
+- LFT-008 restore test: `localStorage.clear(); location.reload()` via chrome://inspect restored the budget from Capacitor Preferences with the "Welcome back" banner; data persisted after a full close.
+- Reset all data followed by a full close and reopen did not bring the old budget back.
+- JSON import restored the owner's pre-test backup.
+
+---
+
+## Leftly 0.9.0
+
 QA date: 2026-09-19
 
 Target: Samsung physical Android device (model and serial intentionally omitted)

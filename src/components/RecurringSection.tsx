@@ -11,6 +11,7 @@ import {
   normalizeRecurringScheduleType,
   normalizeRecurringWeekday,
 } from '../lib/recurring'
+import { AppOverlay } from './AppOverlay'
 import { ItemRow } from './ItemRow'
 
 const buttonStyles = {
@@ -90,6 +91,7 @@ export function RecurringSection({
   })
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [isFormOpen, setIsFormOpen] = useState(false)
   const [isBulkOpen, setIsBulkOpen] = useState(false)
   const [bulkRows, setBulkRows] = useState<BulkRecurringDraft[]>(() => createBulkRows())
   const [bulkError, setBulkError] = useState('')
@@ -179,6 +181,7 @@ export function RecurringSection({
   }, [categories, filteredTemplates])
 
   function resetForm() {
+    setIsFormOpen(false)
     setEditingTemplateId(null)
     setDraft({
       name: '',
@@ -194,6 +197,17 @@ export function RecurringSection({
       setAsideAmount: '',
     })
     setError('')
+  }
+
+  function openNewForm() {
+    resetForm()
+    setIsFormOpen(true)
+  }
+
+  function closeBulkPanel() {
+    setIsBulkOpen(false)
+    setBulkError('')
+    setBulkRows(createBulkRows())
   }
 
   function openBulkPanel() {
@@ -242,10 +256,7 @@ export function RecurringSection({
       setAsideAmount: template.setAsideAmount ? String(template.setAsideAmount) : '',
     })
     setError('')
-    // The form sits further down the screen; bring it into view when an item is tapped.
-    window.requestAnimationFrame(() => {
-      document.getElementById('bill-plan-item-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
+    setIsFormOpen(true)
   }
 
   const editingTemplate = editingTemplateId ? templates.find((template) => template.id === editingTemplateId) ?? null : null
@@ -429,9 +440,14 @@ export function RecurringSection({
               Save recurring bills and planned items here. Apply them when a pay period is ready.
             </p>
           </div>
-          <button type="button" onClick={openBulkPanel} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
-            Add multiple bills
-          </button>
+          <div className="grid gap-2 sm:flex sm:shrink-0">
+            <button type="button" onClick={openNewForm} className={buttonStyles.primary + ' w-full sm:w-auto'}>
+              Add Bill Plan item
+            </button>
+            <button type="button" onClick={openBulkPanel} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
+              Add multiple bills
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-3">
@@ -494,20 +510,15 @@ export function RecurringSection({
         </p>
       ) : null}
 
-      {isBulkOpen ? (
-        <section className="leftly-shell p-4 shadow-2xl shadow-slate-950/30 sm:p-5">
-          <div className="mb-4 flex flex-col gap-3 border-b border-slate-800/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-white">Add multiple bills</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Add several monthly bills at once. Blank rows are ignored.
-              </p>
-            </div>
-            <span className="leftly-chip leftly-chip-muted px-3 py-1 text-xs font-medium">
-              Saved locally
-            </span>
-          </div>
-
+      <AppOverlay
+        id="leftly-bill-plan-bulk-overlay"
+        isOpen={isBulkOpen}
+        title="Add multiple bills"
+        description="Add several monthly bills at once. Blank rows are ignored."
+        desktopPresentation="dialog"
+        closeLabel="Close Add multiple bills"
+        onClose={closeBulkPanel}
+      >
           <form className="grid gap-4" onSubmit={handleBulkSave}>
             <div className="grid gap-3">
               {bulkRows.map((row, index) => (
@@ -594,31 +605,23 @@ export function RecurringSection({
               <button type="submit" className={buttonStyles.primary + ' w-full sm:w-auto'}>
                 Save bills
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsBulkOpen(false)
-                  setBulkError('')
-                  setBulkSuccess('')
-                  setBulkReminder(false)
-                  setBulkRows(createBulkRows())
-                }}
-                className={buttonStyles.secondary + ' w-full sm:w-auto'}
-              >
+              <button type="button" onClick={closeBulkPanel} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
                 Cancel
               </button>
             </div>
           </form>
-        </section>
-      ) : null}
+      </AppOverlay>
 
-      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <Panel
-          title={editingTemplateId ? 'Edit Bill Plan item' : 'Add Bill Plan item'}
-          action="Saved locally"
-          helper="Bill Plan items are saved templates. Later, Leftly can use them to build each new pay period automatically. Set-asides reserve money each pay period for a bill that may be due later. They lower your safe-to-spend amount but are not marked as a paid bill."
-        >
-          <form id="bill-plan-item-form" className="grid scroll-mt-20 gap-4" onSubmit={handleSubmit}>
+      <AppOverlay
+        id="leftly-bill-plan-item-overlay"
+        isOpen={isFormOpen}
+        title={editingTemplateId ? 'Edit Bill Plan item' : 'Add Bill Plan item'}
+        description="Saved bills and planned items that Leftly can add to each new pay period."
+        desktopPresentation="dialog"
+        closeLabel="Close Bill Plan item"
+        onClose={resetForm}
+      >
+          <form id="bill-plan-item-form" className="grid gap-4" onSubmit={handleSubmit}>
           <Field label="Name">
             <input
               value={draft.name}
@@ -800,16 +803,6 @@ export function RecurringSection({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap gap-3">
-            <button type="submit" className={buttonStyles.primary}>
-              {editingTemplateId ? 'Save Bill Plan item' : 'Save Bill Plan item'}
-            </button>
-            {editingTemplateId ? (
-              <button type="button" onClick={resetForm} className={buttonStyles.secondary}>
-                Cancel
-              </button>
-            ) : null}
-          </div>
           {editingTemplate ? (
             <div className="flex flex-wrap gap-3 border-t border-slate-800/70 pt-4">
               <button
@@ -834,13 +827,25 @@ export function RecurringSection({
               </button>
             </div>
           ) : null}
+          <div className="leftly-sheet-footer leftly-sheet-footer-sticky">
+            <div className="leftly-action-grid">
+              <button type="button" onClick={resetForm} className={buttonStyles.secondary + ' w-full sm:w-auto'}>
+                Cancel
+              </button>
+              <button type="submit" className={buttonStyles.primary + ' w-full sm:w-auto'}>
+                {editingTemplateId ? 'Save changes' : 'Save Bill Plan item'}
+              </button>
+            </div>
+          </div>
           </form>
           <datalist id="bill-plan-names">
             {planNames.map((planName) => (
               <option key={planName} value={planName} />
             ))}
           </datalist>
-        </Panel>
+      </AppOverlay>
+
+      <div className="grid gap-5">
 
         <Panel
           title="Saved Bill Plan items"
@@ -851,8 +856,8 @@ export function RecurringSection({
             <EmptyState
               title="No regular bills yet"
               text="Add a regular bill once and Leftly can bring it into future paychecks."
-              actionLabel="Add multiple bills"
-              onAction={openBulkPanel}
+              actionLabel="Add Bill Plan item"
+              onAction={openNewForm}
             />
           ) : filteredTemplates.length === 0 ? (
             <EmptyState

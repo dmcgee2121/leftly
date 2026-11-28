@@ -35,6 +35,12 @@ export function AppOverlay({
   const panelRef = useRef<HTMLElement | null>(null)
   const lastBodyOverflowRef = useRef('')
   const lastBodyPaddingRightRef = useRef('')
+  // Keep the latest onClose in a ref so a parent re-render (for example, typing in a form inside the panel)
+  // never re-runs the focus effect below and pulls focus back to the first button.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!isOpen) {
@@ -75,7 +81,7 @@ export function AppOverlay({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -114,7 +120,7 @@ export function AppOverlay({
       window.clearTimeout(focusTimer)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [initialFocusRef, isOpen, onClose])
+  }, [initialFocusRef, isOpen])
 
   if (!isOpen) {
     return null

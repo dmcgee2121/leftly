@@ -23,6 +23,7 @@ Approved by Donavan (CEO / financier) on 2026-11-20. Full proposal: "Leftly — 
 |-------|-------------|------|
 | 1. Polish | LFT-001 Safe to Spend first ✅ · LFT-002 friendly dates ✅ · LFT-003 setup inputs first ✅ · LFT-004 cut repeated text, offline popup fix ✅ · LFT-005 tab bar with icons ✅ · LFT-006 split `App.tsx` (part 1) ✅ | — |
 | 2. Data safety | LFT-007 hide cloud backup, version 1.0.0 ✅ · LFT-008 lasting phone storage + backup reminders ✅ · LFT-009 full test pass on Donavan's Samsung ✅ (2026-11-22) | **A · Stable:** no data lost in phone tests, all tests pass — **approved by Donavan 2026-11-22** |
+| 1.5 Simplify (approved 2026-11-28) | LFT-021 compact list rows · LFT-022 add/edit forms in slide-up panels · LFT-023 tidier Categories and summary grids · LFT-024 Undo instead of delete confirmations | Store screenshots (LFT-010) regenerated after this phase |
 | 3. Free launch | LFT-010 store screenshots and feature graphic · LFT-011 Play Console forms (Donavan, with prepared answers) · LFT-012 closed test, 12+ testers for 14 days · LFT-013 production release 1.0 | **B · Live:** Google approves production |
 | 4. Leftly Plus | LFT-014 payments profile + Plus product in Play Console (Donavan) · LFT-015 Plus switch, Plus screen, Plus tags · LFT-016 Google Play billing, buy + restore · LFT-017 release 1.1 | **C · Paid:** test purchase, refund and restore work on a real phone |
 | 5. New Plus features | LFT-018 bill due reminders · LFT-019 savings goals · LFT-020 themes | — |

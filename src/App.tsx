@@ -97,6 +97,7 @@ import { AppOverlay } from './components/AppOverlay'
 import { ConfirmActionOverlay, type ConfirmActionDetail } from './components/ConfirmActionOverlay'
 import { PwaLifecycle } from './components/PwaLifecycle'
 import { MobileTabBar } from './components/MobileTabBar'
+import { ItemRow, PaidToggle } from './components/ItemRow'
 import { getDurableStartupResult } from './lib/durableStore'
 import { describeLastBackup, loadBackupReminderSnooze, shouldShowBackupReminder, snoozeBackupReminder } from './lib/backupReminder'
 import { BackupReminderCard } from './components/BackupReminderCard'
@@ -3691,51 +3692,17 @@ function App() {
                   {oneTimeBills.length > 0 ? (
                     <div className="mt-4 grid gap-2.5">
                       {oneTimeBills.map((bill) => (
-                        <div key={bill.id} className="leftly-compact-list-card">
-                          <div className="min-w-0">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-white">{bill.name}</p>
-                                <p className="mt-1 text-xs leading-5 text-slate-400">
-                                  Due {formatCompactDateLabel(bill.dueDate)} · {bill.category}
-                                </p>
-                              </div>
-                              <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            <span className={`leftly-chip px-3 py-1 text-xs font-medium ${bill.isPaid ? 'leftly-chip-success' : 'leftly-chip-warning'}`}>
-                              {bill.isPaid ? 'Paid' : 'Unpaid'}
-                            </span>
-                            {bill.paidDate ? <Badge muted>Paid {formatCompactDateLabel(bill.paidDate)}</Badge> : null}
-                            {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
-                          </div>
-
-                          <div className="leftly-compact-actions">
-                            <button
-                              type="button"
-                              onClick={() => toggleBillPaid(bill.id)}
-                              className="button-secondary col-span-2 w-full sm:w-auto"
-                            >
-                              {bill.isPaid ? 'Mark unpaid' : 'Mark paid'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => startEditBill(bill)}
-                              className="button-secondary w-full sm:w-auto"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteBill(bill.id)}
-                              className="button-secondary w-full sm:w-auto"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
+                        <ItemRow
+                          key={bill.id}
+                          title={bill.name}
+                          subtitle={`Due ${formatCompactDateLabel(bill.dueDate)} · ${bill.category}${isCarriedOverBill(bill) ? ' · Carried over' : ''}`}
+                          amount={formatCurrency(bill.amount)}
+                          status={bill.isPaid ? (bill.paidDate ? `Paid ${formatCompactDateLabel(bill.paidDate)}` : 'Paid') : 'Unpaid'}
+                          statusTone={bill.isPaid ? 'success' : 'warning'}
+                          onOpen={() => startEditBill(bill)}
+                          openLabel={`Edit bill ${bill.name}`}
+                          quickAction={<PaidToggle isPaid={bill.isPaid} name={bill.name} onToggle={() => toggleBillPaid(bill.id)} />}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -3846,7 +3813,7 @@ function App() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white">Existing manual expenses</p>
                       <p className="mt-1 text-sm leading-6 text-slate-400">
-                        Recent manual spending for this pay period appears here with quick edit and delete actions.
+                        Tap an expense to edit or delete it.
                       </p>
                     </div>
                     {manualExpenses.length > 0 ? (
@@ -3860,39 +3827,14 @@ function App() {
                   {manualExpenses.length > 0 ? (
                     <div className="mt-4 grid gap-2.5">
                       {manualExpenses.map((expense) => (
-                        <div
+                        <ItemRow
                           key={expense.id}
-                          className="leftly-compact-list-card"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-white">{expense.name}</p>
-                                <p className="mt-1 text-xs leading-5 text-slate-400">
-                                  {formatCompactDateLabel(expense.date)} · {expense.category}
-                                </p>
-                              </div>
-                              <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(expense.amount)}</p>
-                            </div>
-                          </div>
-
-                          <div className="leftly-compact-actions">
-                            <button
-                              type="button"
-                              onClick={() => startEditExpense(expense)}
-                              className="button-secondary w-full sm:w-auto"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteExpense(expense.id)}
-                              className="button-secondary w-full sm:w-auto"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
+                          title={expense.name}
+                          subtitle={`${formatCompactDateLabel(expense.date)} · ${expense.category}`}
+                          amount={formatCurrency(expense.amount)}
+                          onOpen={() => startEditExpense(expense)}
+                          openLabel={`Edit expense ${expense.name}`}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -4323,7 +4265,7 @@ function App() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white">Bills in this pay period from Bill Plan</p>
                       <p className="mt-1 text-sm leading-6 text-slate-400">
-                        Mark generated Bill Plan bills paid here without changing your reserved totals or starting the next period.
+                        Tap ✓ to mark a bill paid, or tap the bill to edit it.
                       </p>
                     </div>
                     {recurringBills.length > 0 ? (
@@ -4341,59 +4283,17 @@ function App() {
                   {recurringBills.length > 0 ? (
                     <div className="mt-4 grid gap-2.5">
                       {recurringBills.map((bill) => (
-                        <div
+                        <ItemRow
                           key={bill.id}
-                          className={`leftly-compact-list-card ${bill.isPaid ? 'border-emerald-400/20 bg-emerald-400/5' : ''}`}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="truncate text-sm font-semibold text-white">{bill.name}</p>
-                                  <Badge muted>Bill Plan</Badge>
-                                  <span
-                                    className={`leftly-chip px-3 py-1 text-xs font-medium ${bill.isPaid ? 'leftly-chip-success' : 'leftly-chip-warning'}`}
-                                  >
-                                    {bill.isPaid ? 'Paid' : 'Unpaid'}
-                                  </span>
-                                </div>
-                                <p className="mt-1 text-xs leading-5 text-slate-400">
-                                  Due {formatCompactDateLabel(bill.dueDate)} · {bill.category}
-                                </p>
-                              </div>
-                              <p className="shrink-0 text-sm font-semibold text-white">{formatCurrency(bill.amount)}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            {bill.paidDate ? <Badge muted>Paid {formatCompactDateLabel(bill.paidDate)}</Badge> : null}
-                            {isCarriedOverBill(bill) ? <Badge muted>Carried over</Badge> : null}
-                          </div>
-
-                          <div className="leftly-compact-actions">
-                            <button
-                              type="button"
-                              onClick={() => toggleBillPaid(bill.id)}
-                              className="button-secondary col-span-2 w-full sm:w-auto"
-                            >
-                              {bill.isPaid ? 'Mark unpaid' : 'Mark paid'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => startEditBill(bill)}
-                              className="button-secondary w-full sm:w-auto"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteBill(bill.id)}
-                              className="button-secondary w-full sm:w-auto"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
+                          title={bill.name}
+                          subtitle={`Due ${formatCompactDateLabel(bill.dueDate)} · ${bill.category}${isCarriedOverBill(bill) ? ' · Carried over' : ''}`}
+                          amount={formatCurrency(bill.amount)}
+                          status={bill.isPaid ? (bill.paidDate ? `Paid ${formatCompactDateLabel(bill.paidDate)}` : 'Paid') : 'Unpaid'}
+                          statusTone={bill.isPaid ? 'success' : 'warning'}
+                          onOpen={() => startEditBill(bill)}
+                          openLabel={`Edit bill ${bill.name}`}
+                          quickAction={<PaidToggle isPaid={bill.isPaid} name={bill.name} onToggle={() => toggleBillPaid(bill.id)} />}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -4504,6 +4404,7 @@ function App() {
               onClose={() => setEditingItem(null)}
               onSaveBill={saveEditedBill}
               onSaveExpense={saveEditedExpense}
+              onDelete={(target) => (target.kind === 'bill' ? deleteBill(target.item.id) : deleteExpense(target.item.id))}
             />
           ) : null}
           <ApplyBillPlanPanel

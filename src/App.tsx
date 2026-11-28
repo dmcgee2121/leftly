@@ -556,6 +556,9 @@ function App() {
   const [expandedCategories, setExpandedCategories] = useState<Set<BudgetCategory>>(() => new Set())
   const [isCategorySortOpen, setIsCategorySortOpen] = useState(false)
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false)
+  // Target messages render beside the category list, not inside the collapsed Manage categories section.
+  const [targetError, setTargetError] = useState('')
+  const [targetStatus, setTargetStatus] = useState('')
   const [payPeriodDraft, setPayPeriodDraft] = useState<PayPeriodDraft>(() =>
     getDraftFromPeriod(initialPayPeriod, initialPreferences.defaultPayCadence),
   )
@@ -2891,34 +2894,35 @@ function App() {
   function startEditingCategoryTarget(category: BudgetCategory) {
     setTargetEditingCategory(category)
     setTargetDraft(categoryTargets[category] !== undefined ? categoryTargets[category].toFixed(2) : '')
-    setCategoryError('')
-    setCategoryStatus('')
+    setTargetError('')
+    setTargetStatus('')
   }
 
   function cancelEditingCategoryTarget() {
     setTargetEditingCategory(null)
     setTargetDraft('')
-    setCategoryError('')
+    setTargetError('')
+    setTargetStatus('')
   }
 
   function saveCategoryTarget(category: BudgetCategory) {
     const trimmed = targetDraft.trim()
     if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
-      setCategoryError('Target must be a nonnegative currency amount with up to two decimal places.')
+      setTargetError('Target must be a nonnegative currency amount with up to two decimal places.')
       return
     }
 
     const amount = Number(trimmed)
     if (!Number.isFinite(amount) || amount < 0) {
-      setCategoryError('Target must be a valid nonnegative amount.')
+      setTargetError('Target must be a valid nonnegative amount.')
       return
     }
 
     setCategoryTargets((current) => ({ ...current, [category]: Math.round(amount * 100) / 100 }))
     setTargetEditingCategory(null)
     setTargetDraft('')
-    setCategoryError('')
-    setCategoryStatus(`Target saved for ${category}.`)
+    setTargetError('')
+    setTargetStatus(`Target saved for ${category}.`)
   }
 
   function removeCategoryTarget(category: BudgetCategory) {
@@ -2933,8 +2937,8 @@ function App() {
     })
     setTargetEditingCategory(null)
     setTargetDraft('')
-    setCategoryError('')
-    setCategoryStatus(`Target removed for ${category}.`)
+    setTargetError('')
+    setTargetStatus(`Target removed for ${category}.`)
   }
 
   function clearCurrentPeriodSearchAndFilter() {
@@ -3735,6 +3739,7 @@ function App() {
               ) : null}
 
               {billStatus ? <SuccessMessage>{billStatus}</SuccessMessage> : null}
+              {targetStatus ? <SuccessMessage>{targetStatus}</SuccessMessage> : null}
 
               {bills.length > 0 || expenses.length > 0 ? (
                 <div className="mb-4 grid gap-3 rounded-[1.2rem] border border-slate-800/80 bg-slate-950/55 p-3 sm:p-4">
@@ -3816,6 +3821,7 @@ function App() {
                       targetProgress={categoryTargetProgressByCategory.get(summary.category) ?? null}
                       targetEditing={targetEditingCategory === summary.category}
                       targetDraft={targetEditingCategory === summary.category ? targetDraft : ''}
+                      targetError={targetEditingCategory === summary.category ? targetError : ''}
                       expanded={visibleExpandedCategories.has(summary.category)}
                       onToggle={() => toggleCategory(summary.category)}
                       onMoveUp={() => moveCategory(summary.category, -1)}

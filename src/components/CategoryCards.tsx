@@ -78,6 +78,7 @@ export function CategoryCard({
   targetProgress,
   targetEditing,
   targetDraft,
+  targetError,
   expanded,
   onToggle,
   onMoveUp,
@@ -98,6 +99,7 @@ export function CategoryCard({
   targetProgress: CategoryTargetProgress | null
   targetEditing: boolean
   targetDraft: string
+  targetError: string
   expanded: boolean
   onToggle: () => void
   onMoveUp: () => void
@@ -193,6 +195,11 @@ export function CategoryCard({
               <button type="button" onClick={onCancelTargetEdit} className="button-secondary w-full self-end sm:w-auto">
                 Cancel
               </button>
+              {targetError ? (
+                <p className="leftly-banner-danger sm:col-span-3" role="alert">
+                  {targetError}
+                </p>
+              ) : null}
             </div>
           ) : null}
 

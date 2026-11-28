@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 
 // One slim list row: tap anywhere on the main part to open/edit the item.
 // Optional status chip and one optional quick action (e.g. "mark paid") on the right.
@@ -26,9 +26,15 @@ export function ItemRow({
   openLabel: string
   quickAction?: ReactNode
 }) {
+  // The button's name is the action ("Edit bill Phone"); the visible details are read as its description,
+  // so screen-reader users hear the amount, date/category and status without opening the item.
+  const detailsId = useId()
   return (
     <div className={`leftly-item-row ${dimmed ? 'leftly-item-row-dimmed' : ''}`}>
-      <button type="button" onClick={onOpen} className="leftly-item-row-main" aria-label={openLabel}>
+      <button type="button" onClick={onOpen} className="leftly-item-row-main" aria-label={openLabel} aria-describedby={detailsId}>
+        <span id={detailsId} className="sr-only">
+          {[amount, typeof subtitle === 'string' ? subtitle : null, status].filter(Boolean).join(', ')}
+        </span>
         <span className="min-w-0 flex-1 text-left">
           <span className="block truncate text-sm font-semibold text-white">{title}</span>
           {subtitle ? <span className="mt-0.5 block truncate text-xs leading-5 text-slate-400">{subtitle}</span> : null}

@@ -330,7 +330,7 @@ export function StartFromHistoryPanel({
 
           <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
             <p className="text-sm font-semibold text-white">Copy preview</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
               <Stat label="Copied bills" value={`${preview.bills.length}`} detail={formatCurrency(copiedBillsAmount)} />
               <Stat label="Copied planned spending / set-asides" value={`${copiedPlannedExpensesCount}`} detail={formatCurrency(copiedPlannedExpensesAmount)} />
               <Stat label="Manual expenses" value={draft.copyManualExpenses ? `${preview.manualExpensesCount}` : '0'} detail={draft.copyManualExpenses ? formatCurrency(preview.manualExpensesTotal) : 'not copied'} />

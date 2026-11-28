@@ -523,21 +523,6 @@ function mergeBillsForNewPeriod(existingBills: Bill[], carriedBills: Bill[]) {
   return merged
 }
 
-function getExpandedCategoriesFromItems(bills: Bill[], expenses: Expense[], categories: BudgetCategory[]) {
-  const seeded = new Set<BudgetCategory>()
-  for (const category of categories) {
-    if (bills.some((bill) => bill.category === category) || expenses.some((expense) => expense.category === category)) {
-      seeded.add(category)
-    }
-  }
-
-  if (seeded.size === 0) {
-    seeded.add(categories[0] ?? 'Housing')
-  }
-
-  return seeded
-}
-
 function App() {
   const pwa = usePwaLifecycle()
   const landingBackupInputRef = useRef<HTMLInputElement | null>(null)
@@ -567,9 +552,10 @@ function App() {
   const [customCategories, setCustomCategories] = useState<BudgetCategory[]>(initialCustomCategories)
   const [categoryOrder, setCategoryOrder] = useState<BudgetCategory[]>(initialCategoryOrder)
   const [categoryTargets, setCategoryTargets] = useState<CategoryTargets>(initialCategoryTargets)
-  const [expandedCategories, setExpandedCategories] = useState<Set<BudgetCategory>>(() => {
-    return getExpandedCategoriesFromItems(initialBills, initialExpenses, initialAllCategories)
-  })
+  // Categories start collapsed; people open the ones they care about.
+  const [expandedCategories, setExpandedCategories] = useState<Set<BudgetCategory>>(() => new Set())
+  const [isCategorySortOpen, setIsCategorySortOpen] = useState(false)
+  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false)
   const [payPeriodDraft, setPayPeriodDraft] = useState<PayPeriodDraft>(() =>
     getDraftFromPeriod(initialPayPeriod, initialPreferences.defaultPayCadence),
   )
@@ -747,10 +733,6 @@ function App() {
       if (expandedCategories.has(category)) {
         next.add(category)
       }
-    }
-
-    if (next.size === 0) {
-      next.add(allCategories[0] ?? FALLBACK_CATEGORY)
     }
 
     return next
@@ -1342,13 +1324,6 @@ function App() {
     return undefined
   }, [activeOverlay, selectedHistorySnapshot])
 
-  const categoryRank = useMemo(() => {
-    return new Map(
-      [...visibleCategorySummaries]
-        .sort((a, b) => b.total - a.total || a.category.localeCompare(b.category))
-        .map((summary, index) => [summary.category, index + 1]),
-    )
-  }, [visibleCategorySummaries])
   const backupSummary = useMemo(
     () =>
       getLeftlyBackupSummary({
@@ -1498,7 +1473,7 @@ function App() {
     setBills(generated.bills)
     setExpenses(generated.expenses)
     setRecurringTemplates(generated.templates)
-    setExpandedCategories(getExpandedCategoriesFromItems(generated.bills, generated.expenses, allCategories))
+    setExpandedCategories(new Set())
     setActiveTab('overview')
     setIsSetupOpen(false)
     if (setupTemplates.length > 0) {
@@ -2134,7 +2109,7 @@ function App() {
     setCategoryOrderMode(nextCategoryOrderMode)
     setCategoryTargets(nextCategoryTargets)
     setSortMode(nextSortMode)
-    setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses, getAllCategories(nextCustomCategories)))
+    setExpandedCategories(new Set())
     resetDrafts(nextPreferences)
     setPayPeriodDraft(getDraftFromPeriod(nextPayPeriod, nextPreferences.defaultPayCadence))
     setActiveTab('overview')
@@ -2201,23 +2176,15 @@ function App() {
   }
 
   function toggleBillPaid(id: string) {
-    let nextPaidState = false
-    setBills((current) =>
-      current.map((bill) => {
-        if (bill.id !== id) {
-          return bill
-        }
-
-        const isPaid = !bill.isPaid
-        nextPaidState = isPaid
-        return {
-          ...bill,
-          isPaid,
-          paidDate: isPaid ? new Date().toISOString().slice(0, 10) : null,
-        }
-      }),
-    )
-    setBillStatus(nextPaidState ? 'Marked paid.' : 'Marked unpaid.')
+    // Read the paid state from the bills on screen: a state updater runs later, so a flag set inside it
+    // would still be false here and the message would say "Marked unpaid." after marking a bill paid.
+    const target = bills.find((bill) => bill.id === id)
+    if (!target) return
+    const isPaid = !target.isPaid
+    // Local calendar day, not UTC, so a bill paid late in the evening keeps today's date.
+    const paidDate = isPaid ? formatIsoDate(new Date()) : null
+    setBills((current) => current.map((bill) => (bill.id === id ? { ...bill, isPaid, paidDate } : bill)))
+    setBillStatus(isPaid ? 'Marked paid.' : 'Marked unpaid.')
   }
 
   function addRecurringTemplate(template: RecurringItemTemplate) {
@@ -2740,7 +2707,7 @@ function App() {
     setCategoryTargets({})
     setPreferences({ ...DEFAULT_PREFERENCES })
     setCustomCategories([])
-    setExpandedCategories(getExpandedCategoriesFromItems(nextBills, nextExpenses, [...DEFAULT_CATEGORIES]))
+    setExpandedCategories(new Set())
     setSortMode('amount-desc')
     setCategoryOrderMode('total-desc')
     setCategoryOrder([...DEFAULT_CATEGORIES])
@@ -3748,7 +3715,7 @@ function App() {
               <MoreBackBar onBack={openMoreMenu} />
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm leading-6 text-slate-400">
-                  Tap a category to expand its bills and expenses, then sort the list however you want.
+                  Tap a category to see its bills and expenses.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Badge muted>{categorySummaries.filter((summary) => summary.total > 0).length} active</Badge>
@@ -3757,33 +3724,143 @@ function App() {
                 </div>
               </div>
 
-              <div className="mb-4 grid gap-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Sort items">
-                    <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-                      {sortOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Category order">
-                    <select
-                      value={categoryOrderMode}
-                      onChange={(event) => setCategoryOrderMode(event.target.value as CategoryOrderMode)}
-                    >
-                      {categoryOrderOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+              {bills.length === 0 && expenses.length === 0 ? (
+                <div className="mb-4">
+                  <EmptyState
+                    title="No category items yet"
+                    text="Set a pay period, add a bill, or log spending and Leftly will group it here."
+                    compact
+                  />
                 </div>
+              ) : null}
+
+              {billStatus ? <SuccessMessage>{billStatus}</SuccessMessage> : null}
+
+              {bills.length > 0 || expenses.length > 0 ? (
+                <div className="mb-4 grid gap-3 rounded-[1.2rem] border border-slate-800/80 bg-slate-950/55 p-3 sm:p-4">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                    <Field label="Search current-period items">
+                      <input
+                        type="search"
+                        value={currentPeriodSearch}
+                        onChange={(event) => setCurrentPeriodSearch(event.target.value)}
+                        placeholder="Search by item or category"
+                      />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-2 lg:flex">
+                      <button
+                        type="button"
+                        onClick={() => setIsCategorySortOpen((current) => !current)}
+                        aria-expanded={isCategorySortOpen}
+                        aria-controls="leftly-category-sort"
+                        className="button-secondary w-full lg:w-auto"
+                      >
+                        {isCategorySortOpen ? 'Hide sort' : 'Sort'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearCurrentPeriodSearchAndFilter}
+                        className="button-secondary w-full lg:w-auto"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {currentPeriodItemFilterOptions.map((option) => (
+                      <TabButton
+                        key={option.value}
+                        label={option.label}
+                        active={currentPeriodFilter === option.value}
+                        onClick={() => setCurrentPeriodFilter(option.value)}
+                      />
+                    ))}
+                  </div>
+                  {isCategorySortOpen ? (
+                    <div id="leftly-category-sort" className="border-t border-slate-800/70 pt-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="Sort items">
+                          <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+                            {sortOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                        <Field label="Category order">
+                          <select
+                            value={categoryOrderMode}
+                            onChange={(event) => setCategoryOrderMode(event.target.value as CategoryOrderMode)}
+                          >
+                            {categoryOrderOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="grid gap-3">
+                {visibleCategorySummaries.length > 0 ? (
+                  visibleCategorySummaries.map((summary) => (
+                    <CategoryCard
+                      key={summary.category}
+                      summary={summary}
+                      targetProgress={categoryTargetProgressByCategory.get(summary.category) ?? null}
+                      targetEditing={targetEditingCategory === summary.category}
+                      targetDraft={targetEditingCategory === summary.category ? targetDraft : ''}
+                      expanded={visibleExpandedCategories.has(summary.category)}
+                      onToggle={() => toggleCategory(summary.category)}
+                      onMoveUp={() => moveCategory(summary.category, -1)}
+                      onMoveDown={() => moveCategory(summary.category, 1)}
+                      onStartEditingTarget={() => startEditingCategoryTarget(summary.category)}
+                      onTargetDraftChange={setTargetDraft}
+                      onSaveTarget={() => saveCategoryTarget(summary.category)}
+                      onRemoveTarget={() => removeCategoryTarget(summary.category)}
+                      onCancelTargetEdit={cancelEditingCategoryTarget}
+                      onToggleBillPaid={toggleBillPaid}
+                      onEditBill={startEditBill}
+                      onEditExpense={startEditExpense}
+                      formatCurrency={formatCurrency}
+                      canMoveUp={resolvedCategoryOrder.indexOf(summary.category) > 0}
+                      canMoveDown={resolvedCategoryOrder.indexOf(summary.category) < resolvedCategoryOrder.length - 1}
+                    />
+                  ))
+                ) : bills.length > 0 || expenses.length > 0 ? (
+                  <EmptyState
+                    title="No matching items"
+                    text="Try a different search or filter, or clear both to show the full current pay period again."
+                    compact
+                  />
+                ) : null}
               </div>
 
-              <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+              <div className="mt-4 leftly-shell-soft">
+                <button
+                  type="button"
+                  onClick={() => setIsManageCategoriesOpen((current) => !current)}
+                  aria-expanded={isManageCategoriesOpen}
+                  aria-controls="leftly-manage-categories"
+                  className="leftly-category-row-header"
+                >
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block text-sm font-semibold text-white">Manage categories</span>
+                    <span className="mt-0.5 block text-xs leading-5 text-slate-400">
+                      {customCategories.length === 0 ? 'Add your own categories' : `${customCategories.length} custom · ${DEFAULT_CATEGORIES.length} built-in`}
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className={`shrink-0 text-slate-500 transition-transform ${isManageCategoriesOpen || deletingCategory ? 'rotate-90' : ''}`}>›</span>
+                </button>
+                {isManageCategoriesOpen || deletingCategory ? (
+                  <div id="leftly-manage-categories" className="border-t border-slate-800/70 p-3 sm:p-4">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                 <div className="leftly-shell-soft grid gap-4 p-4">
                   <div className="grid gap-1">
                     <p className="text-sm font-semibold text-white">Manage custom categories</p>
@@ -3879,7 +3956,7 @@ function App() {
               </div>
 
               {deletingCategory ? (
-                <div className="mb-4 leftly-shell-soft grid gap-3 border border-amber-500/20 bg-amber-500/10 p-4">
+                <div className="mt-4 leftly-shell-soft grid gap-3 border border-amber-500/20 bg-amber-500/10 p-4">
                   <div className="grid gap-1">
                     <p className="text-sm font-semibold text-white">Delete custom category</p>
                     <p className="text-sm leading-6 text-slate-300">
@@ -3964,86 +4041,7 @@ function App() {
                 </div>
               ) : null}
 
-              {bills.length === 0 && expenses.length === 0 ? (
-                <div className="mb-4">
-                  <EmptyState
-                    title="No category items yet"
-                    text="Set a pay period, add a bill, or log spending and Leftly will group it here."
-                    compact
-                  />
-                </div>
-              ) : null}
-
-              {billStatus ? <SuccessMessage>{billStatus}</SuccessMessage> : null}
-
-              {bills.length > 0 || expenses.length > 0 ? (
-                <div className="mb-4 grid gap-3 rounded-[1.2rem] border border-slate-800/80 bg-slate-950/55 p-3 sm:p-4">
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                    <Field label="Search current-period items">
-                      <input
-                        type="search"
-                        value={currentPeriodSearch}
-                        onChange={(event) => setCurrentPeriodSearch(event.target.value)}
-                        placeholder="Search by item or category"
-                      />
-                    </Field>
-                    <button
-                      type="button"
-                      onClick={clearCurrentPeriodSearchAndFilter}
-                      className="button-secondary w-full lg:w-auto"
-                    >
-                      Clear search and filters
-                    </button>
                   </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {currentPeriodItemFilterOptions.map((option) => (
-                      <TabButton
-                        key={option.value}
-                        label={option.label}
-                        active={currentPeriodFilter === option.value}
-                        onClick={() => setCurrentPeriodFilter(option.value)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="grid gap-3">
-                {visibleCategorySummaries.length > 0 ? (
-                  visibleCategorySummaries.map((summary) => (
-                    <CategoryCard
-                      key={summary.category}
-                      summary={summary}
-                      targetProgress={categoryTargetProgressByCategory.get(summary.category) ?? null}
-                      targetEditing={targetEditingCategory === summary.category}
-                      targetDraft={targetEditingCategory === summary.category ? targetDraft : ''}
-                      rank={categoryRank.get(summary.category) ?? 0}
-                      expanded={visibleExpandedCategories.has(summary.category)}
-                      onToggle={() => toggleCategory(summary.category)}
-                      onMoveUp={() => moveCategory(summary.category, -1)}
-                      onMoveDown={() => moveCategory(summary.category, 1)}
-                      onStartEditingTarget={() => startEditingCategoryTarget(summary.category)}
-                      onTargetDraftChange={setTargetDraft}
-                      onSaveTarget={() => saveCategoryTarget(summary.category)}
-                      onRemoveTarget={() => removeCategoryTarget(summary.category)}
-                      onCancelTargetEdit={cancelEditingCategoryTarget}
-                      onDeleteBill={deleteBill}
-                      onDeleteExpense={deleteExpense}
-                      onToggleBillPaid={toggleBillPaid}
-                      onEditBill={startEditBill}
-                      onEditExpense={startEditExpense}
-                      formatCurrency={formatCurrency}
-                      canMoveUp={resolvedCategoryOrder.indexOf(summary.category) > 0}
-                      canMoveDown={resolvedCategoryOrder.indexOf(summary.category) < resolvedCategoryOrder.length - 1}
-                    />
-                  ))
-                ) : bills.length > 0 || expenses.length > 0 ? (
-                  <EmptyState
-                    title="No matching items"
-                    text="Try a different search or filter, or clear both to show the full current pay period again."
-                    compact
-                  />
                 ) : null}
               </div>
             </SectionShell>

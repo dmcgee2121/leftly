@@ -43,7 +43,7 @@ export function PlanningHorizonSummary({
           <p className="mt-1 text-sm leading-6 text-slate-400">Add or activate recurring items to see projected schedules here.</p>
         </div>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           <SummaryStat label={horizon.horizonLabel} value={`${horizon.activeTemplateCount} active template${horizon.activeTemplateCount === 1 ? '' : 's'}`} />
           <SummaryStat label="Scheduled from Bill Plan" value={formatCurrency(horizon.totalProjectedAmount)} />
           <SummaryStat label="Projected bills" value={formatCurrency(horizon.billsTotal)} />

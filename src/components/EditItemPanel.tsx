@@ -33,6 +33,7 @@ export function EditItemPanel({
   onClose,
   onSaveBill,
   onSaveExpense,
+  onDelete,
 }: {
   target: EditTarget | null
   categories: BudgetCategory[]
@@ -40,6 +41,7 @@ export function EditItemPanel({
   onClose: () => void
   onSaveBill: (bill: Bill) => void
   onSaveExpense: (expense: Expense) => void
+  onDelete?: (target: EditTarget) => void
 }) {
   const initialDraft: EditDraft = target
     ? target.kind === 'bill'
@@ -233,6 +235,18 @@ export function EditItemPanel({
                 {target.kind === 'bill' ? 'Save bill' : 'Save expense'}
               </button>
             </div>
+            {onDelete ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose()
+                  onDelete(target)
+                }}
+                className="mt-3 w-full rounded-xl py-2.5 text-sm font-semibold text-rose-300 hover:bg-rose-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-300"
+              >
+                {target.kind === 'bill' ? 'Delete bill' : 'Delete expense'}
+              </button>
+            ) : null}
           </div>
         </form>
       </section>

@@ -1,4 +1,3 @@
-import { formatDateLabel } from '../lib/dateLabels'
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { FALLBACK_CATEGORY } from '../lib/categories'
@@ -12,6 +11,7 @@ import {
   normalizeRecurringScheduleType,
   normalizeRecurringWeekday,
 } from '../lib/recurring'
+import { ItemRow } from './ItemRow'
 
 const buttonStyles = {
   primary: 'button-primary',
@@ -242,7 +242,13 @@ export function RecurringSection({
       setAsideAmount: template.setAsideAmount ? String(template.setAsideAmount) : '',
     })
     setError('')
+    // The form sits further down the screen; bring it into view when an item is tapped.
+    window.requestAnimationFrame(() => {
+      document.getElementById('bill-plan-item-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
+
+  const editingTemplate = editingTemplateId ? templates.find((template) => template.id === editingTemplateId) ?? null : null
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -612,7 +618,7 @@ export function RecurringSection({
           action="Saved locally"
           helper="Bill Plan items are saved templates. Later, Leftly can use them to build each new pay period automatically. Set-asides reserve money each pay period for a bill that may be due later. They lower your safe-to-spend amount but are not marked as a paid bill."
         >
-          <form className="grid gap-4" onSubmit={handleSubmit}>
+          <form id="bill-plan-item-form" className="grid scroll-mt-20 gap-4" onSubmit={handleSubmit}>
           <Field label="Name">
             <input
               value={draft.name}
@@ -804,6 +810,30 @@ export function RecurringSection({
               </button>
             ) : null}
           </div>
+          {editingTemplate ? (
+            <div className="flex flex-wrap gap-3 border-t border-slate-800/70 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateTemplate({ ...editingTemplate, isActive: !editingTemplate.isActive })
+                  resetForm()
+                }}
+                className={buttonStyles.secondary}
+              >
+                {editingTemplate.isActive ? 'Deactivate' : 'Reactivate'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteTemplate(editingTemplate)
+                  resetForm()
+                }}
+                className={buttonStyles.danger}
+              >
+                Delete
+              </button>
+            </div>
+          ) : null}
           </form>
           <datalist id="bill-plan-names">
             {planNames.map((planName) => (
@@ -815,7 +845,7 @@ export function RecurringSection({
         <Panel
           title="Saved Bill Plan items"
           action={`${filteredTemplates.length} shown`}
-          helper="Deactivate, reactivate, or edit items without deleting them."
+          helper="Tap an item to edit, deactivate or delete it."
         >
           {templates.length === 0 ? (
             <EmptyState
@@ -853,62 +883,17 @@ export function RecurringSection({
                       const scheduleLabel = formatRecurringScheduleLabel(template)
 
                       return (
-                        <article
+                        <ItemRow
                           key={template.id}
-                          className={`leftly-shell-soft p-3.5 sm:p-4 ${template.isActive ? '' : 'border-slate-800/90 bg-slate-950/55'}`}
-                        >
-                          <div className="flex flex-col gap-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="truncate text-[1rem] font-semibold tracking-[-0.02em] text-white">{template.name}</p>
-                                  <Badge>{template.kind === 'bill' ? 'Bill' : 'Planned spending'}</Badge>
-                                  <Badge muted>{planName}</Badge>
-                                  {isSetAside ? <Badge muted>Set-aside</Badge> : null}
-                                  <Badge muted>{template.isActive ? 'Active' : 'Inactive'}</Badge>
-                                </div>
-                                <p className="mt-1 text-sm leading-5 text-slate-400">
-                                  {template.category} · {scheduleLabel}
-                                  {template.anchorDate ? ` · anchor ${formatDateLabel(template.anchorDate)}` : ''}
-                                </p>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <p className="text-[1.02rem] font-semibold tracking-[-0.02em] text-white">
-                                  {formatCurrency(template.amount)}
-                                </p>
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                                  Added {formatDateLabel(template.createdAt)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                              <Badge muted>{scheduleLabel}</Badge>
-                              <Badge muted>{planName}</Badge>
-                              {template.anchorDate ? <Badge muted>Anchor {formatDateLabel(template.anchorDate)}</Badge> : null}
-                            </div>
-
-                            <div className="grid gap-2 sm:grid-cols-3">
-                              <button type="button" onClick={() => startEdit(template)} className={buttonStyles.secondary + ' w-full'}>
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onUpdateTemplate({ ...template, isActive: !template.isActive })}
-                                className={buttonStyles.secondary + ' w-full'}
-                              >
-                                {template.isActive ? 'Deactivate' : 'Reactivate'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onDeleteTemplate(template)}
-                                className={buttonStyles.danger + ' w-full'}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </article>
+                          title={template.name}
+                          subtitle={`${scheduleLabel}${isSetAside ? ' · Set-aside' : ''}${planName !== MAIN_BILL_PLAN ? ` · ${planName}` : ''}`}
+                          amount={formatCurrency(template.amount)}
+                          status={!template.isActive ? 'Inactive' : template.kind === 'bill' ? undefined : 'Planned'}
+                          statusTone={template.isActive ? 'default' : 'muted'}
+                          dimmed={!template.isActive}
+                          onOpen={() => startEdit(template)}
+                          openLabel={`Edit ${template.name}`}
+                        />
                       )
                     })}
                   </div>
@@ -974,15 +959,6 @@ function EmptyState({
   )
 }
 
-function Badge({
-  children,
-  muted = false,
-}: {
-  children: ReactNode
-  muted?: boolean
-}) {
-  return <span className={`leftly-chip ${muted ? 'leftly-chip-muted' : 'leftly-chip-default'}`}>{children}</span>
-}
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)

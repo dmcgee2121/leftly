@@ -719,7 +719,7 @@ function SummaryStats({
   safeToSpendImpact: number
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
       <Stat label="Bill Plan bills" value={`${billsCount}`} detail={formatCurrency(billsAmount)} />
       <Stat label="Set-asides" value={`${setAsidesCount}`} detail={formatCurrency(setAsidesAmount)} />
       <Stat label="Planned spending" value={`${plannedCount}`} detail={formatCurrency(plannedAmount)} />

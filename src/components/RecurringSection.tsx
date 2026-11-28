@@ -413,7 +413,7 @@ export function RecurringSection({
 
   return (
     <div className="grid gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         <div className="leftly-shell-soft p-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Active monthly estimate</p>
           <p className="mt-2 text-xl font-semibold text-white">{formatCurrency(recurringSummary.activeMonthlyEstimate)}</p>

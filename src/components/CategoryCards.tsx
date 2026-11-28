@@ -3,9 +3,11 @@ import {
   type Bill,
   type Expense,
 } from '../types/budget'
+import { useId } from 'react'
 import { formatDateLabel } from '../lib/dateLabels'
 import type { CategoryTargetProgress, CategorySummary } from '../types/app'
-import { MiniTargetStat, Badge, Field, EmptyState } from './ui'
+import { MiniTargetStat, Field, EmptyState } from './ui'
+import { ItemRow, PaidToggle } from './ItemRow'
 
 export function TargetProgressCard({
   progress,
@@ -76,7 +78,7 @@ export function CategoryCard({
   targetProgress,
   targetEditing,
   targetDraft,
-  rank,
+  targetError,
   expanded,
   onToggle,
   onMoveUp,
@@ -86,8 +88,6 @@ export function CategoryCard({
   onSaveTarget,
   onRemoveTarget,
   onCancelTargetEdit,
-  onDeleteBill,
-  onDeleteExpense,
   onToggleBillPaid,
   onEditBill,
   onEditExpense,
@@ -99,7 +99,7 @@ export function CategoryCard({
   targetProgress: CategoryTargetProgress | null
   targetEditing: boolean
   targetDraft: string
-  rank: number
+  targetError: string
   expanded: boolean
   onToggle: () => void
   onMoveUp: () => void
@@ -109,8 +109,6 @@ export function CategoryCard({
   onSaveTarget: () => void
   onRemoveTarget: () => void
   onCancelTargetEdit: () => void
-  onDeleteBill: (id: string) => void
-  onDeleteExpense: (id: string) => void
   onToggleBillPaid: (id: string) => void
   onEditBill: (bill: Bill) => void
   onEditExpense: (expense: Expense) => void
@@ -118,176 +116,171 @@ export function CategoryCard({
   canMoveUp: boolean
   canMoveDown: boolean
 }) {
-  const highlightClass =
-    rank === 1
-      ? 'border-emerald-400/30 bg-emerald-400/10'
-      : rank <= 3
-        ? 'border-cyan-400/25 bg-cyan-400/10'
-        : 'border-slate-800/80 bg-slate-950/70'
+  const detailsId = useId()
+  const itemCount = summary.items.length
+  const subtitleParts = [itemCount === 0 ? 'No items' : `${itemCount} item${itemCount === 1 ? '' : 's'}`]
+  if (targetProgress) {
+    subtitleParts.push(`${targetProgress.status} · ${formatCurrency(targetProgress.target)} target`)
+  }
+  const barClass =
+    targetProgress?.status === 'Over target'
+      ? 'bg-rose-400'
+      : targetProgress?.status === 'Getting close'
+        ? 'bg-amber-300'
+        : 'bg-gradient-to-r from-cyan-400 to-emerald-400'
 
   return (
-    <article className={`leftly-shell-soft p-4 shadow-lg shadow-slate-950/20 ${highlightClass}`}>
-      <div className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold text-white">{summary.category}</h3>
-              {rank <= 3 ? <Badge>{rank === 1 ? 'Highest cost' : `Top ${rank}`}</Badge> : null}
-            </div>
-            <p className="mt-1 text-sm text-slate-400">
-              {summary.total > 0 ? formatCurrency(summary.total) : 'No spending yet'}
-            </p>
-          </button>
+    <article className={`leftly-category-row ${expanded ? 'leftly-category-row-open' : ''}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={detailsId}
+        className="leftly-category-row-header"
+      >
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block truncate text-sm font-semibold text-white">{summary.category}</span>
+          <span className="mt-0.5 block truncate text-xs leading-5 text-slate-400">{subtitleParts.join(' · ')}</span>
+        </span>
+        <span className="shrink-0 text-sm font-semibold text-white">{formatCurrency(summary.total)}</span>
+        <svg
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className={`shrink-0 text-slate-500 transition-transform ${expanded ? 'rotate-90' : ''}`}
+        >
+          <path d="m9 6 6 6-6 6" />
+        </svg>
+      </button>
 
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            <button
-              type="button"
-              onClick={onToggle}
-              className="text-xs uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-300"
-            >
-              {expanded ? 'Collapse' : 'Expand'}
-            </button>
-          </div>
+      {targetProgress ? (
+        <div
+          className="mx-3.5 mb-3 h-1.5 overflow-hidden rounded-full bg-slate-800/80"
+          role="progressbar"
+          aria-label={`${summary.category} target progress: ${targetProgress.status}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(targetProgress.progressValue)}
+        >
+          <div className={`h-full rounded-full ${barClass}`} style={{ width: `${targetProgress.progressValue}%` }} />
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Badge muted>{summary.billCount} bill{summary.billCount === 1 ? '' : 's'}</Badge>
-          <Badge muted>{summary.expenseCount} expense{summary.expenseCount === 1 ? '' : 's'}</Badge>
-          {summary.manualExpenseCount > 0 ? <Badge muted>{summary.manualExpenseCount} manual</Badge> : null}
-          {targetProgress ? <Badge muted>{targetProgress.status}</Badge> : null}
-        </div>
-
-        {targetProgress ? (
-          <TargetProgressCard progress={targetProgress} formatCurrency={formatCurrency} />
-        ) : null}
-
-        {targetEditing ? (
-          <div className="leftly-shell-faint grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-            <Field label="Category target">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                value={targetDraft}
-                onChange={(event) => onTargetDraftChange(event.target.value)}
-                placeholder="250.00"
-              />
-            </Field>
-            <button type="button" onClick={onSaveTarget} className="button-primary w-full self-end sm:w-auto">
-              Save
-            </button>
-            <button type="button" onClick={onCancelTargetEdit} className="button-secondary w-full self-end sm:w-auto">
-              Cancel
-            </button>
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={onMoveUp}
-            disabled={!canMoveUp}
-            aria-label={`Move ${summary.category} up`}
-            className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:w-10"
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            onClick={onMoveDown}
-            disabled={!canMoveDown}
-            aria-label={`Move ${summary.category} down`}
-            className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-200 transition hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:w-10"
-          >
-            ▼
-          </button>
-          <div className="min-w-0 flex-1 text-right">
-            <p className="text-lg font-semibold text-white">{formatCurrency(summary.total)}</p>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Current total</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button type="button" onClick={onStartEditingTarget} className="button-secondary w-full sm:w-auto">
-            {targetProgress ? 'Edit target' : 'Set target'}
-          </button>
-          {targetProgress ? (
-            <button type="button" onClick={onRemoveTarget} className="button-secondary w-full sm:w-auto">
-              Remove target
-            </button>
-          ) : null}
-        </div>
-      </div>
+      ) : null}
 
       {expanded ? (
-        <div className="mt-4 space-y-2 border-t border-slate-800/70 pt-4">
-          {summary.items.length === 0 ? (
+        <div id={detailsId} className="grid gap-3 border-t border-slate-800/70 p-3">
+          {targetProgress ? <TargetProgressCard progress={targetProgress} formatCurrency={formatCurrency} compact /> : null}
+
+          {targetEditing ? (
+            <div className="leftly-shell-faint grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+              <Field label="Category target">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={targetDraft}
+                  onChange={(event) => onTargetDraftChange(event.target.value)}
+                  placeholder="250.00"
+                />
+              </Field>
+              <button type="button" onClick={onSaveTarget} className="button-primary w-full self-end sm:w-auto">
+                Save
+              </button>
+              <button type="button" onClick={onCancelTargetEdit} className="button-secondary w-full self-end sm:w-auto">
+                Cancel
+              </button>
+              {targetError ? (
+                <p className="leftly-banner-danger sm:col-span-3" role="alert">
+                  {targetError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {itemCount === 0 ? (
             <EmptyState title="Nothing here yet" text="Add a bill or expense and it will appear in this category." compact />
           ) : (
-            summary.items.map((item) => (
-              <div
-                key={item.id}
-                className="leftly-shell-soft flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-medium text-white">{item.name}</p>
-                    {item.source === 'recurring' ? (
-                      <Badge muted={Boolean(item.setAsideForTemplateId)}>
-                        {item.setAsideForTemplateId ? 'Set-aside' : item.isPlanned ? 'Planned spending' : 'Bill Plan'}
-                      </Badge>
-                    ) : null}
-                    {item.kind === 'bill' && item.carriedOverFromPayPeriodId ? <Badge muted>Carried over</Badge> : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                    <Badge muted>{item.kind}</Badge>
-                    {item.kind === 'bill' ? <Badge muted>Due {formatDateLabel(item.dueDate)}</Badge> : <Badge muted>{formatDateLabel(item.date)}</Badge>}
-                    {item.kind === 'bill' && item.paidDate ? <Badge success>Paid {formatDateLabel(item.paidDate)}</Badge> : null}
-                  </div>
-                  <p className="text-xs leading-5 text-slate-400">
-                    {item.kind === 'bill'
-                      ? item.isPaid
-                        ? 'Marked paid in this pay period.'
-                        : 'Open bill for this pay period.'
-                      : item.source === 'recurring'
-                        ? 'Recurring expense or set-aside.'
-                        : 'Manual expense logged this pay period.'}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                  {item.kind === 'bill' ? (
-                    <label className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(item.isPaid)}
-                        onChange={() => onToggleBillPaid(item.id)}
-                        className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-cyan-400 focus:ring-cyan-400"
-                      />
-                      Paid
-                    </label>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    onClick={() => (item.kind === 'bill' ? onEditBill(item as Bill) : onEditExpense(item as Expense))}
-                    className="button-secondary w-full sm:w-auto"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => (item.kind === 'bill' ? onDeleteBill(item.id) : onDeleteExpense(item.id))}
-                    className="button-secondary w-full sm:w-auto"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))
+            <div className="grid gap-2">
+              {summary.items.map((item) => {
+                const tag =
+                  item.source === 'recurring'
+                    ? item.setAsideForTemplateId
+                      ? 'Set-aside'
+                      : item.isPlanned
+                        ? 'Planned'
+                        : 'Bill Plan'
+                    : item.kind === 'bill' && item.carriedOverFromPayPeriodId
+                      ? 'Carried over'
+                      : null
+                if (item.kind === 'bill') {
+                  const bill = item as Bill
+                  return (
+                    <ItemRow
+                      key={item.id}
+                      title={bill.name}
+                      subtitle={`Bill · Due ${formatDateLabel(bill.dueDate)}${tag ? ` · ${tag}` : ''}`}
+                      amount={formatCurrency(bill.amount)}
+                      status={bill.isPaid ? (bill.paidDate ? `Paid ${formatDateLabel(bill.paidDate)}` : 'Paid') : 'Unpaid'}
+                      statusTone={bill.isPaid ? 'success' : 'warning'}
+                      onOpen={() => onEditBill(bill)}
+                      openLabel={`Edit bill ${bill.name}`}
+                      quickAction={<PaidToggle isPaid={bill.isPaid} name={bill.name} onToggle={() => onToggleBillPaid(bill.id)} />}
+                    />
+                  )
+                }
+                const expense = item as Expense
+                return (
+                  <ItemRow
+                    key={item.id}
+                    title={expense.name}
+                    subtitle={`Expense · ${formatDateLabel(expense.date)}${tag ? ` · ${tag}` : ''}`}
+                    amount={formatCurrency(expense.amount)}
+                    onOpen={() => onEditExpense(expense)}
+                    openLabel={`Edit expense ${expense.name}`}
+                  />
+                )
+              })}
+            </div>
           )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            {!targetEditing ? (
+              <button type="button" onClick={onStartEditingTarget} className="button-secondary flex-1 sm:flex-none">
+                {targetProgress ? 'Edit target' : 'Set target'}
+              </button>
+            ) : null}
+            {targetProgress && !targetEditing ? (
+              <button type="button" onClick={onRemoveTarget} className="button-secondary flex-1 sm:flex-none">
+                Remove target
+              </button>
+            ) : null}
+            <div className="ml-auto flex gap-2">
+              <button
+                type="button"
+                onClick={onMoveUp}
+                disabled={!canMoveUp}
+                aria-label={`Move ${summary.category} up`}
+                className="leftly-icon-button"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                onClick={onMoveDown}
+                disabled={!canMoveDown}
+                aria-label={`Move ${summary.category} down`}
+                className="leftly-icon-button"
+              >
+                ▼
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </article>

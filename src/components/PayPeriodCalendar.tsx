@@ -639,7 +639,7 @@ export function PayPeriodCalendar({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
         <div className="leftly-calendar-stat">
           <p className="leftly-calendar-stat-label">Pay period</p>
           <p className="leftly-calendar-stat-value">{dayCount} days</p>

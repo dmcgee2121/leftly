@@ -231,7 +231,7 @@
   }
 
   .leftly-item-row {
-    @apply flex items-stretch rounded-2xl border border-slate-800/80 bg-slate-950/40 transition-colors;
+    @apply flex min-w-0 items-stretch rounded-2xl border border-slate-800/80 bg-slate-950/40 transition-colors;
   }
 
   .leftly-item-row:hover {

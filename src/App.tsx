@@ -1739,23 +1739,6 @@ function App() {
     return true
   }
 
-  function handleAddBill(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBillError('')
-    setBillSuccess('')
-
-    if (!addBillFromDraft(billDraft)) return
-
-    setBillDraft({
-      name: '',
-      amount: '',
-      dueDate: '',
-      category: billDraft.category,
-    })
-    setBillSuccess('Bill added.')
-    setActiveTab('bill')
-  }
-
   function handleQuickAddBill(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBillError('')
@@ -1765,8 +1748,10 @@ function App() {
 
     setBillDraft({ name: '', amount: '', dueDate: '', category: billDraft.category })
     setBillStatus('Bill added.')
-    setActiveTab('overview')
+    // Stay on the Bills screen when the sheet was opened from there; otherwise show the result on Overview.
+    if (activeTab !== 'bill') setActiveTab('overview')
     setActiveOverlay(null)
+    window.setTimeout(() => overlayTriggerRef.current?.focus(), 0)
   }
 
   function addExpenseFromDraft(draft: ExpenseDraft) {
@@ -1780,15 +1765,6 @@ function App() {
     setExpenses((current) => [result.item, ...current])
 
     return true
-  }
-
-  function resetExpenseDraft(nextCategory: BudgetCategory = expenseDraft.category) {
-    setExpenseDraft({
-      name: '',
-      amount: '',
-      date: '',
-      category: nextCategory,
-    })
   }
 
   function openQuickAddExpense() {
@@ -2203,20 +2179,6 @@ function App() {
       ...current,
       category,
     }))
-  }
-
-  function handleAddExpense(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setExpenseError('')
-    setExpenseSuccess('')
-
-    if (!addExpenseFromDraft(expenseDraft)) {
-      return
-    }
-
-    resetExpenseDraft(expenseDraft.category)
-    setExpenseSuccess('Expense added.')
-    setActiveTab('expense')
   }
 
   function handleQuickAddExpense(event: FormEvent<HTMLFormElement>) {
@@ -3652,15 +3614,20 @@ function App() {
           {activeTab === 'bill' ? (
             <SectionShell title="Bills" description="Review and manage one-time bills in the current pay period.">
               <MoreBackBar onBack={openMoreMenu} />
-              <div className="grid gap-4">
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-slate-400">
-                    Use Add bill on Overview for fast entry. Review, edit, delete, or update bills here.
+                    One-time bills for this pay period. Regular bills live in Bill Plan.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {payPeriod ? <Badge muted>{formatDateRangeLabel(payPeriod.startDate, payPeriod.endDate)}</Badge> : <Badge muted>No active pay period</Badge>}
                     <Badge muted>{oneTimeBills.length} bill{oneTimeBills.length === 1 ? '' : 's'}</Badge>
                     {oneTimeBills.length > 0 ? <Badge muted>{formatCurrency(oneTimeBillSummary.totalAmount)}</Badge> : null}
+                  </div>
+                  <div className="grid gap-2 sm:flex sm:shrink-0">
+                    <button type="button" onClick={openQuickAddBill} disabled={!payPeriod} className="button-primary w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50">
+                      Add bill
+                    </button>
                     <button type="button" onClick={() => setActiveTab('recurring')} className="button-secondary w-full sm:w-auto">
                       Open Bill Plan
                     </button>
@@ -3711,81 +3678,6 @@ function App() {
                     </div>
                   )}
                 </div>
-
-                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddBill}>
-                  <div className="grid gap-1">
-                    <p className="leftly-panel-label">Add bill</p>
-                    <p className="leftly-panel-copy">Enter the bill details below to track a charge that does not belong in Bill Plan.</p>
-                  </div>
-
-                  <div className="leftly-form-grid">
-                    <div className="leftly-form-grid-full">
-                      <Field label="Name">
-                        <input
-                          value={billDraft.name}
-                          onChange={(event) => setBillDraft((current) => ({ ...current, name: event.target.value }))}
-                          placeholder="Car repair"
-                        />
-                      </Field>
-                    </div>
-                    <Field label="Amount">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        inputMode="decimal"
-                        value={billDraft.amount}
-                        onChange={(event) => setBillDraft((current) => ({ ...current, amount: event.target.value }))}
-                        placeholder="1200"
-                      />
-                    </Field>
-                    <Field label="Due date">
-                      <input
-                        type="date"
-                        value={billDraft.dueDate}
-                        onChange={(event) => setBillDraft((current) => ({ ...current, dueDate: event.target.value }))}
-                      />
-                    </Field>
-                    <div className="leftly-form-grid-full">
-                      <Field label="Category">
-                        <select
-                          value={billDraft.category}
-                          onChange={(event) =>
-                            setBillDraft((current) => ({
-                              ...current,
-                              category: event.target.value as BudgetCategory,
-                            }))
-                          }
-                        >
-                          {allCategories.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-                  </div>
-
-                  <div className="leftly-shell-faint p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Paid status</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      New one-time bills start unpaid. Mark them paid from the list above after the bill is handled.
-                    </p>
-                  </div>
-
-                  {billError ? <FormMessage>{billError}</FormMessage> : null}
-                  {billSuccess ? <SuccessMessage>{billSuccess}</SuccessMessage> : null}
-
-                  <div className="leftly-action-grid">
-                    <button type="button" onClick={openMoreMenu} className="button-secondary w-full sm:w-auto">
-                      Back to More
-                    </button>
-                    <button type="submit" className="button-primary w-full sm:w-auto">
-                      Save bill
-                    </button>
-                  </div>
-                </form>
               </div>
             </SectionShell>
           ) : null}
@@ -3793,7 +3685,7 @@ function App() {
           {activeTab === 'expense' ? (
             <SectionShell title="Expenses" description="Review and manage spending in the current pay period.">
               <MoreBackBar onBack={openMoreMenu} />
-              <div className="grid gap-4">
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-slate-400">
                     Add expense is the everyday path. Use this screen to review, edit, or clean up entries.
@@ -3802,7 +3694,7 @@ function App() {
                     {payPeriod ? <Badge muted>{formatDateRangeLabel(payPeriod.startDate, payPeriod.endDate)}</Badge> : <Badge muted>No active pay period</Badge>}
                     <Badge muted>{manualExpenses.length} item{manualExpenses.length === 1 ? '' : 's'}</Badge>
                     {manualExpenses.length > 0 ? <Badge muted>{formatCurrency(manualExpenseTotal)}</Badge> : null}
-                    <button type="button" onClick={openQuickAddExpense} disabled={!payPeriod} className="button-secondary w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50">
+                    <button type="button" onClick={openQuickAddExpense} disabled={!payPeriod} className="button-primary w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50">
                       Add expense
                     </button>
                   </div>
@@ -3847,89 +3739,6 @@ function App() {
                     </div>
                   )}
                 </div>
-
-                <form className="grid gap-4 leftly-shell p-4 sm:p-5" onSubmit={handleAddExpense}>
-                  <div className="grid gap-1">
-                    <p className="leftly-panel-label">Detailed expense entry</p>
-                    <p className="leftly-panel-copy">Use this form when you need every detail visible at once.</p>
-                  </div>
-
-                  <div className="leftly-form-grid">
-                    <div className="leftly-form-grid-full">
-                      <Field label="Name">
-                        <input
-                          value={expenseDraft.name}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({
-                              ...current,
-                              name: event.target.value,
-                            }))
-                          }
-                          placeholder="Groceries"
-                        />
-                      </Field>
-                    </div>
-                    <Field label="Amount">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        inputMode="decimal"
-                        value={expenseDraft.amount}
-                        onChange={(event) =>
-                          setExpenseDraft((current) => ({
-                            ...current,
-                            amount: event.target.value,
-                          }))
-                        }
-                        placeholder="48.25"
-                      />
-                    </Field>
-                    <Field label="Date">
-                      <input
-                        type="date"
-                        value={expenseDraft.date}
-                        onChange={(event) =>
-                          setExpenseDraft((current) => ({
-                            ...current,
-                            date: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <div className="leftly-form-grid-full">
-                      <Field label="Category">
-                        <select
-                          value={expenseDraft.category}
-                          onChange={(event) =>
-                            setExpenseDraft((current) => ({
-                              ...current,
-                              category: event.target.value as BudgetCategory,
-                            }))
-                          }
-                        >
-                          {allCategories.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-                  </div>
-
-                  {expenseError ? <FormMessage>{expenseError}</FormMessage> : null}
-                  {expenseSuccess ? <SuccessMessage>{expenseSuccess}</SuccessMessage> : null}
-
-                  <div className="leftly-action-grid">
-                    <button type="button" onClick={openMoreMenu} className="button-secondary w-full sm:w-auto">
-                      Back to More
-                    </button>
-                    <button type="submit" className="button-primary w-full sm:w-auto">
-                      Save expense
-                    </button>
-                  </div>
-                </form>
               </div>
             </SectionShell>
           ) : null}
